@@ -168,11 +168,26 @@ pub async fn chat_stream(
         // Get the persistent codex server
         let server = get_codex_server(&codex_state.inner()).await?;
 
-        // Determine our thread ID (use provided or "default")
+        // Determine our thread ID
         let our_thread_id = input.thread_id.clone().unwrap_or_else(|| "default".to_string());
 
-        // Get or create the codex thread for this conversation
-        let codex_thread_id = server.get_or_create_thread(&our_thread_id).await?;
+        // Look up stored codex thread ID from DB
+        let stored_codex_id: Option<String> = {
+            let conn = state.lock().map_err(|e| e.to_string())?;
+            queries::get_codex_thread_id(&conn, &our_thread_id).unwrap_or(None)
+        };
+
+        // Get or create the codex thread (tries resume if stored ID exists)
+        let (codex_thread_id, is_new_thread) = server
+            .get_or_create_thread(&our_thread_id, stored_codex_id.as_deref())
+            .await?;
+
+        // Persist the codex thread ID mapping to DB if new
+        if is_new_thread {
+            if let Ok(conn) = state.lock() {
+                let _ = queries::set_codex_thread_id(&conn, &our_thread_id, &codex_thread_id);
+            }
+        }
 
         // Store codex thread ID in session for cancellation
         if let Ok(mut sess) = sessions.lock() {
@@ -184,10 +199,44 @@ pub async fn chat_stream(
 
         let server_clone = server.clone();
 
+        // Load system prompt for injection on first turn
+        let system_prompt = if server.needs_system_prompt(&codex_thread_id).await {
+            Some(prompts::load_system_prompt())
+        } else {
+            None
+        };
+
         tauri::async_runtime::spawn(async move {
             let mut full_text = String::new();
 
-            // Send the turn — only the current user message, codex maintains context
+            // Inject system prompt on first turn of this codex thread
+            if let Some(sys_prompt) = &system_prompt {
+                // Send system prompt as a silent turn, then wait for completion
+                match server.send_turn(&codex_thread_id, &format!("[SYSTEM INSTRUCTIONS — follow these for all responses]\n\n{}", sys_prompt)).await {
+                    Ok((_sys_turn_id, mut sys_rx)) => {
+                        // Drain the system prompt response (we don't show it)
+                        loop {
+                            match tokio::time::timeout(
+                                std::time::Duration::from_secs(60),
+                                sys_rx.recv(),
+                            ).await {
+                                Ok(Some(CodexStreamEvent::TurnCompleted)) => break,
+                                Ok(Some(CodexStreamEvent::Error(_))) => break,
+                                Ok(None) => break,
+                                Ok(Some(CodexStreamEvent::Delta(_))) => continue, // discard
+                                Err(_) => break, // timeout
+                            }
+                        }
+                        server.mark_prompted(&codex_thread_id).await;
+                    }
+                    Err(e) => {
+                        log::warn!("Failed to inject system prompt: {}", e);
+                        // Continue anyway
+                    }
+                }
+            }
+
+            // Now send the actual user message
             let (turn_id, mut event_rx) = match server.send_turn(&codex_thread_id, &input.prompt).await {
                 Ok(result) => result,
                 Err(e) => {

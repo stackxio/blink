@@ -22,7 +22,13 @@ pub fn init_db() -> rusqlite::Result<Connection> {
     conn.execute_batch("PRAGMA foreign_keys=ON;")?;
 
     for migration in MIGRATIONS {
-        conn.execute_batch(migration)?;
+        // ALTER TABLE migrations may fail if column already exists — that's fine
+        if let Err(e) = conn.execute_batch(migration) {
+            let err_str = e.to_string();
+            if !err_str.contains("duplicate column") {
+                return Err(e);
+            }
+        }
     }
 
     Ok(conn)

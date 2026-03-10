@@ -150,6 +150,22 @@ pub fn create_message(
     )
 }
 
+pub fn get_codex_thread_id(conn: &Connection, thread_id: &str) -> Result<Option<String>> {
+    conn.query_row(
+        "SELECT codex_thread_id FROM threads WHERE id = ?1",
+        params![thread_id],
+        |row| row.get(0),
+    )
+}
+
+pub fn set_codex_thread_id(conn: &Connection, thread_id: &str, codex_thread_id: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE threads SET codex_thread_id = ?1 WHERE id = ?2",
+        params![codex_thread_id, thread_id],
+    )?;
+    Ok(())
+}
+
 pub fn list_messages(conn: &Connection, thread_id: &str) -> Result<Vec<DbMessage>> {
     let mut stmt = conn.prepare(
         "SELECT id, thread_id, role, content, duration_ms, created_at FROM messages WHERE thread_id = ?1 ORDER BY created_at",

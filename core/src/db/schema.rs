@@ -22,4 +22,6 @@ pub const MIGRATIONS: &[&str] = &[
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
     );",
+    // Add codex_thread_id column to persist codex app-server thread mapping
+    "ALTER TABLE threads ADD COLUMN codex_thread_id TEXT;",
 ];

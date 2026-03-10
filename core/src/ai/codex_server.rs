@@ -75,6 +75,8 @@ pub struct CodexServer {
     pending: Arc<Mutex<HashMap<u64, PendingRequest>>>,
     /// Maps our internal thread IDs to codex thread IDs.
     thread_map: Arc<Mutex<HashMap<String, String>>>,
+    /// Tracks which codex threads have already received the system prompt.
+    prompted_threads: Arc<Mutex<std::collections::HashSet<String>>>,
     /// Active turn subscribers: maps a turn key to an event sender.
     /// We use the codex thread ID as the key since only one turn runs per thread at a time.
     turn_subscribers: Arc<Mutex<HashMap<String, TurnSubscriber>>>,
@@ -220,6 +222,7 @@ impl CodexServer {
             next_id: AtomicU64::new(1),
             pending,
             thread_map: Arc::new(Mutex::new(HashMap::new())),
+            prompted_threads: Arc::new(Mutex::new(std::collections::HashSet::new())),
             turn_subscribers,
             child_pid,
             initialized: AtomicBool::new(false),
@@ -295,14 +298,51 @@ impl CodexServer {
     }
 
     /// Get or create a codex thread for the given internal thread ID.
-    /// Returns the codex thread ID.
-    pub async fn get_or_create_thread(&self, our_thread_id: &str) -> Result<String, String> {
-        // Check if we already have a mapping
+    /// If `stored_codex_id` is provided (from DB), tries to resume that thread first.
+    /// Returns (codex_thread_id, is_new) — `is_new` is true if a fresh thread was created.
+    pub async fn get_or_create_thread(
+        &self,
+        our_thread_id: &str,
+        stored_codex_id: Option<&str>,
+    ) -> Result<(String, bool), String> {
+        // Check in-memory cache first
         {
             let map = self.thread_map.lock().await;
             if let Some(codex_id) = map.get(our_thread_id) {
-                return Ok(codex_id.clone());
+                return Ok((codex_id.clone(), false));
             }
+        }
+
+        // Try to resume from stored codex thread ID
+        if let Some(stored_id) = stored_codex_id {
+            if let Ok(result) = self
+                .request(
+                    "thread/resume",
+                    serde_json::json!({
+                        "threadId": stored_id,
+                        "approvalPolicy": "never",
+                        "sandbox": "danger-full-access"
+                    }),
+                )
+                .await
+            {
+                let codex_thread_id = result
+                    .get("thread")
+                    .and_then(|t| t.get("id"))
+                    .and_then(|id| id.as_str())
+                    .unwrap_or(stored_id)
+                    .to_string();
+
+                let mut map = self.thread_map.lock().await;
+                map.insert(our_thread_id.to_string(), codex_thread_id.clone());
+
+                // Mark as already prompted (it was prompted in the original session)
+                let mut prompted = self.prompted_threads.lock().await;
+                prompted.insert(codex_thread_id.clone());
+
+                return Ok((codex_thread_id, false));
+            }
+            // Resume failed — fall through to create new thread
         }
 
         // Create a new codex thread
@@ -323,13 +363,22 @@ impl CodexServer {
             .ok_or("Missing thread.id in response")?
             .to_string();
 
-        // Store mapping
-        {
-            let mut map = self.thread_map.lock().await;
-            map.insert(our_thread_id.to_string(), codex_thread_id.clone());
-        }
+        let mut map = self.thread_map.lock().await;
+        map.insert(our_thread_id.to_string(), codex_thread_id.clone());
 
-        Ok(codex_thread_id)
+        Ok((codex_thread_id, true))
+    }
+
+    /// Check if a codex thread needs the system prompt injected.
+    pub async fn needs_system_prompt(&self, codex_thread_id: &str) -> bool {
+        let prompted = self.prompted_threads.lock().await;
+        !prompted.contains(codex_thread_id)
+    }
+
+    /// Mark a codex thread as having received the system prompt.
+    pub async fn mark_prompted(&self, codex_thread_id: &str) {
+        let mut prompted = self.prompted_threads.lock().await;
+        prompted.insert(codex_thread_id.to_string());
     }
 
     /// Send a user message and subscribe to streaming events.
