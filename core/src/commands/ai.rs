@@ -210,12 +210,26 @@ pub async fn chat_stream(
                                     if item.item_type.as_deref() == Some("agent_message") {
                                         if let Some(text) = &item.text {
                                             full_text.push_str(text);
-                                            let _ = app_handle.emit(
-                                                "chat:stream",
-                                                ChatStreamChunk {
-                                                    chunk: text.clone(),
-                                                },
-                                            );
+                                            // Simulate streaming by emitting word-by-word
+                                            let mut chars = text.chars().peekable();
+                                            let mut chunk = String::new();
+                                            while let Some(c) = chars.next() {
+                                                chunk.push(c);
+                                                // Emit on whitespace boundaries or punctuation for natural feel
+                                                if c.is_whitespace() || c == '.' || c == ',' || c == '!' || c == '?' || c == '\n' || chars.peek().is_none() {
+                                                    if !chunk.is_empty() {
+                                                        let _ = app_handle.emit(
+                                                            "chat:stream",
+                                                            ChatStreamChunk {
+                                                                chunk: chunk.clone(),
+                                                            },
+                                                        );
+                                                        chunk.clear();
+                                                        // Small delay for natural streaming feel
+                                                        tokio::time::sleep(std::time::Duration::from_millis(8)).await;
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -304,7 +318,7 @@ pub async fn chat_stream(
 
         Ok(session_id)
     } else {
-        // Non-codex providers
+        // Non-codex providers — real streaming via mpsc channel
         tauri::async_runtime::spawn(async move {
             let mut router = AIRouter::new(provider);
             router.register(Box::new(OllamaProvider::new(
@@ -344,37 +358,69 @@ pub async fn chat_stream(
                 return;
             }
 
-            match router.chat(req).await {
-                Ok(response) => {
-                    if cancelled.load(Ordering::Relaxed) {
-                        let _ = app_handle.emit(
+            let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
+
+            let cancelled_reader = cancelled.clone();
+            let app_reader = app_handle.clone();
+            let sessions_reader = sessions_inner.clone();
+            let session_id_reader = session_id_clone.clone();
+
+            // Spawn reader task that emits chunks as they arrive
+            let reader_handle = tauri::async_runtime::spawn(async move {
+                let mut full_text = String::new();
+
+                while let Some(chunk) = rx.recv().await {
+                    if cancelled_reader.load(Ordering::Relaxed) {
+                        let _ = app_reader.emit(
                             "chat:cancelled",
                             ChatStreamCancelled {
-                                partial_text: response.text,
+                                partial_text: full_text.trim().to_string(),
                             },
                         );
-                    } else {
-                        let _ = app_handle.emit(
-                            "chat:stream",
-                            ChatStreamChunk {
-                                chunk: response.text.clone(),
-                            },
-                        );
+                        if let Ok(mut sess) = sessions_reader.lock() {
+                            sess.remove(&session_id_reader);
+                        }
+                        return full_text;
+                    }
+
+                    full_text.push_str(&chunk);
+                    let _ = app_reader.emit(
+                        "chat:stream",
+                        ChatStreamChunk {
+                            chunk,
+                        },
+                    );
+                }
+
+                full_text
+            });
+
+            // Run the streaming request
+            let stream_result = router.chat_stream(req, tx).await;
+
+            // Wait for reader to finish and get the full text
+            let full_text = reader_handle.await.unwrap_or_default();
+
+            if cancelled.load(Ordering::Relaxed) {
+                // Already handled by reader
+            } else {
+                match stream_result {
+                    Ok(()) => {
                         let _ = app_handle.emit(
                             "chat:done",
                             ChatStreamDone {
-                                full_text: response.text,
+                                full_text: full_text.trim().to_string(),
                             },
                         );
                     }
-                }
-                Err(e) => {
-                    let _ = app_handle.emit(
-                        "chat:error",
-                        ChatStreamError {
-                            error: e.to_string(),
-                        },
-                    );
+                    Err(e) => {
+                        let _ = app_handle.emit(
+                            "chat:error",
+                            ChatStreamError {
+                                error: e.to_string(),
+                            },
+                        );
+                    }
                 }
             }
 

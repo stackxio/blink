@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use tokio::sync::mpsc;
+
 use super::provider::AIProvider;
 use super::types::{AIError, ChatRequest, ChatResponse};
 
@@ -31,5 +33,17 @@ impl AIRouter {
             .get(&self.active_provider)
             .ok_or_else(|| AIError::ConfigError(format!("Provider '{}' not found", self.active_provider)))?;
         provider.chat(req).await
+    }
+
+    pub async fn chat_stream(
+        &self,
+        req: ChatRequest,
+        tx: mpsc::Sender<String>,
+    ) -> Result<(), AIError> {
+        let provider = self
+            .providers
+            .get(&self.active_provider)
+            .ok_or_else(|| AIError::ConfigError(format!("Provider '{}' not found", self.active_provider)))?;
+        provider.chat_stream(req, tx).await
     }
 }

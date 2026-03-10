@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use tokio::process::Command;
+use tokio::sync::mpsc;
 
 use super::provider::AIProvider;
 use super::types::{AIError, ChatRequest, ChatResponse};
@@ -50,5 +51,16 @@ impl AIProvider for CodexProvider {
         let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
         Ok(ChatResponse { text })
+    }
+
+    async fn chat_stream(
+        &self,
+        req: ChatRequest,
+        tx: mpsc::Sender<String>,
+    ) -> Result<(), AIError> {
+        // Codex CLI doesn't support incremental streaming, so fall back to non-streaming
+        let response = self.chat(req).await?;
+        let _ = tx.send(response.text).await;
+        Ok(())
     }
 }

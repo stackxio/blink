@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tokio::sync::mpsc;
 
 use super::types::{AIError, ChatRequest, ChatResponse};
 
@@ -6,4 +7,9 @@ use super::types::{AIError, ChatRequest, ChatResponse};
 pub trait AIProvider: Send + Sync {
     fn name(&self) -> &str;
     async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, AIError>;
+    async fn chat_stream(
+        &self,
+        req: ChatRequest,
+        tx: mpsc::Sender<String>,
+    ) -> Result<(), AIError>;
 }
