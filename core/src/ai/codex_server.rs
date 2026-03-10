@@ -52,8 +52,16 @@ struct DeltaParams {
 #[derive(Debug, Clone)]
 pub enum CodexStreamEvent {
     Delta(String),
+    Activity(ActivityEvent),
     TurnCompleted,
     Error(String),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ActivityEvent {
+    pub kind: String,
+    pub title: String,
+    pub detail: Option<String>,
 }
 
 // --- Pending request tracking ---
@@ -175,6 +183,14 @@ impl CodexServer {
                                                     }
                                                 }
                                             }
+                                        }
+                                    }
+                                }
+                                "item/started" | "item/completed" => {
+                                    if let Some(activity) = parse_activity(params, method.as_str()) {
+                                        let subs = subs_clone.lock().await;
+                                        if let Some(tx) = subs.get(&codex_thread_id) {
+                                            let _ = tx.send(CodexStreamEvent::Activity(activity)).await;
                                         }
                                     }
                                 }
@@ -444,4 +460,95 @@ impl CodexServer {
         .await?;
         Ok(())
     }
+}
+
+// --- Activity parsing helpers ---
+
+fn classify_item_type(raw: &str) -> &'static str {
+    let lower = raw.to_lowercase();
+    if lower.contains("command") {
+        "command"
+    } else if lower.contains("file change") || lower.contains("patch") || lower.contains("edit") {
+        "file_change"
+    } else if lower.contains("file") && lower.contains("read") {
+        "file_read"
+    } else if lower.contains("reasoning") || lower.contains("thought") {
+        "reasoning"
+    } else if lower.contains("web search") {
+        "web_search"
+    } else if lower.contains("mcp") {
+        "tool_call"
+    } else {
+        "tool_call"
+    }
+}
+
+fn item_type_title(kind: &str) -> &'static str {
+    match kind {
+        "command" => "Ran command",
+        "file_change" => "Edited file",
+        "file_read" => "Read file",
+        "reasoning" => "Reasoning",
+        "web_search" => "Searched the web",
+        "tool_call" => "Used tool",
+        _ => "Working",
+    }
+}
+
+fn extract_detail(source: &Value) -> Option<String> {
+    let candidates = [
+        source.get("command").and_then(|v| v.as_str()),
+        source.get("title").and_then(|v| v.as_str()),
+        source.get("summary").and_then(|v| v.as_str()),
+        source.get("path").and_then(|v| v.as_str()),
+        source.get("text").and_then(|v| v.as_str()),
+        source.get("prompt").and_then(|v| v.as_str()),
+    ];
+    for candidate in candidates {
+        if let Some(s) = candidate {
+            let trimmed = s.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn parse_activity(params: Option<&Value>, method: &str) -> Option<ActivityEvent> {
+    let params = params?;
+
+    // item/started and item/completed have payload.item or just the payload itself
+    let item = params.get("item").unwrap_or(params);
+
+    let raw_type = item
+        .get("type")
+        .or_else(|| item.get("kind"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    // Skip assistant_message and user_message items — those are the text we already handle
+    let lower = raw_type.to_lowercase();
+    if lower.contains("user") || lower.contains("assistant") || lower.contains("agent message") {
+        return None;
+    }
+
+    let kind = classify_item_type(raw_type);
+    let title = item_type_title(kind);
+
+    // For completed items, also check nested result for detail
+    let detail = extract_detail(item).or_else(|| {
+        if method == "item/completed" {
+            item.get("result")
+                .and_then(|r| extract_detail(r))
+        } else {
+            None
+        }
+    });
+
+    Some(ActivityEvent {
+        kind: kind.to_string(),
+        title: title.to_string(),
+        detail,
+    })
 }

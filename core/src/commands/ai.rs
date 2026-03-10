@@ -6,7 +6,7 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
-use crate::ai::codex_server::{CodexServer, CodexStreamEvent};
+use crate::ai::codex_server::{ActivityEvent, CodexServer, CodexStreamEvent};
 use crate::ai::custom::CustomProvider;
 use crate::ai::ollama::OllamaProvider;
 use crate::ai::router::AIRouter;
@@ -92,6 +92,11 @@ struct ChatStreamError {
 #[derive(Clone, Serialize)]
 struct ChatStreamCancelled {
     partial_text: String,
+}
+
+#[derive(Clone, Serialize)]
+struct ChatStreamActivity {
+    activity: ActivityEvent,
 }
 
 /// Build the full prompt including system instructions and conversation history.
@@ -223,7 +228,7 @@ pub async fn chat_stream(
                                 Ok(Some(CodexStreamEvent::TurnCompleted)) => break,
                                 Ok(Some(CodexStreamEvent::Error(_))) => break,
                                 Ok(None) => break,
-                                Ok(Some(CodexStreamEvent::Delta(_))) => continue, // discard
+                                Ok(Some(CodexStreamEvent::Delta(_) | CodexStreamEvent::Activity(_))) => continue, // discard
                                 Err(_) => break, // timeout
                             }
                         }
@@ -284,6 +289,12 @@ pub async fn chat_stream(
                         let _ = app_handle.emit(
                             "chat:stream",
                             ChatStreamChunk { chunk: delta },
+                        );
+                    }
+                    Ok(Some(CodexStreamEvent::Activity(activity))) => {
+                        let _ = app_handle.emit(
+                            "chat:activity",
+                            ChatStreamActivity { activity },
                         );
                     }
                     Ok(Some(CodexStreamEvent::TurnCompleted)) => {

@@ -3,7 +3,7 @@ import { useOutletContext, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import MessageBubble from "@/components/MessageBubble";
-import type { Message } from "@/components/MessageBubble";
+import type { Message, Activity } from "@/components/MessageBubble";
 
 interface ChatContext {
   onLoadingChange: (loading: boolean) => void;
@@ -167,6 +167,16 @@ export default function ChatArea() {
       );
     });
 
+    const unlistenActivity = await listen<{ activity: Activity }>("chat:activity", (event) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId
+            ? { ...msg, activities: [...(msg.activities || []), event.payload.activity] }
+            : msg,
+        ),
+      );
+    });
+
     const unlistenDone = await listen<{ full_text: string }>(
       "chat:done",
       async (event) => {
@@ -236,6 +246,7 @@ export default function ChatArea() {
 
     function cleanup() {
       unlistenChunk();
+      unlistenActivity();
       unlistenDone();
       unlistenError();
       unlistenCancelled();
