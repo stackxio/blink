@@ -14,6 +14,7 @@ interface SidebarProps {
   onDeleteThread: (threadId: string) => void;
   onMoveThread: (threadId: string, folderId: string | null) => void;
   onRenameFolder: (folderId: string, name: string) => void;
+  onRenameThread: (threadId: string, title: string) => void;
   onOpenSettings: () => void;
   onToggleSidebar: () => void;
 }
@@ -30,6 +31,7 @@ export default function Sidebar({
   onDeleteThread,
   onMoveThread,
   onRenameFolder,
+  onRenameThread,
   onOpenSettings,
   onToggleSidebar,
 }: SidebarProps) {
@@ -43,6 +45,9 @@ export default function Sidebar({
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renamingFolderName, setRenamingFolderName] = useState("");
   const renameFolderInputRef = useRef<HTMLInputElement>(null);
+  const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
+  const [renamingThreadName, setRenamingThreadName] = useState("");
+  const renameThreadInputRef = useRef<HTMLInputElement>(null);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -140,6 +145,30 @@ export default function Sidebar({
   useEffect(() => {
     if (renamingFolderId) renameFolderInputRef.current?.focus();
   }, [renamingFolderId]);
+
+  // Thread renaming
+  function handleStartRenameThread(threadId: string, currentTitle: string) {
+    setRenamingThreadId(threadId);
+    setRenamingThreadName(currentTitle);
+  }
+
+  function handleConfirmRenameThread() {
+    if (renamingThreadId) {
+      const name = renamingThreadName.trim();
+      if (name) onRenameThread(renamingThreadId, name);
+    }
+    setRenamingThreadId(null);
+    setRenamingThreadName("");
+  }
+
+  function handleCancelRenameThread() {
+    setRenamingThreadId(null);
+    setRenamingThreadName("");
+  }
+
+  useEffect(() => {
+    if (renamingThreadId) renameThreadInputRef.current?.focus();
+  }, [renamingThreadId]);
 
   // Drag and drop
   function handleDragStart(e: React.DragEvent, threadId: string) {
@@ -297,6 +326,12 @@ export default function Sidebar({
                         key={thread.id}
                         thread={thread}
                         isActive={activeThreadId === thread.id}
+                        isRenaming={renamingThreadId === thread.id}
+                        renameValue={renamingThreadName}
+                        renameInputRef={renameThreadInputRef}
+                        onRenameChange={setRenamingThreadName}
+                        onRenameConfirm={handleConfirmRenameThread}
+                        onRenameCancel={handleCancelRenameThread}
                         onClick={() => onSelectThread(thread.id)}
                         onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
                         onDragStart={(e) => handleDragStart(e, thread.id)}
@@ -324,6 +359,12 @@ export default function Sidebar({
               key={thread.id}
               thread={thread}
               isActive={activeThreadId === thread.id}
+              isRenaming={renamingThreadId === thread.id}
+              renameValue={renamingThreadName}
+              renameInputRef={renameThreadInputRef}
+              onRenameChange={setRenamingThreadName}
+              onRenameConfirm={handleConfirmRenameThread}
+              onRenameCancel={handleCancelRenameThread}
               onClick={() => onSelectThread(thread.id)}
               onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
               onDragStart={(e) => handleDragStart(e, thread.id)}
@@ -385,15 +426,27 @@ export default function Sidebar({
               </button>
             </>
           ) : (
-            <button
-              onClick={() => {
-                onDeleteThread(contextMenu.id);
-                closeContextMenu();
-              }}
-              className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800"
-            >
-              Delete chat
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  const thread = threads.find((t) => t.id === contextMenu.id);
+                  if (thread) handleStartRenameThread(thread.id, thread.title);
+                  closeContextMenu();
+                }}
+                className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800"
+              >
+                Rename chat
+              </button>
+              <button
+                onClick={() => {
+                  onDeleteThread(contextMenu.id);
+                  closeContextMenu();
+                }}
+                className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800"
+              >
+                Delete chat
+              </button>
+            </>
           )}
         </div>
       )}
@@ -418,21 +471,33 @@ function FolderIcon() {
 function ThreadItem({
   thread,
   isActive,
+  isRenaming,
+  renameValue,
+  renameInputRef,
+  onRenameChange,
+  onRenameConfirm,
+  onRenameCancel,
   onClick,
   onContextMenu,
   onDragStart,
 }: {
   thread: ChatThread;
   isActive: boolean;
+  isRenaming: boolean;
+  renameValue: string;
+  renameInputRef: React.RefObject<HTMLInputElement | null>;
+  onRenameChange: (value: string) => void;
+  onRenameConfirm: () => void;
+  onRenameCancel: () => void;
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDragStart: (e: React.DragEvent) => void;
 }) {
   return (
     <button
-      draggable
+      draggable={!isRenaming}
       onDragStart={onDragStart}
-      onClick={onClick}
+      onClick={isRenaming ? undefined : onClick}
       onContextMenu={onContextMenu}
       className={`flex w-full cursor-grab items-center rounded px-2 py-1 text-left transition-colors active:cursor-grabbing ${
         isActive
@@ -440,7 +505,23 @@ function ThreadItem({
           : "text-neutral-400 hover:bg-surface-raised/60 hover:text-neutral-200"
       }`}
     >
-      <span className="truncate">{thread.title}</span>
+      {isRenaming ? (
+        <input
+          ref={renameInputRef}
+          value={renameValue}
+          onChange={(e) => onRenameChange(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation();
+            if (e.key === "Enter") onRenameConfirm();
+            if (e.key === "Escape") onRenameCancel();
+          }}
+          onBlur={onRenameConfirm}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full rounded bg-neutral-800 px-1 py-0 text-xs text-neutral-200 outline-none focus:ring-1 focus:ring-neutral-600"
+        />
+      ) : (
+        <span className="truncate">{thread.title}</span>
+      )}
     </button>
   );
 }

@@ -200,6 +200,7 @@ export default function ChatLayout() {
             onDeleteThread={handleDeleteThread}
             onMoveThread={handleMoveThread}
             onRenameFolder={handleRenameFolder}
+            onRenameThread={handleRenameThread}
             onOpenSettings={() => navigate("/settings")}
             onToggleSidebar={() => setSidebarOpen(false)}
           />
