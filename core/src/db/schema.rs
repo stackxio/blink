@@ -9,6 +9,7 @@ pub const MIGRATIONS: &[&str] = &[
         id TEXT PRIMARY KEY,
         folder_id TEXT,
         title TEXT NOT NULL DEFAULT 'New chat',
+        codex_thread_id TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE SET NULL
@@ -22,6 +23,4 @@ pub const MIGRATIONS: &[&str] = &[
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         FOREIGN KEY (thread_id) REFERENCES threads(id) ON DELETE CASCADE
     );",
-    // Add codex_thread_id column to persist codex app-server thread mapping
-    "ALTER TABLE threads ADD COLUMN codex_thread_id TEXT;",
 ];

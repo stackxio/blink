@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "tauri": "TAURI_DIR=core tauri",
     "app": "TAURI_DIR=core pnpm tauri dev",
-    "app:build": "TAURI_DIR=core pnpm tauri build"
+    "app:build": "TAURI_DIR=core pnpm tauri build",
+    "db:reset": "rm -f ~/.caret/caret.db && echo 'Database reset. It will be recreated on next app launch.'"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.10.1",

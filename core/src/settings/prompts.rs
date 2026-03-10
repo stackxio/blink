@@ -65,8 +65,13 @@ pub fn load_system_prompt() -> String {
         }
     }
 
-    // Sort by filename for consistent ordering (context, guidelines, soul)
-    parts.sort_by(|a, b| a.0.cmp(&b.0));
+    // Load built-in prompts in an intentional order, then any custom prompt files.
+    parts.sort_by_key(|(name, _)| match name.as_str() {
+        "soul" => (0, name.clone()),
+        "guidelines" => (1, name.clone()),
+        "context" => (2, name.clone()),
+        _ => (3, name.clone()),
+    });
 
     parts
         .into_iter()
