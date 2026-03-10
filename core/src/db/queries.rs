@@ -99,6 +99,22 @@ pub fn update_thread_title(conn: &Connection, id: &str, title: &str) -> Result<(
     Ok(())
 }
 
+pub fn move_thread_to_folder(conn: &Connection, id: &str, folder_id: Option<&str>) -> Result<()> {
+    conn.execute(
+        "UPDATE threads SET folder_id = ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![folder_id, id],
+    )?;
+    Ok(())
+}
+
+pub fn rename_folder(conn: &Connection, id: &str, name: &str) -> Result<()> {
+    conn.execute(
+        "UPDATE folders SET name = ?1 WHERE id = ?2",
+        params![name, id],
+    )?;
+    Ok(())
+}
+
 pub fn create_message(
     conn: &Connection,
     id: &str,

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use tauri::Manager;
 
 mod agent;
@@ -21,6 +23,8 @@ pub fn run() {
             }
             let conn = db::init::init_db().expect("Failed to initialize database");
             app.manage(std::sync::Mutex::new(conn));
+            app.manage(commands::ai::create_stream_sessions());
+            settings::prompts::ensure_defaults();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +32,7 @@ pub fn run() {
             commands::settings::save_settings,
             commands::ai::chat,
             commands::ai::chat_stream,
+            commands::ai::cancel_stream,
             commands::files::summarize_folder,
             commands::files::organize_downloads,
             commands::files::rename_file_with_ai,
@@ -38,8 +43,16 @@ pub fn run() {
             commands::threads::list_threads,
             commands::threads::delete_thread,
             commands::threads::update_thread_title,
+            commands::threads::move_thread_to_folder,
+            commands::threads::rename_folder,
             commands::threads::send_message,
             commands::threads::list_messages,
+            commands::skills::list_skills,
+            commands::skills::read_skill,
+            commands::skills::save_skill,
+            commands::skills::create_skill,
+            commands::skills::delete_skill,
+            commands::skills::reset_skills,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

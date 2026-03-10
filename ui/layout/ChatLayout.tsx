@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import Sidebar from "@/components/Sidebar";
+import SkillsPanel from "@/components/SkillsPanel";
 import StatusBar from "@/components/StatusBar";
 
 export interface ChatThread {
@@ -49,6 +50,7 @@ export default function ChatLayout() {
   const [isLoading, setIsLoading] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [showSkills, setShowSkills] = useState(false);
   const navigate = useNavigate();
   const params = useParams();
   const activeThreadId = params.threadId ?? null;
@@ -95,18 +97,15 @@ export default function ChatLayout() {
     }
   }
 
-  async function handleNewFolder() {
-    const name = prompt("Folder name:");
-    if (!name?.trim()) return;
-
+  async function handleNewFolder(name: string) {
     try {
-      const dbFolder = await invoke<DbFolder>("create_folder", { name: name.trim() });
+      const dbFolder = await invoke<DbFolder>("create_folder", { name });
       setFolders((prev) => [...prev, dbFolderToFolder(dbFolder)]);
     } catch {
       // Fallback to local-only
       setFolders((prev) => [
         ...prev,
-        { id: crypto.randomUUID(), name: name.trim(), expanded: true },
+        { id: crypto.randomUUID(), name, expanded: true },
       ]);
     }
   }
@@ -151,6 +150,26 @@ export default function ChatLayout() {
     }
   }
 
+  async function handleMoveThread(threadId: string, folderId: string | null) {
+    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, folderId } : t)));
+
+    try {
+      await invoke("move_thread_to_folder", { id: threadId, folderId });
+    } catch {
+      // Already updated in UI
+    }
+  }
+
+  async function handleRenameFolder(folderId: string, name: string) {
+    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)));
+
+    try {
+      await invoke("rename_folder", { id: folderId, name });
+    } catch {
+      // Already updated in UI
+    }
+  }
+
   return (
     <div className="flex h-full flex-col bg-background text-neutral-100">
       <div className="flex min-h-0 flex-1">
@@ -164,17 +183,22 @@ export default function ChatLayout() {
           onToggleFolder={handleToggleFolder}
           onDeleteFolder={handleDeleteFolder}
           onDeleteThread={handleDeleteThread}
+          onMoveThread={handleMoveThread}
+          onRenameFolder={handleRenameFolder}
           onOpenSettings={() => navigate("/settings")}
+          onOpenSkills={() => setShowSkills(true)}
         />
         <Outlet
           context={{
             onLoadingChange: handleLoadingChange,
             onRenameThread: handleRenameThread,
+            onNewThread: handleNewThread,
             activeThreadId,
           }}
         />
       </div>
       <StatusBar isLoading={isLoading} />
+      {showSkills && <SkillsPanel onClose={() => setShowSkills(false)} />}
     </div>
   );
 }

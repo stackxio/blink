@@ -1,9 +1,11 @@
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
-  durationMs?: number;
   isStreaming?: boolean;
 }
 
@@ -32,27 +34,18 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           isUser ? "bg-neutral-800/50 text-neutral-200" : "bg-neutral-900/50 text-neutral-300"
         }`}
       >
-        {message.content.split("\n").map((line, i) => (
-          <p key={i} className={line === "" ? "h-2" : ""}>
-            {line}
-          </p>
-        ))}
+        {isUser ? (
+          <p>{message.content}</p>
+        ) : (
+          <div className="prose-caret">
+            <Markdown remarkPlugins={[remarkGfm]}>{message.content}</Markdown>
+          </div>
+        )}
         {message.isStreaming && (
           <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-neutral-400" />
         )}
       </div>
-
-      {!isUser && message.durationMs != null && !message.isStreaming && (
-        <div className="mt-2 flex items-center gap-2">
-          <div className="h-px flex-1 bg-neutral-800/60" />
-          <span className="text-[10px] text-neutral-600">
-            {message.durationMs < 1000
-              ? `${message.durationMs}ms`
-              : `${(message.durationMs / 1000).toFixed(1)}s`}
-          </span>
-          <div className="h-px flex-1 bg-neutral-800/60" />
-        </div>
-      )}
     </div>
   );
 }
+

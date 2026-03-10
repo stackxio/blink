@@ -69,16 +69,35 @@ pub fn update_thread_title(
 }
 
 #[tauri::command]
-pub fn send_message(
+pub fn move_thread_to_folder(
     state: tauri::State<'_, Mutex<Connection>>,
     id: String,
+    folder_id: Option<String>,
+) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    queries::move_thread_to_folder(&conn, &id, folder_id.as_deref()).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn rename_folder(
+    state: tauri::State<'_, Mutex<Connection>>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    queries::rename_folder(&conn, &id, &name).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn send_message(
+    state: tauri::State<'_, Mutex<Connection>>,
     thread_id: String,
     role: String,
     content: String,
-    duration_ms: Option<i64>,
 ) -> Result<DbMessage, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
-    queries::create_message(&conn, &id, &thread_id, &role, &content, duration_ms)
+    let id = uuid_v4();
+    queries::create_message(&conn, &id, &thread_id, &role, &content, None)
         .map_err(|e| e.to_string())
 }
 
