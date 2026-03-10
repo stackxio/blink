@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use tokio::io::AsyncBufReadExt;
-use tokio::process::Command;
 
+use crate::ai::codex_server::{CodexServer, CodexStreamEvent};
 use crate::ai::custom::CustomProvider;
 use crate::ai::ollama::OllamaProvider;
 use crate::ai::router::AIRouter;
@@ -65,21 +63,6 @@ struct ChatStreamCancelled {
     partial_text: String,
 }
 
-// --- Codex JSONL event types ---
-
-#[derive(Debug, Deserialize)]
-struct CodexEvent {
-    #[serde(rename = "type")]
-    event_type: String,
-    item: Option<CodexItem>,
-}
-
-#[derive(Debug, Deserialize)]
-struct CodexItem {
-    #[serde(rename = "type")]
-    item_type: Option<String>,
-    text: Option<String>,
-}
 
 /// Build the full prompt including system instructions and conversation history.
 fn build_full_prompt(
@@ -153,17 +136,13 @@ pub async fn chat_stream(
     let sessions_inner = sessions.inner().clone();
 
     if provider == "codex" {
-        let mut child = Command::new("/opt/homebrew/bin/codex")
-            .arg("exec")
-            .arg("--json")
-            .arg(&prompt)
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .map_err(|e| format!("Failed to spawn codex CLI: {}", e))?;
+        // Spawn codex app-server for real token-by-token streaming
+        let (server, mut event_rx) = CodexServer::spawn("/opt/homebrew/bin/codex", None)
+            .await
+            .map_err(|e| format!("Failed to start codex app-server: {}", e))?;
 
-        // Store the child PID for cancellation
-        if let Some(pid) = child.id() {
+        // Store PID for cancellation
+        if let Some(pid) = server.pid() {
             if let Ok(mut sess) = sessions.lock() {
                 if let Some(session) = sess.get_mut(&session_id) {
                     session.child_pid = Some(pid);
@@ -171,141 +150,125 @@ pub async fn chat_stream(
             }
         }
 
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| "Failed to capture stdout".to_string())?;
+        let server = Arc::new(server);
 
         tauri::async_runtime::spawn(async move {
-            let _start = Instant::now();
-            let mut reader = tokio::io::BufReader::new(stdout);
             let mut full_text = String::new();
-            let mut line = String::new();
 
+            // 1. Initialize handshake
+            if let Err(e) = server.initialize().await {
+                let _ = app_handle.emit(
+                    "chat:error",
+                    ChatStreamError {
+                        error: format!("Codex initialize failed: {}", e),
+                    },
+                );
+                if let Ok(mut sess) = sessions_inner.lock() {
+                    sess.remove(&session_id_clone);
+                }
+                return;
+            }
+
+            // 2. Start a thread
+            let thread_id = match server.thread_start().await {
+                Ok(tid) => tid,
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "chat:error",
+                        ChatStreamError {
+                            error: format!("Codex thread/start failed: {}", e),
+                        },
+                    );
+                    if let Ok(mut sess) = sessions_inner.lock() {
+                        sess.remove(&session_id_clone);
+                    }
+                    return;
+                }
+            };
+
+            // 3. Start a turn with the user's prompt
+            let turn_id = match server.turn_start(&thread_id, &prompt).await {
+                Ok(tid) => tid,
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "chat:error",
+                        ChatStreamError {
+                            error: format!("Codex turn/start failed: {}", e),
+                        },
+                    );
+                    if let Ok(mut sess) = sessions_inner.lock() {
+                        sess.remove(&session_id_clone);
+                    }
+                    return;
+                }
+            };
+
+            // 4. Read streaming events
             loop {
-                // Check cancellation before each read
+                // Check cancellation
                 if cancelled.load(Ordering::Relaxed) {
-                    // Kill the child process
-                    let _ = child.kill().await;
+                    // Try to interrupt the turn
+                    let _ = server.turn_interrupt(&thread_id, &turn_id).await;
                     let _ = app_handle.emit(
                         "chat:cancelled",
                         ChatStreamCancelled {
                             partial_text: full_text.trim().to_string(),
                         },
                     );
-                    // Cleanup session
-                    if let Ok(mut sess) = sessions_inner.lock() {
-                        sess.remove(&session_id_clone);
-                    }
-                    return;
+                    break;
                 }
 
-                line.clear();
-                match reader.read_line(&mut line).await {
-                    Ok(0) => break,
-                    Ok(_) => {
-                        if let Ok(event) = serde_json::from_str::<CodexEvent>(line.trim()) {
-                            if event.event_type == "item.completed" {
-                                if let Some(item) = &event.item {
-                                    if item.item_type.as_deref() == Some("agent_message") {
-                                        if let Some(text) = &item.text {
-                                            full_text.push_str(text);
-                                            // Simulate streaming by emitting word-by-word
-                                            let mut chars = text.chars().peekable();
-                                            let mut chunk = String::new();
-                                            while let Some(c) = chars.next() {
-                                                chunk.push(c);
-                                                // Emit on whitespace boundaries or punctuation for natural feel
-                                                if c.is_whitespace() || c == '.' || c == ',' || c == '!' || c == '?' || c == '\n' || chars.peek().is_none() {
-                                                    if !chunk.is_empty() {
-                                                        let _ = app_handle.emit(
-                                                            "chat:stream",
-                                                            ChatStreamChunk {
-                                                                chunk: chunk.clone(),
-                                                            },
-                                                        );
-                                                        chunk.clear();
-                                                        // Small delay for natural streaming feel
-                                                        tokio::time::sleep(std::time::Duration::from_millis(8)).await;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                match tokio::time::timeout(
+                    std::time::Duration::from_millis(100),
+                    event_rx.recv(),
+                )
+                .await
+                {
+                    Ok(Some(CodexStreamEvent::Delta(delta))) => {
+                        full_text.push_str(&delta);
+                        let _ = app_handle.emit(
+                            "chat:stream",
+                            ChatStreamChunk { chunk: delta },
+                        );
                     }
-                    Err(e) => {
-                        // Check if this was due to cancellation
-                        if cancelled.load(Ordering::Relaxed) {
-                            let _ = app_handle.emit(
-                                "chat:cancelled",
-                                ChatStreamCancelled {
-                                    partial_text: full_text.trim().to_string(),
-                                },
-                            );
-                        } else {
-                            let _ = app_handle.emit(
-                                "chat:error",
-                                ChatStreamError {
-                                    error: format!("Error reading stdout: {}", e),
-                                },
-                            );
-                        }
-                        if let Ok(mut sess) = sessions_inner.lock() {
-                            sess.remove(&session_id_clone);
-                        }
-                        return;
-                    }
-                }
-            }
-
-            // Check cancellation one more time
-            if cancelled.load(Ordering::Relaxed) {
-                let _ = app_handle.emit(
-                    "chat:cancelled",
-                    ChatStreamCancelled {
-                        partial_text: full_text.trim().to_string(),
-                    },
-                );
-            } else {
-                match child.wait().await {
-                    Ok(status) if status.success() => {
+                    Ok(Some(CodexStreamEvent::TurnCompleted)) => {
                         let _ = app_handle.emit(
                             "chat:done",
                             ChatStreamDone {
                                 full_text: full_text.trim().to_string(),
                             },
                         );
+                        break;
                     }
-                    Ok(status) => {
-                        // Non-zero exit after cancellation is expected
-                        if cancelled.load(Ordering::Relaxed) {
+                    Ok(Some(CodexStreamEvent::Error(e))) => {
+                        let _ = app_handle.emit(
+                            "chat:error",
+                            ChatStreamError { error: e },
+                        );
+                        break;
+                    }
+                    Ok(None) => {
+                        // Channel closed — process exited
+                        if !full_text.is_empty() {
                             let _ = app_handle.emit(
-                                "chat:cancelled",
-                                ChatStreamCancelled {
-                                    partial_text: full_text.trim().to_string(),
+                                "chat:done",
+                                ChatStreamDone {
+                                    full_text: full_text.trim().to_string(),
                                 },
                             );
                         } else {
-                            let mut err_msg = format!("codex CLI exited with {}", status);
-                            if full_text.is_empty() {
-                                err_msg.push_str(" (no output)");
-                            }
                             let _ = app_handle.emit(
                                 "chat:error",
-                                ChatStreamError { error: err_msg },
+                                ChatStreamError {
+                                    error: "Codex process exited unexpectedly".to_string(),
+                                },
                             );
                         }
+                        break;
                     }
-                    Err(e) => {
-                        let _ = app_handle.emit(
-                            "chat:error",
-                            ChatStreamError {
-                                error: format!("Failed to wait for codex process: {}", e),
-                            },
-                        );
+                    Err(_) => {
+                        // Timeout — loop back to check cancellation
+                        continue;
                     }
                 }
             }
