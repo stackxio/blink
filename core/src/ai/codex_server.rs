@@ -464,22 +464,22 @@ impl CodexServer {
 
 // --- Activity parsing helpers ---
 
-fn classify_item_type(raw: &str) -> &'static str {
+/// Returns None for items we don't want to show (reasoning, unknown, etc.)
+fn classify_item_type(raw: &str) -> Option<&'static str> {
     let lower = raw.to_lowercase();
     if lower.contains("command") {
-        "command"
+        Some("command")
     } else if lower.contains("file change") || lower.contains("patch") || lower.contains("edit") {
-        "file_change"
+        Some("file_change")
     } else if lower.contains("file") && lower.contains("read") {
-        "file_read"
-    } else if lower.contains("reasoning") || lower.contains("thought") {
-        "reasoning"
+        Some("file_read")
     } else if lower.contains("web search") {
-        "web_search"
-    } else if lower.contains("mcp") {
-        "tool_call"
+        Some("web_search")
+    } else if lower.contains("mcp") || lower.contains("dynamic tool") {
+        Some("tool_call")
     } else {
-        "tool_call"
+        // Skip reasoning, unknown, and other internal items
+        None
     }
 }
 
@@ -488,7 +488,6 @@ fn item_type_title(kind: &str) -> &'static str {
         "command" => "Ran command",
         "file_change" => "Edited file",
         "file_read" => "Read file",
-        "reasoning" => "Reasoning",
         "web_search" => "Searched the web",
         "tool_call" => "Used tool",
         _ => "Working",
@@ -527,13 +526,15 @@ fn parse_activity(params: Option<&Value>, method: &str) -> Option<ActivityEvent>
         .and_then(|v| v.as_str())
         .unwrap_or("");
 
-    // Skip assistant_message and user_message items — those are the text we already handle
+    log::debug!("codex item {}: type={:?}", method, raw_type);
+
+    // Skip messages and uninteresting internal items (reasoning, unknown types)
     let lower = raw_type.to_lowercase();
     if lower.contains("user") || lower.contains("assistant") || lower.contains("agent message") {
         return None;
     }
 
-    let kind = classify_item_type(raw_type);
+    let kind = classify_item_type(raw_type)?;
     let title = item_type_title(kind);
 
     // For completed items, also check nested result for detail

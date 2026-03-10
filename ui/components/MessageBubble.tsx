@@ -1,6 +1,15 @@
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import {
+  Terminal,
+  Pencil,
+  FileText,
+  Sparkles,
+  Search,
+  Wrench,
+  ChevronRight,
+} from "lucide-react";
 
 export interface Activity {
   kind: string;
@@ -21,55 +30,18 @@ interface MessageBubbleProps {
   message: Message;
 }
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  command: "terminal",
-  file_change: "pencil",
-  file_read: "file",
-  reasoning: "brain",
-  web_search: "search",
-  tool_call: "wrench",
+const ACTIVITY_ICON_MAP: Record<string, typeof Terminal> = {
+  command: Terminal,
+  file_change: Pencil,
+  file_read: FileText,
+  reasoning: Sparkles,
+  web_search: Search,
+  tool_call: Wrench,
 };
 
 function ActivityIcon({ kind }: { kind: string }) {
-  const icon = ACTIVITY_ICONS[kind] || "wrench";
-  switch (icon) {
-    case "terminal":
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m6.75 7.5 3 2.25-3 2.25m4.5 0h3" />
-        </svg>
-      );
-    case "pencil":
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Z" />
-        </svg>
-      );
-    case "file":
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-        </svg>
-      );
-    case "brain":
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
-        </svg>
-      );
-    case "search":
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-        </svg>
-      );
-    default:
-      return (
-        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.049.58.025 1.193-.14 1.743" />
-        </svg>
-      );
-  }
+  const Icon = ACTIVITY_ICON_MAP[kind] || Wrench;
+  return <Icon size={12} />;
 }
 
 function ActivityLog({ activities }: { activities: Activity[] }) {
@@ -88,15 +60,10 @@ function ActivityLog({ activities }: { activities: Activity[] }) {
         onClick={() => setExpanded(!expanded)}
         className="flex items-center gap-1.5 text-[11px] text-neutral-500 transition-colors hover:text-neutral-400"
       >
-        <svg
-          className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
-        </svg>
+        <ChevronRight
+          size={12}
+          className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+        />
         <span className="font-medium text-neutral-400">{summary}</span>
       </button>
 

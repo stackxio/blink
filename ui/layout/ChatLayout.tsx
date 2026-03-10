@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { PanelLeftOpen } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import StatusBar from "@/components/StatusBar";
+import { useTheme } from "@/lib/theme";
 
 export interface ChatThread {
   id: string;
@@ -49,9 +51,23 @@ export default function ChatLayout() {
   const [isLoading, setIsLoading] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const params = useParams();
   const activeThreadId = params.threadId ?? null;
+  useTheme();
+
+  // Cmd+B to toggle sidebar
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+        e.preventDefault();
+        setSidebarOpen((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // Load folders and threads from db on mount
   useEffect(() => {
@@ -171,20 +187,32 @@ export default function ChatLayout() {
   return (
     <div className="flex h-full flex-col bg-background text-neutral-100">
       <div className="flex min-h-0 flex-1">
-        <Sidebar
-          folders={folders}
-          threads={threads}
-          activeThreadId={activeThreadId}
-          onSelectThread={(id) => navigate(`/chat/${id}`)}
-          onNewThread={handleNewThread}
-          onNewFolder={handleNewFolder}
-          onToggleFolder={handleToggleFolder}
-          onDeleteFolder={handleDeleteFolder}
-          onDeleteThread={handleDeleteThread}
-          onMoveThread={handleMoveThread}
-          onRenameFolder={handleRenameFolder}
-          onOpenSettings={() => navigate("/settings")}
-        />
+        {sidebarOpen && (
+          <Sidebar
+            folders={folders}
+            threads={threads}
+            activeThreadId={activeThreadId}
+            onSelectThread={(id) => navigate(`/chat/${id}`)}
+            onNewThread={handleNewThread}
+            onNewFolder={handleNewFolder}
+            onToggleFolder={handleToggleFolder}
+            onDeleteFolder={handleDeleteFolder}
+            onDeleteThread={handleDeleteThread}
+            onMoveThread={handleMoveThread}
+            onRenameFolder={handleRenameFolder}
+            onOpenSettings={() => navigate("/settings")}
+            onToggleSidebar={() => setSidebarOpen(false)}
+          />
+        )}
+        {!sidebarOpen && (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Show sidebar (Cmd+B)"
+            className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        )}
         <Outlet
           context={{
             onLoadingChange: handleLoadingChange,

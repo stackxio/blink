@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { PanelLeftClose, Plus, FolderPlus } from "lucide-react";
 import type { ChatThread, Folder } from "@/layout/ChatLayout";
 
 interface SidebarProps {
@@ -14,6 +15,7 @@ interface SidebarProps {
   onMoveThread: (threadId: string, folderId: string | null) => void;
   onRenameFolder: (folderId: string, name: string) => void;
   onOpenSettings: () => void;
+  onToggleSidebar: () => void;
 }
 
 export default function Sidebar({
@@ -29,6 +31,7 @@ export default function Sidebar({
   onMoveThread,
   onRenameFolder,
   onOpenSettings,
+  onToggleSidebar,
 }: SidebarProps) {
   const [width, setWidth] = useState(260);
   const isResizing = useRef(false);
@@ -186,12 +189,17 @@ export default function Sidebar({
       {/* New chat + actions */}
       <div className="flex items-center gap-1 p-2">
         <button
+          onClick={onToggleSidebar}
+          title="Hide sidebar (Cmd+B)"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
+        >
+          <PanelLeftClose size={14} />
+        </button>
+        <button
           onClick={() => onNewThread(null)}
           className="flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-surface-raised"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus size={14} />
           New chat
         </button>
         <button
@@ -199,9 +207,7 @@ export default function Sidebar({
           title="New folder"
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 10.5v6m3-3H9m4.06-7.19l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
-          </svg>
+          <FolderPlus size={14} />
         </button>
       </div>
 

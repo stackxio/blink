@@ -14,6 +14,19 @@
   --color-sidebar: color-mix(in srgb, var(--color-neutral-950) 92%, white);
 }
 
+/* Light theme overrides */
+html.light {
+  --color-background: var(--color-white);
+  --color-foreground: var(--color-neutral-900);
+  --color-muted: var(--color-neutral-500);
+  --color-muted-foreground: var(--color-neutral-600);
+  --color-border: color-mix(in srgb, black 10%, transparent);
+  --color-input: color-mix(in srgb, black 6%, transparent);
+  --color-surface: var(--color-neutral-50);
+  --color-surface-raised: color-mix(in srgb, black 4%, transparent);
+  --color-sidebar: var(--color-neutral-100);
+}
+
 html,
 body,
 #root {

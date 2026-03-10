@@ -1,4 +1,20 @@
+import { useState } from "react";
+import { type Theme, getStoredTheme, changeTheme } from "@/lib/theme";
+
 export default function SettingsAppearance() {
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
+
+  function handleThemeChange(t: Theme) {
+    setTheme(t);
+    changeTheme(t);
+  }
+
+  const themes: { value: Theme; label: string }[] = [
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+    { value: "system", label: "System" },
+  ];
+
   return (
     <div>
       <h1 className="mb-4 text-lg font-semibold text-neutral-100">Appearance</h1>
@@ -10,15 +26,19 @@ export default function SettingsAppearance() {
             <p className="text-xs text-neutral-500">Choose your preferred theme</p>
           </div>
           <div className="flex gap-1 rounded-md bg-neutral-800 p-0.5">
-            <button className="rounded px-2.5 py-1 text-xs text-neutral-500 hover:text-neutral-300">
-              Light
-            </button>
-            <button className="rounded bg-neutral-700 px-2.5 py-1 text-xs text-neutral-200">
-              Dark
-            </button>
-            <button className="rounded px-2.5 py-1 text-xs text-neutral-500 hover:text-neutral-300">
-              System
-            </button>
+            {themes.map((t) => (
+              <button
+                key={t.value}
+                onClick={() => handleThemeChange(t.value)}
+                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                  theme === t.value
+                    ? "bg-neutral-700 text-neutral-200"
+                    : "text-neutral-500 hover:text-neutral-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
 
