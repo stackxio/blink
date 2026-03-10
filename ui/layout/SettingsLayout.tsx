@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from "react-router";
 const NAV_ITEMS = [
   { label: "General", path: "/settings" },
   { label: "AI Providers", path: "/settings/providers" },
+  { label: "Skills", path: "/settings/skills" },
   { label: "Appearance", path: "/settings/appearance" },
 ];
 

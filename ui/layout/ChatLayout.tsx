@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import Sidebar from "@/components/Sidebar";
-import SkillsPanel from "@/components/SkillsPanel";
 import StatusBar from "@/components/StatusBar";
 
 export interface ChatThread {
@@ -50,7 +49,6 @@ export default function ChatLayout() {
   const [isLoading, setIsLoading] = useState(false);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
-  const [showSkills, setShowSkills] = useState(false);
   const navigate = useNavigate();
   const params = useParams();
   const activeThreadId = params.threadId ?? null;
@@ -186,7 +184,6 @@ export default function ChatLayout() {
           onMoveThread={handleMoveThread}
           onRenameFolder={handleRenameFolder}
           onOpenSettings={() => navigate("/settings")}
-          onOpenSkills={() => setShowSkills(true)}
         />
         <Outlet
           context={{
@@ -198,7 +195,6 @@ export default function ChatLayout() {
         />
       </div>
       <StatusBar isLoading={isLoading} />
-      {showSkills && <SkillsPanel onClose={() => setShowSkills(false)} />}
     </div>
   );
 }
