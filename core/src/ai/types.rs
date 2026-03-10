@@ -1,0 +1,45 @@
+use serde::{Deserialize, Serialize};
+use std::fmt;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatRequest {
+    pub prompt: String,
+    pub system: Option<String>,
+    pub context: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatResponse {
+    pub text: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingRequest {
+    pub input: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EmbeddingResponse {
+    pub vectors: Vec<Vec<f32>>,
+}
+
+#[derive(Debug)]
+pub enum AIError {
+    NetworkError,
+    ParseError,
+    ProviderError(String),
+    ConfigError(String),
+}
+
+impl fmt::Display for AIError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            AIError::NetworkError => write!(f, "Network error"),
+            AIError::ParseError => write!(f, "Parse error"),
+            AIError::ProviderError(msg) => write!(f, "Provider error: {}", msg),
+            AIError::ConfigError(msg) => write!(f, "Config error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for AIError {}

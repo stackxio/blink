@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
+# Rust
+core/target
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+*.local
