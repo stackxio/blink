@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import type { ChatThread, Folder } from "@/layout/ChatLayout";
 
 interface SidebarProps {
@@ -26,6 +26,33 @@ export default function Sidebar({
   onDeleteThread,
   onOpenSettings,
 }: SidebarProps) {
+  const [width, setWidth] = useState(260);
+  const isResizing = useRef(false);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing.current) return;
+      const newWidth = Math.min(320, Math.max(220, e.clientX));
+      setWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -53,15 +80,16 @@ export default function Sidebar({
   }
 
   return (
+    <div className="relative flex shrink-0" style={{ width }}>
     <aside
-      className="flex h-full w-52 shrink-0 flex-col border-r border-neutral-800 bg-stone-950 text-xs"
+      className="flex h-full flex-1 flex-col bg-sidebar text-[13px]"
       onClick={closeContextMenu}
     >
       {/* New chat + new folder */}
       <div className="flex items-center gap-1 p-2">
         <button
           onClick={() => onNewThread(null)}
-          className="flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-stone-800"
+          className="flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-surface-raised"
         >
           <svg
             className="h-3.5 w-3.5"
@@ -77,7 +105,7 @@ export default function Sidebar({
         <button
           onClick={onNewFolder}
           title="New folder"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-stone-800 hover:text-neutral-300"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
         >
           <svg
             className="h-3.5 w-3.5"
@@ -107,7 +135,7 @@ export default function Sidebar({
               <button
                 onClick={() => onToggleFolder(folder.id)}
                 onContextMenu={(e) => handleContextMenu(e, "folder", folder.id)}
-                className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-stone-800"
+                className="flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-surface-raised"
               >
                 <svg
                   className={`h-2.5 w-2.5 shrink-0 text-neutral-600 transition-transform ${folder.expanded ? "rotate-90" : ""}`}
@@ -140,7 +168,7 @@ export default function Sidebar({
                   {folderThreads.length === 0 ? (
                     <button
                       onClick={() => onNewThread(folder.id)}
-                      className="w-full rounded px-2 py-1 text-left text-neutral-600 transition-colors hover:bg-stone-800/60 hover:text-neutral-400"
+                      className="w-full rounded px-2 py-1 text-left text-neutral-600 transition-colors hover:bg-surface-raised/60 hover:text-neutral-400"
                     >
                       + New chat
                     </button>
@@ -180,7 +208,7 @@ export default function Sidebar({
       <div className="border-t border-neutral-800/60 p-2">
         <button
           onClick={onOpenSettings}
-          className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-neutral-500 transition-colors hover:bg-stone-800 hover:text-neutral-300"
+          className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
         >
           <svg
             className="h-3.5 w-3.5"
@@ -246,6 +274,12 @@ export default function Sidebar({
         </div>
       )}
     </aside>
+    {/* Resize handle */}
+    <div
+      onMouseDown={handleMouseDown}
+      className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize border-r border-neutral-800 transition-colors hover:border-neutral-600"
+    />
+    </div>
   );
 }
 
@@ -266,8 +300,8 @@ function ThreadItem({
       onContextMenu={onContextMenu}
       className={`flex w-full items-center rounded px-2 py-1 text-left transition-colors ${
         isActive
-          ? "bg-stone-800 text-neutral-100"
-          : "text-neutral-400 hover:bg-stone-800/60 hover:text-neutral-200"
+          ? "bg-surface-raised text-neutral-100"
+          : "text-neutral-400 hover:bg-surface-raised/60 hover:text-neutral-200"
       }`}
     >
       <span className="truncate">{thread.title}</span>

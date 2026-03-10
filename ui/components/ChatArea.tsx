@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, type FormEvent } from "react";
+import { useState, useRef, useEffect, useCallback, type FormEvent } from "react";
 import { useOutletContext, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import MessageBubble from "@/components/MessageBubble";
 import type { Message } from "@/components/MessageBubble";
 
@@ -8,6 +9,25 @@ interface ChatContext {
   onLoadingChange: (loading: boolean) => void;
   onRenameThread: (threadId: string, title: string) => void;
   activeThreadId: string | null;
+}
+
+interface DbMessage {
+  id: string;
+  thread_id: string;
+  role: "user" | "assistant";
+  content: string;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+function dbMessageToMessage(db: DbMessage): Message {
+  return {
+    id: db.id,
+    role: db.role,
+    content: db.content,
+    timestamp: new Date(db.created_at),
+    durationMs: db.duration_ms ?? undefined,
+  };
 }
 
 export default function ChatArea() {
@@ -23,14 +43,45 @@ export default function ChatArea() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load messages from db when thread changes
   useEffect(() => {
     inputRef.current?.focus();
+
+    if (!threadId) {
+      setMessages([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMessages() {
+      try {
+        const dbMessages = await invoke<DbMessage[]>("list_messages", { threadId });
+        if (!cancelled) {
+          setMessages(dbMessages.map(dbMessageToMessage));
+        }
+      } catch {
+        // Thread may not exist yet or db error — start with empty
+        if (!cancelled) {
+          setMessages([]);
+        }
+      }
+    }
+
+    loadMessages();
+
+    return () => {
+      cancelled = true;
+    };
   }, [threadId]);
 
-  function updateLoading(value: boolean) {
-    setIsLoading(value);
-    onLoadingChange(value);
-  }
+  const updateLoading = useCallback(
+    (value: boolean) => {
+      setIsLoading(value);
+      onLoadingChange(value);
+    },
+    [onLoadingChange],
+  );
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -53,41 +104,106 @@ export default function ChatArea() {
     setInput("");
     updateLoading(true);
 
-    const startTime = Date.now();
+    // Save user message to db
+    if (threadId) {
+      try {
+        await invoke("send_message", {
+          threadId,
+          role: "user",
+          content: text,
+          durationMs: null,
+        });
+      } catch {
+        // Non-critical — continue with streaming
+      }
+    }
 
-    try {
-      const response = await invoke<{ text: string }>("chat", {
-        input: { prompt: text, system: null },
-      });
+    // Create assistant message placeholder for streaming
+    const assistantId = crypto.randomUUID();
+    const assistantMessage: Message = {
+      id: assistantId,
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      isStreaming: true,
+    };
 
-      const durationMs = Date.now() - startTime;
+    setMessages((prev) => [...prev, assistantMessage]);
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: response.text,
-          timestamp: new Date(),
-          durationMs,
-        },
-      ]);
-    } catch (err: unknown) {
-      const durationMs = Date.now() - startTime;
-      const errorText = err instanceof Error ? err.message : String(err);
+    // Set up event listeners before invoking
+    const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (event) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId ? { ...msg, content: msg.content + event.payload.chunk } : msg,
+        ),
+      );
+    });
 
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: `Error: ${errorText}`,
-          timestamp: new Date(),
-          durationMs,
-        },
-      ]);
-    } finally {
+    const unlistenDone = await listen<{ full_text: string; duration_ms: number }>(
+      "chat:done",
+      async (event) => {
+        const { full_text, duration_ms } = event.payload;
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantId
+              ? { ...msg, content: full_text, durationMs: duration_ms, isStreaming: false }
+              : msg,
+          ),
+        );
+
+        updateLoading(false);
+        cleanup();
+
+        // Save assistant message to db
+        if (threadId) {
+          try {
+            await invoke("send_message", {
+              threadId,
+              role: "assistant",
+              content: full_text,
+              durationMs: duration_ms,
+            });
+          } catch {
+            // Non-critical
+          }
+        }
+      },
+    );
+
+    const unlistenError = await listen<{ error: string }>("chat:error", (event) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId
+            ? { ...msg, content: `Error: ${event.payload.error}`, isStreaming: false }
+            : msg,
+        ),
+      );
+
       updateLoading(false);
+      cleanup();
+    });
+
+    function cleanup() {
+      unlistenChunk();
+      unlistenDone();
+      unlistenError();
+    }
+
+    // Start the stream
+    try {
+      await invoke("chat_stream", { input: { prompt: text, system: null } });
+    } catch (err: unknown) {
+      const errorText = err instanceof Error ? err.message : String(err);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantId
+            ? { ...msg, content: `Error: ${errorText}`, isStreaming: false }
+            : msg,
+        ),
+      );
+      updateLoading(false);
+      cleanup();
     }
   }
 
@@ -120,7 +236,7 @@ export default function ChatArea() {
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
             ))}
-            {isLoading && (
+            {isLoading && !messages.some((m) => m.isStreaming) && (
               <div className="flex items-center gap-2 py-1">
                 <div className="flex gap-1">
                   <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-neutral-600 [animation-delay:0ms]" />

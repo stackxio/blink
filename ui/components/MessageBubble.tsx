@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   timestamp: Date;
   durationMs?: number;
+  isStreaming?: boolean;
 }
 
 interface MessageBubbleProps {
@@ -36,9 +37,12 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             {line}
           </p>
         ))}
+        {message.isStreaming && (
+          <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-neutral-400" />
+        )}
       </div>
 
-      {!isUser && message.durationMs != null && (
+      {!isUser && message.durationMs != null && !message.isStreaming && (
         <div className="mt-2 flex items-center gap-2">
           <div className="h-px flex-1 bg-neutral-800/60" />
           <span className="text-[10px] text-neutral-600">

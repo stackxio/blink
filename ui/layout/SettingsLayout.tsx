@@ -11,9 +11,9 @@ export default function SettingsLayout() {
   const location = useLocation();
 
   return (
-    <div className="flex h-full bg-neutral-950 text-neutral-100">
+    <div className="flex h-full bg-background text-neutral-100">
       {/* Settings sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-800 bg-stone-950">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-800 bg-sidebar">
         <button
           onClick={() => navigate("/")}
           className="flex items-center gap-1.5 px-4 py-3 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
@@ -39,8 +39,8 @@ export default function SettingsLayout() {
                 onClick={() => navigate(item.path)}
                 className={`rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
                   isActive
-                    ? "bg-stone-800 text-neutral-100"
-                    : "text-neutral-400 hover:bg-stone-800/60 hover:text-neutral-200"
+                    ? "bg-surface-raised text-neutral-100"
+                    : "text-neutral-400 hover:bg-surface-raised/60 hover:text-neutral-200"
                 }`}
               >
                 {item.label}

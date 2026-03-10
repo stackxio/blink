@@ -4,7 +4,7 @@ interface StatusBarProps {
 
 export default function StatusBar({ isLoading }: StatusBarProps) {
   return (
-    <div className="flex h-6 shrink-0 items-center justify-between border-t border-neutral-800 bg-neutral-950 px-3 text-[10px]">
+    <div className="flex h-6 shrink-0 items-center justify-between border-t border-neutral-800 bg-background px-3 text-[10px]">
       <div className="flex items-center gap-1.5 text-neutral-500">
         {isLoading ? (
           <>
