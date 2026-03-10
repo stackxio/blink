@@ -10,7 +10,6 @@ pub struct CaretSettings {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodexSettings {
-    pub api_key: String,
     pub model: String,
 }
 
@@ -32,8 +31,7 @@ impl Default for CaretSettings {
         Self {
             active_provider: "codex".to_string(),
             codex: CodexSettings {
-                api_key: String::new(),
-                model: "codex-latest".to_string(),
+                model: String::new(),
             },
             ollama: OllamaSettings {
                 endpoint: "http://localhost:11434".to_string(),

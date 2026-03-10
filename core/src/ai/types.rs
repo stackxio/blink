@@ -25,8 +25,8 @@ pub struct EmbeddingResponse {
 
 #[derive(Debug)]
 pub enum AIError {
-    NetworkError,
-    ParseError,
+    NetworkError(String),
+    ParseError(String),
     ProviderError(String),
     ConfigError(String),
 }
@@ -34,8 +34,8 @@ pub enum AIError {
 impl fmt::Display for AIError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            AIError::NetworkError => write!(f, "Network error"),
-            AIError::ParseError => write!(f, "Parse error"),
+            AIError::NetworkError(msg) => write!(f, "Network error: {}", msg),
+            AIError::ParseError(msg) => write!(f, "Parse error: {}", msg),
             AIError::ProviderError(msg) => write!(f, "Provider error: {}", msg),
             AIError::ConfigError(msg) => write!(f, "Config error: {}", msg),
         }

@@ -1,16 +1,16 @@
 use async_trait::async_trait;
+use tokio::process::Command;
 
 use super::provider::AIProvider;
 use super::types::{AIError, ChatRequest, ChatResponse};
 
 pub struct CodexProvider {
-    pub api_key: String,
     pub model: String,
 }
 
 impl CodexProvider {
-    pub fn new(api_key: String, model: String) -> Self {
-        Self { api_key, model }
+    pub fn new(model: String) -> Self {
+        Self { model }
     }
 }
 
@@ -20,8 +20,35 @@ impl AIProvider for CodexProvider {
         "codex"
     }
 
-    async fn chat(&self, _req: ChatRequest) -> Result<ChatResponse, AIError> {
-        // TODO: implement Codex API call
-        todo!("Codex chat not yet implemented")
+    async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, AIError> {
+        // Build the prompt: prepend system prompt if provided
+        let prompt = if let Some(system) = &req.system {
+            format!("{}\n\n{}", system, req.prompt)
+        } else {
+            req.prompt.clone()
+        };
+
+        let mut cmd = Command::new("/opt/homebrew/bin/codex");
+        cmd.arg("exec").arg(&prompt);
+
+        // If a model override is configured, pass it via environment or flag
+        // For now codex CLI picks its own model; model field reserved for future use.
+
+        let output = cmd
+            .output()
+            .await
+            .map_err(|e| AIError::ProviderError(format!("Failed to run codex CLI: {}", e)))?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(AIError::ProviderError(format!(
+                "codex CLI exited with {}: {}",
+                output.status, stderr
+            )));
+        }
+
+        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+        Ok(ChatResponse { text })
     }
 }
