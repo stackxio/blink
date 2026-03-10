@@ -24,6 +24,7 @@ pub fn run() {
             let conn = db::init::init_db().expect("Failed to initialize database");
             app.manage(std::sync::Mutex::new(conn));
             app.manage(commands::ai::create_stream_sessions());
+            app.manage(commands::ai::create_codex_state());
             settings::prompts::ensure_defaults();
             Ok(())
         })

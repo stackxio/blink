@@ -33,12 +33,43 @@ pub struct ChatOutput {
 pub struct StreamSession {
     pub cancelled: Arc<AtomicBool>,
     pub child_pid: Option<u32>,
+    /// Codex thread/turn IDs for cancel via turn/interrupt
+    pub codex_thread_id: Option<String>,
+    pub codex_turn_id: Option<String>,
 }
 
 pub type StreamSessions = Arc<Mutex<HashMap<String, StreamSession>>>;
 
 pub fn create_stream_sessions() -> StreamSessions {
     Arc::new(Mutex::new(HashMap::new()))
+}
+
+// --- Persistent codex server state ---
+
+pub type CodexState = Arc<tokio::sync::Mutex<Option<Arc<CodexServer>>>>;
+
+pub fn create_codex_state() -> CodexState {
+    Arc::new(tokio::sync::Mutex::new(None))
+}
+
+/// Get or lazily initialize the persistent codex app-server.
+async fn get_codex_server(state: &CodexState) -> Result<Arc<CodexServer>, String> {
+    let mut guard = state.lock().await;
+    if let Some(server) = guard.as_ref() {
+        return Ok(server.clone());
+    }
+
+    // Spawn the codex app-server process
+    let server = CodexServer::spawn("/opt/homebrew/bin/codex")
+        .await
+        .map_err(|e| format!("Failed to start codex app-server: {}", e))?;
+
+    // Initialize handshake
+    server.ensure_initialized().await?;
+
+    let server = Arc::new(server);
+    *guard = Some(server.clone());
+    Ok(server)
 }
 
 // --- Event payloads ---
@@ -63,8 +94,8 @@ struct ChatStreamCancelled {
     partial_text: String,
 }
 
-
 /// Build the full prompt including system instructions and conversation history.
+/// Used for non-codex providers that don't maintain their own context.
 fn build_full_prompt(
     conn: &Connection,
     thread_id: Option<&str>,
@@ -99,15 +130,11 @@ pub async fn chat_stream(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Connection>>,
     sessions: tauri::State<'_, StreamSessions>,
+    codex_state: tauri::State<'_, CodexState>,
     input: ChatInput,
 ) -> Result<String, String> {
     let store = SettingsStore::new();
     let settings = store.load().map_err(|e| e.to_string())?;
-
-    let prompt = {
-        let conn = state.lock().map_err(|e| e.to_string())?;
-        build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt)
-    };
 
     let provider = settings.active_provider.clone();
 
@@ -128,6 +155,8 @@ pub async fn chat_stream(
             StreamSession {
                 cancelled: cancelled.clone(),
                 child_pid: None,
+                codex_thread_id: None,
+                codex_turn_id: None,
             },
         );
     }
@@ -136,59 +165,31 @@ pub async fn chat_stream(
     let sessions_inner = sessions.inner().clone();
 
     if provider == "codex" {
-        // Spawn codex app-server for real token-by-token streaming
-        let (server, mut event_rx) = CodexServer::spawn("/opt/homebrew/bin/codex", None)
-            .await
-            .map_err(|e| format!("Failed to start codex app-server: {}", e))?;
+        // Get the persistent codex server
+        let server = get_codex_server(&codex_state.inner()).await?;
 
-        // Store PID for cancellation
-        if let Some(pid) = server.pid() {
-            if let Ok(mut sess) = sessions.lock() {
-                if let Some(session) = sess.get_mut(&session_id) {
-                    session.child_pid = Some(pid);
-                }
+        // Determine our thread ID (use provided or "default")
+        let our_thread_id = input.thread_id.clone().unwrap_or_else(|| "default".to_string());
+
+        // Get or create the codex thread for this conversation
+        let codex_thread_id = server.get_or_create_thread(&our_thread_id).await?;
+
+        // Store codex thread ID in session for cancellation
+        if let Ok(mut sess) = sessions.lock() {
+            if let Some(session) = sess.get_mut(&session_id) {
+                session.codex_thread_id = Some(codex_thread_id.clone());
+                session.child_pid = server.pid();
             }
         }
 
-        let server = Arc::new(server);
+        let server_clone = server.clone();
 
         tauri::async_runtime::spawn(async move {
             let mut full_text = String::new();
 
-            // 1. Initialize handshake
-            if let Err(e) = server.initialize().await {
-                let _ = app_handle.emit(
-                    "chat:error",
-                    ChatStreamError {
-                        error: format!("Codex initialize failed: {}", e),
-                    },
-                );
-                if let Ok(mut sess) = sessions_inner.lock() {
-                    sess.remove(&session_id_clone);
-                }
-                return;
-            }
-
-            // 2. Start a thread
-            let thread_id = match server.thread_start().await {
-                Ok(tid) => tid,
-                Err(e) => {
-                    let _ = app_handle.emit(
-                        "chat:error",
-                        ChatStreamError {
-                            error: format!("Codex thread/start failed: {}", e),
-                        },
-                    );
-                    if let Ok(mut sess) = sessions_inner.lock() {
-                        sess.remove(&session_id_clone);
-                    }
-                    return;
-                }
-            };
-
-            // 3. Start a turn with the user's prompt
-            let turn_id = match server.turn_start(&thread_id, &prompt).await {
-                Ok(tid) => tid,
+            // Send the turn — only the current user message, codex maintains context
+            let (turn_id, mut event_rx) = match server.send_turn(&codex_thread_id, &input.prompt).await {
+                Ok(result) => result,
                 Err(e) => {
                     let _ = app_handle.emit(
                         "chat:error",
@@ -203,12 +204,17 @@ pub async fn chat_stream(
                 }
             };
 
-            // 4. Read streaming events
+            // Store turn ID for cancellation
+            if let Ok(mut sess) = sessions_inner.lock() {
+                if let Some(session) = sess.get_mut(&session_id_clone) {
+                    session.codex_turn_id = Some(turn_id.clone());
+                }
+            }
+
+            // Read streaming events
             loop {
-                // Check cancellation
                 if cancelled.load(Ordering::Relaxed) {
-                    // Try to interrupt the turn
-                    let _ = server.turn_interrupt(&thread_id, &turn_id).await;
+                    let _ = server.turn_interrupt(&codex_thread_id, &turn_id).await;
                     let _ = app_handle.emit(
                         "chat:cancelled",
                         ChatStreamCancelled {
@@ -248,7 +254,6 @@ pub async fn chat_stream(
                         break;
                     }
                     Ok(None) => {
-                        // Channel closed — process exited
                         if !full_text.is_empty() {
                             let _ = app_handle.emit(
                                 "chat:done",
@@ -260,20 +265,18 @@ pub async fn chat_stream(
                             let _ = app_handle.emit(
                                 "chat:error",
                                 ChatStreamError {
-                                    error: "Codex process exited unexpectedly".to_string(),
+                                    error: "Codex connection lost".to_string(),
                                 },
                             );
                         }
                         break;
                     }
-                    Err(_) => {
-                        // Timeout — loop back to check cancellation
-                        continue;
-                    }
+                    Err(_) => continue, // Timeout — loop to check cancellation
                 }
             }
 
-            // Cleanup session
+            // Cleanup subscriber and session
+            server_clone.remove_subscriber(&codex_thread_id).await;
             if let Ok(mut sess) = sessions_inner.lock() {
                 sess.remove(&session_id_clone);
             }
@@ -281,7 +284,12 @@ pub async fn chat_stream(
 
         Ok(session_id)
     } else {
-        // Non-codex providers — real streaming via mpsc channel
+        // Non-codex providers — build full prompt with history
+        let prompt = {
+            let conn = state.lock().map_err(|e| e.to_string())?;
+            build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt)
+        };
+
         tauri::async_runtime::spawn(async move {
             let mut router = AIRouter::new(provider);
             router.register(Box::new(OllamaProvider::new(
@@ -307,7 +315,6 @@ pub async fn chat_stream(
                 context: vec![],
             };
 
-            // Check cancellation before sending
             if cancelled.load(Ordering::Relaxed) {
                 let _ = app_handle.emit(
                     "chat:cancelled",
@@ -328,7 +335,6 @@ pub async fn chat_stream(
             let sessions_reader = sessions_inner.clone();
             let session_id_reader = session_id_clone.clone();
 
-            // Spawn reader task that emits chunks as they arrive
             let reader_handle = tauri::async_runtime::spawn(async move {
                 let mut full_text = String::new();
 
@@ -349,19 +355,14 @@ pub async fn chat_stream(
                     full_text.push_str(&chunk);
                     let _ = app_reader.emit(
                         "chat:stream",
-                        ChatStreamChunk {
-                            chunk,
-                        },
+                        ChatStreamChunk { chunk },
                     );
                 }
 
                 full_text
             });
 
-            // Run the streaming request
             let stream_result = router.chat_stream(req, tx).await;
-
-            // Wait for reader to finish and get the full text
             let full_text = reader_handle.await.unwrap_or_default();
 
             if cancelled.load(Ordering::Relaxed) {
@@ -399,12 +400,25 @@ pub async fn chat_stream(
 #[tauri::command]
 pub async fn cancel_stream(
     sessions: tauri::State<'_, StreamSessions>,
+    codex_state: tauri::State<'_, CodexState>,
     session_id: String,
 ) -> Result<(), String> {
     let sess = sessions.lock().map_err(|e| e.to_string())?;
     if let Some(session) = sess.get(&session_id) {
         // Signal cancellation
         session.cancelled.store(true, Ordering::Relaxed);
+
+        // For codex, also try turn/interrupt
+        if let (Some(thread_id), Some(turn_id)) = (&session.codex_thread_id, &session.codex_turn_id) {
+            let thread_id = thread_id.clone();
+            let turn_id = turn_id.clone();
+            let codex_state = codex_state.inner().clone();
+            tokio::spawn(async move {
+                if let Ok(server) = get_codex_server(&codex_state).await {
+                    let _ = server.turn_interrupt(&thread_id, &turn_id).await;
+                }
+            });
+        }
 
         // Also kill the child process directly for immediate effect
         if let Some(pid) = session.child_pid {
