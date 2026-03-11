@@ -36,6 +36,15 @@ body,
   color-scheme: dark;
 }
 
+/* macOS titlebar drag region */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 body {
   font-family:
     -apple-system,

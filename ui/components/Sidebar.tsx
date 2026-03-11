@@ -215,8 +215,11 @@ export default function Sidebar({
       className="flex h-full flex-1 flex-col text-[13px]"
       onClick={closeContextMenu}
     >
+      {/* macOS traffic light spacer + drag region */}
+      <div className="titlebar-drag h-12 shrink-0" />
+
       {/* New chat + actions */}
-      <div className="flex items-center gap-1 p-2">
+      <div className="titlebar-no-drag flex items-center gap-1 px-2 pb-2">
         <button
           onClick={onToggleSidebar}
           title="Hide sidebar (Cmd+B)"

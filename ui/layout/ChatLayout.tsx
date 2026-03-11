@@ -206,15 +206,18 @@ export default function ChatLayout() {
           />
         )}
         <div className="relative flex min-w-0 flex-1 flex-col bg-background">
-          {!sidebarOpen && (
-            <button
-              onClick={() => setSidebarOpen(true)}
-              title="Show sidebar (Cmd+B)"
-              className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-            >
-              <PanelLeftOpen size={16} />
-            </button>
-          )}
+          {/* Drag region for titlebar */}
+          <div className="titlebar-drag h-12 shrink-0">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                title="Show sidebar (Cmd+B)"
+                className="titlebar-no-drag absolute left-2 top-3 z-20 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
+              >
+                <PanelLeftOpen size={16} />
+              </button>
+            )}
+          </div>
           <Outlet
             context={{
               onLoadingChange: handleLoadingChange,
