@@ -4,6 +4,7 @@ const NAV_ITEMS = [
   { label: "General", path: "/settings" },
   { label: "AI Providers", path: "/settings/providers" },
   { label: "Skills", path: "/settings/skills" },
+  { label: "Memory", path: "/settings/memory" },
   { label: "Appearance", path: "/settings/appearance" },
 ];
 

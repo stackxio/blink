@@ -54,6 +54,10 @@ pub fn run() {
             commands::skills::create_skill,
             commands::skills::delete_skill,
             commands::skills::reset_skills,
+            commands::memory::list_memory_files,
+            commands::memory::read_memory_file,
+            commands::memory::append_memory,
+            commands::memory::clear_today_memory,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

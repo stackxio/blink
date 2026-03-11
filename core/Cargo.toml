@@ -28,3 +28,4 @@ async-trait = "0.1"
 dirs = "6"
 rusqlite = { version = "0.32", features = ["bundled"] }
 libc = "0.2"
+chrono = "0.4"

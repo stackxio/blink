@@ -5,6 +5,7 @@ import ChatArea from "@/components/ChatArea";
 import SettingsGeneral from "@/features/settings/General";
 import SettingsProviders from "@/features/settings/Providers";
 import SettingsSkills from "@/features/settings/Skills";
+import SettingsMemory from "@/features/settings/Memory";
 import SettingsAppearance from "@/features/settings/Appearance";
 
 export default function App() {
@@ -19,6 +20,7 @@ export default function App() {
           <Route index element={<SettingsGeneral />} />
           <Route path="providers" element={<SettingsProviders />} />
           <Route path="skills" element={<SettingsSkills />} />
+          <Route path="memory" element={<SettingsMemory />} />
           <Route path="appearance" element={<SettingsAppearance />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

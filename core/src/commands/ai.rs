@@ -105,8 +105,9 @@ fn build_full_prompt(
     conn: &Connection,
     thread_id: Option<&str>,
     current_prompt: &str,
+    prompt_mode: &str,
 ) -> String {
-    let system_prompt = prompts::load_system_prompt();
+    let system_prompt = prompts::load_system_prompt_with_mode(prompt_mode);
 
     let mut history = String::new();
     if let Some(tid) = thread_id {
@@ -206,7 +207,7 @@ pub async fn chat_stream(
 
         // Load system prompt for injection on first turn
         let system_prompt = if server.needs_system_prompt(&codex_thread_id).await {
-            Some(prompts::load_system_prompt())
+            Some(prompts::load_system_prompt_with_mode(&settings.prompt_mode))
         } else {
             None
         };
@@ -347,7 +348,7 @@ pub async fn chat_stream(
         // Non-codex providers — build full prompt with history
         let prompt = {
             let conn = state.lock().map_err(|e| e.to_string())?;
-            build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt)
+            build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt, &settings.prompt_mode)
         };
 
         tauri::async_runtime::spawn(async move {
@@ -503,7 +504,7 @@ pub async fn chat(
 
     let prompt = {
         let conn = state.lock().map_err(|e| e.to_string())?;
-        build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt)
+        build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt, &settings.prompt_mode)
     };
 
     let mut router = AIRouter::new(settings.active_provider.clone());

@@ -3,9 +3,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaretSettings {
     pub active_provider: String,
+    #[serde(default = "default_prompt_mode")]
+    pub prompt_mode: String,
     pub codex: CodexSettings,
     pub ollama: OllamaSettings,
     pub custom: CustomSettings,
+}
+
+fn default_prompt_mode() -> String {
+    "full".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +36,7 @@ impl Default for CaretSettings {
     fn default() -> Self {
         Self {
             active_provider: "codex".to_string(),
+            prompt_mode: "full".to_string(),
             codex: CodexSettings {
                 model: String::new(),
             },
