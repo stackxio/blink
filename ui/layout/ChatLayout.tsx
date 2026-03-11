@@ -185,7 +185,7 @@ export default function ChatLayout() {
   }
 
   return (
-    <div className="flex h-full flex-col bg-background text-neutral-100">
+    <div className="flex h-full flex-col text-neutral-100">
       <div className="flex min-h-0 flex-1">
         {sidebarOpen && (
           <Sidebar
@@ -205,25 +205,27 @@ export default function ChatLayout() {
             onToggleSidebar={() => setSidebarOpen(false)}
           />
         )}
-        {!sidebarOpen && (
-          <button
-            onClick={() => setSidebarOpen(true)}
-            title="Show sidebar (Cmd+B)"
-            className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-          >
-            <PanelLeftOpen size={16} />
-          </button>
-        )}
-        <Outlet
-          context={{
-            onLoadingChange: handleLoadingChange,
-            onRenameThread: handleRenameThread,
-            onNewThread: handleNewThread,
-            activeThreadId,
-          }}
-        />
+        <div className="relative flex min-w-0 flex-1 flex-col bg-background">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              title="Show sidebar (Cmd+B)"
+              className="absolute left-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
+            >
+              <PanelLeftOpen size={16} />
+            </button>
+          )}
+          <Outlet
+            context={{
+              onLoadingChange: handleLoadingChange,
+              onRenameThread: handleRenameThread,
+              onNewThread: handleNewThread,
+              activeThreadId,
+            }}
+          />
+          <StatusBar isLoading={isLoading} />
+        </div>
       </div>
-      <StatusBar isLoading={isLoading} />
     </div>
   );
 }

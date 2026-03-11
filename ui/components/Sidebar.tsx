@@ -212,7 +212,7 @@ export default function Sidebar({
   return (
     <div className="relative flex h-full shrink-0 overflow-hidden" style={{ width: Math.min(width, 280) }}>
     <aside
-      className="flex h-full flex-1 flex-col bg-sidebar text-[13px]"
+      className="flex h-full flex-1 flex-col text-[13px]"
       onClick={closeContextMenu}
     >
       {/* New chat + actions */}

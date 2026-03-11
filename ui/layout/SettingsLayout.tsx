@@ -13,9 +13,9 @@ export default function SettingsLayout() {
   const location = useLocation();
 
   return (
-    <div className="flex h-full bg-background text-neutral-100">
+    <div className="flex h-full text-neutral-100">
       {/* Settings sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-800 bg-sidebar">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-800/50">
         <button
           onClick={() => navigate("/")}
           className="flex items-center gap-1.5 px-4 py-3 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
@@ -53,7 +53,7 @@ export default function SettingsLayout() {
       </aside>
 
       {/* Settings content */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto bg-background p-6">
         <div className="mx-auto max-w-2xl">
           <Outlet />
         </div>
