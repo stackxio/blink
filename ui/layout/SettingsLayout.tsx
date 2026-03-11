@@ -16,10 +16,10 @@ export default function SettingsLayout() {
     <div className="flex h-full text-neutral-100">
       {/* Settings sidebar */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-800/50">
-        <div className="titlebar-drag h-12 shrink-0" />
+        <div className="h-3 shrink-0" />
         <button
           onClick={() => navigate("/")}
-          className="titlebar-no-drag flex items-center gap-1.5 px-4 pb-3 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
+          className="flex items-center gap-1.5 px-4 pb-3 text-xs text-neutral-400 transition-colors hover:text-neutral-200"
         >
           <svg
             className="h-3.5 w-3.5"
@@ -54,7 +54,7 @@ export default function SettingsLayout() {
       </aside>
 
       {/* Settings content */}
-      <main className="flex-1 overflow-y-auto bg-background pt-12 px-6 pb-6">
+      <main className="flex-1 overflow-y-auto px-6 pb-6 pt-6">
         <div className="mx-auto max-w-2xl">
           <Outlet />
         </div>

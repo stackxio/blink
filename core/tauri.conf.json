@@ -20,7 +20,6 @@
         "fullscreen": false,
         "transparent": true,
         "decorations": true,
-        "titleBarStyle": "Overlay",
         "windowEffects": {
           "effects": ["sidebar"],
           "state": "followsWindowActiveState"
