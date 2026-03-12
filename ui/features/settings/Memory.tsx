@@ -8,20 +8,29 @@ export default function SettingsMemory() {
   const [content, setContent] = useState("");
 
   useEffect(() => {
-    loadFiles();
-  }, []);
-
-  async function loadFiles() {
-    try {
-      const list = await invoke<string[]>("list_memory_files");
-      setFiles(list);
-      if (list.length > 0 && !selectedFile) {
-        selectFile(list[0]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await invoke<string[]>("list_memory_files");
+        if (!cancelled) {
+          setFiles(list);
+          if (list.length > 0) {
+            const first = list[0];
+            setSelectedFile(first);
+            try {
+              const text = await invoke<string>("read_memory_file", { filename: first });
+              if (!cancelled) setContent(text);
+            } catch {
+              if (!cancelled) setContent("");
+            }
+          }
+        }
+      } catch {
+        if (!cancelled) setFiles([]);
       }
-    } catch {
-      setFiles([]);
-    }
-  }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function selectFile(filename: string) {
     setSelectedFile(filename);

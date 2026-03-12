@@ -14,6 +14,7 @@ mod tools;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(
             tauri_plugin_log::Builder::default()
                 .level(log::LevelFilter::Debug)
@@ -57,6 +58,10 @@ pub fn run() {
             commands::threads::move_thread_to_folder,
             commands::threads::rename_folder,
             commands::threads::update_folder_appearance,
+            commands::threads::update_folder_scope,
+            commands::threads::update_thread_scope,
+            commands::threads::resolve_effective_scope,
+            commands::threads::pick_directory,
             commands::threads::send_message,
             commands::threads::list_messages,
             commands::skills::list_skills,

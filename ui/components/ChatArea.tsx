@@ -158,6 +158,7 @@ export default function ChatArea() {
   // Track active stream session for cancellation
   const sessionIdRef = useRef<string | null>(null);
   const [queue, setQueue] = useState<string[]>([]);
+  const [effectiveScope, setEffectiveScope] = useState<{ mode: string; root_path: string | null; display_label: string } | null>(null);
 
   useEffect(() => {
     invoke<{
@@ -233,7 +234,7 @@ export default function ChatArea() {
     inputRef.current?.focus();
 
     if (!threadId) {
-      setMessages([]);
+      queueMicrotask(() => setMessages([]));
       return;
     }
 
@@ -259,6 +260,26 @@ export default function ChatArea() {
     };
   }, [threadId]);
 
+  // Load effective scope for chat header when thread is selected
+  useEffect(() => {
+    if (!threadId) {
+      queueMicrotask(() => setEffectiveScope(null));
+      return;
+    }
+    let cancelled = false;
+    invoke<{ mode: string; root_path: string | null; display_label: string }>("resolve_effective_scope", {
+      threadId,
+    })
+      .then((scope) => {
+        if (!cancelled) setEffectiveScope(scope);
+      })
+      .catch(() => {
+        if (!cancelled) setEffectiveScope(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId]);
 
   const updateLoading = useCallback(
     (value: boolean) => {
@@ -985,6 +1006,15 @@ export default function ChatArea() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      {effectiveScope && (
+        <div className="shrink-0 border-b border-border bg-surface/50 px-4 py-1.5">
+          <div className="mx-auto max-w-2xl">
+            <span className="text-xs text-muted-foreground">
+              Target: {effectiveScope.display_label}
+            </span>
+          </div>
+        </div>
+      )}
       {/* Messages */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl space-y-4 px-4 py-4">

@@ -19,21 +19,28 @@ export interface Folder {
   expanded: boolean;
   icon: string;
   color: string;
+  rootPath: string | null;
+  scopeMode: string;
 }
 
 interface DbFolder {
   id: string;
   name: string;
   position: number;
+  root_path?: string | null;
+  scope_mode?: string;
   icon?: string;
   color?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 interface DbThread {
   id: string;
   folder_id: string | null;
   title: string;
+  root_path_override?: string | null;
+  scope_mode_override?: string;
   created_at: string;
   updated_at: string;
   message_count: number;
@@ -46,6 +53,8 @@ function dbFolderToFolder(db: DbFolder): Folder {
     expanded: true,
     icon: db.icon ?? "Folder",
     color: db.color ?? "#6b7280",
+    rootPath: db.root_path ?? null,
+    scopeMode: db.scope_mode ?? "system",
   };
 }
 
@@ -108,10 +117,16 @@ export default function ChatLayout() {
     navigate("/chat");
   }
 
-  async function createThread(folderId?: string | null): Promise<ChatThread> {
+  async function createThread(
+    folderId?: string | null,
+    scopeModeOverride?: string | null,
+    rootPathOverride?: string | null,
+  ): Promise<ChatThread> {
     const dbThread = await invoke<DbThread>("create_thread", {
       folderId: folderId ?? null,
       title: "New chat",
+      scopeModeOverride: scopeModeOverride ?? null,
+      rootPathOverride: rootPathOverride ?? null,
     });
     const thread = dbThreadToThread(dbThread);
     setThreads((prev) => [thread, ...prev]);
@@ -119,13 +134,31 @@ export default function ChatLayout() {
     return thread;
   }
 
-  async function handleNewFolder(name: string) {
+  async function handleNewFolder(
+    name: string,
+    scopeMode?: string,
+    rootPath?: string | null,
+  ) {
     try {
-      const dbFolder = await invoke<DbFolder>("create_folder", { name });
+      const dbFolder = await invoke<DbFolder>("create_folder", {
+        name,
+        scopeMode: scopeMode ?? "system",
+        rootPath: rootPath ?? null,
+      });
       setFolders((prev) => [...prev, dbFolderToFolder(dbFolder)]);
     } catch {
-      // Fallback to local-only
-      setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, expanded: true, icon: "Folder", color: "#6b7280" }]);
+      setFolders((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          name,
+          expanded: true,
+          icon: "Folder",
+          color: "#6b7280",
+          rootPath: rootPath ?? null,
+          scopeMode: scopeMode ?? "system",
+        },
+      ]);
     }
   }
 

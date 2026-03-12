@@ -46,7 +46,8 @@ export default function SettingsMcp() {
     // Placeholder — implement later
   }
 
-  function handleInstall(_id: string) {
+  function handleInstall(id: string) {
+    void id; // placeholder — implement later
     // Placeholder — implement later
   }
 

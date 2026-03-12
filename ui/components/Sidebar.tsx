@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { PanelLeftClose, Plus, FolderPlus, ListFilter, Clock, Archive, Settings, Pencil, Trash2 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
+import { PanelLeftClose, Plus, FolderPlus, ListFilter, Clock, Archive, Settings, Pencil, Trash2, FolderOpen } from "lucide-react";
 import type { ChatThread, Folder } from "@/layout/ChatLayout";
 import { FolderIconRender } from "@/lib/folder-icons";
 
@@ -10,7 +11,7 @@ interface SidebarProps {
   onSelectThread: (id: string) => void;
   onSelectFolder: (folderId: string) => void;
   onNewThread: (folderId?: string | null) => void;
-  onNewFolder: (name: string) => void;
+  onNewFolder: (name: string, scopeMode?: string, rootPath?: string | null) => void;
   onToggleFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onDeleteThread: (threadId: string) => void;
@@ -48,6 +49,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
+  const [newProjectRoot, setNewProjectRoot] = useState<string | null>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renamingFolderName, setRenamingFolderName] = useState("");
@@ -87,16 +89,29 @@ export default function Sidebar({
     setNewFolderName("");
   }
 
+  async function handlePickDirectory() {
+    try {
+      const path = await invoke<string | null>("pick_directory");
+      if (path != null) setNewProjectRoot(path);
+    } catch {
+      // user cancelled or error
+    }
+  }
+
   function handleConfirmCreateFolder() {
     const name = newFolderName.trim();
-    if (name) onNewFolder(name);
+    if (name) {
+      onNewFolder(name, newProjectRoot ? "directory" : "system", newProjectRoot);
+    }
     setIsCreatingFolder(false);
     setNewFolderName("");
+    setNewProjectRoot(null);
   }
 
   function handleCancelCreateFolder() {
     setIsCreatingFolder(false);
     setNewFolderName("");
+    setNewProjectRoot(null);
   }
 
   useEffect(() => {
@@ -188,12 +203,12 @@ export default function Sidebar({
         <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           <div className="flex items-center justify-between gap-1 px-3 py-2">
             <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Threads
+              Projects
             </span>
             <div className="flex items-center gap-0.5">
               <button
                 onClick={handleStartCreateFolder}
-                title="New folder"
+                title="New project"
                 className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
               >
                 <FolderPlus size={14} />
@@ -209,20 +224,38 @@ export default function Sidebar({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
             {isCreatingFolder && (
-              <div className="mb-1 flex items-center gap-1.5 rounded px-1.5 py-1">
-                <FolderIcon />
-                <input
-                  ref={folderInputRef}
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleConfirmCreateFolder();
-                    if (e.key === "Escape") handleCancelCreateFolder();
-                  }}
-                  onBlur={handleConfirmCreateFolder}
-                  placeholder="Folder name..."
-                  className="flex-1 rounded bg-input px-1.5 py-0.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
-                />
+              <div className="mb-1 flex flex-col gap-1 rounded px-1.5 py-1">
+                <div className="flex items-center gap-1.5">
+                  <FolderIcon />
+                  <input
+                    ref={folderInputRef}
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConfirmCreateFolder();
+                      if (e.key === "Escape") handleCancelCreateFolder();
+                    }}
+                    onBlur={handleConfirmCreateFolder}
+                    placeholder="Project name..."
+                    className="flex-1 rounded bg-input px-1.5 py-0.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+                  />
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={handlePickDirectory}
+                    className="flex items-center gap-1 rounded bg-surface-raised px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground"
+                    title="Choose directory (or leave for entire system)"
+                  >
+                    <FolderOpen size={12} />
+                    {newProjectRoot ? "Change directory" : "Choose directory"}
+                  </button>
+                  {newProjectRoot && (
+                    <span className="truncate text-xs text-muted-foreground" title={newProjectRoot}>
+                      {newProjectRoot.split("/").pop() || newProjectRoot}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 
@@ -266,6 +299,22 @@ export default function Sidebar({
                     )}
                     <span className="shrink-0 text-muted-foreground">{folderThreads.length}</span>
                   </button>
+                  {(folder.scopeMode === "directory" && folder.rootPath) || folder.scopeMode === "system" ? (
+                    <div className="ml-5 mt-0.5 flex items-center gap-1">
+                      <span
+                        className={`rounded px-1 py-0.5 text-[10px] ${
+                          folder.scopeMode === "directory"
+                            ? "bg-primary/15 text-primary"
+                            : "bg-muted text-muted-foreground"
+                        }`}
+                        title={folder.scopeMode === "directory" ? folder.rootPath ?? undefined : "Entire system"}
+                      >
+                        {folder.scopeMode === "directory"
+                          ? (folder.rootPath ?? "").split("/").filter(Boolean).pop() ?? "Directory"
+                          : "System"}
+                      </span>
+                    </div>
+                  ) : null}
 
                 {folder.expanded && (
                   <div className="ml-4 mt-0.5">
@@ -360,7 +409,7 @@ export default function Sidebar({
               }}
               className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
             >
-              New chat in folder
+              New chat in project
             </button>
             <button
               onClick={() => {
@@ -370,7 +419,7 @@ export default function Sidebar({
               }}
               className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
             >
-              Rename folder
+              Rename project
             </button>
             <button
               onClick={() => {
@@ -379,7 +428,7 @@ export default function Sidebar({
               }}
               className="block w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-surface-raised"
             >
-              Delete folder
+              Delete project
             </button>
           </div>
         )}

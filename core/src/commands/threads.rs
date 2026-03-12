@@ -1,16 +1,28 @@
 use crate::db::models::{DbFolder, DbMessage, DbThread};
 use crate::db::queries;
 use rusqlite::Connection;
+use serde::Serialize;
 use std::sync::Mutex;
+
+/// Resolved scope for a thread: mode, optional root path, and display label.
+#[derive(Debug, Clone, Serialize)]
+pub struct EffectiveScope {
+    pub mode: String,
+    pub root_path: Option<String>,
+    pub display_label: String,
+}
 
 #[tauri::command]
 pub fn create_folder(
     state: tauri::State<'_, Mutex<Connection>>,
     name: String,
+    scope_mode: Option<String>,
+    root_path: Option<String>,
 ) -> Result<DbFolder, String> {
     let conn = state.lock().map_err(|e| e.to_string())?;
     let id = uuid_v4();
-    queries::create_folder(&conn, &id, &name).map_err(|e| e.to_string())
+    let scope = scope_mode.as_deref().unwrap_or("system");
+    queries::create_folder(&conn, &id, &name, scope, root_path.as_deref()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -30,6 +42,8 @@ pub fn create_thread(
     state: tauri::State<'_, Mutex<Connection>>,
     folder_id: Option<String>,
     title: String,
+    scope_mode_override: Option<String>,
+    root_path_override: Option<String>,
 ) -> Result<DbThread, String> {
     log::info!("create_thread: folder_id={:?}, title={}", folder_id, title);
     let conn = state.lock().map_err(|e| {
@@ -37,7 +51,14 @@ pub fn create_thread(
         e.to_string()
     })?;
     let id = uuid_v4();
-    match queries::create_thread(&conn, &id, folder_id.as_deref(), &title) {
+    match queries::create_thread(
+        &conn,
+        &id,
+        folder_id.as_deref(),
+        &title,
+        scope_mode_override.as_deref(),
+        root_path_override.as_deref(),
+    ) {
         Ok(thread) => {
             log::info!("create_thread: ok id={}", thread.id);
             Ok(thread)
@@ -120,6 +141,92 @@ pub fn update_folder_appearance(
     let conn = state.lock().map_err(|e| e.to_string())?;
     queries::update_folder_appearance(&conn, &id, icon.as_deref(), color.as_deref())
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_folder_scope(
+    state: tauri::State<'_, Mutex<Connection>>,
+    id: String,
+    scope_mode: String,
+    root_path: Option<String>,
+) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    queries::update_folder_scope(&conn, &id, &scope_mode, root_path.as_deref())
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn update_thread_scope(
+    state: tauri::State<'_, Mutex<Connection>>,
+    id: String,
+    scope_mode_override: String,
+    root_path_override: Option<String>,
+) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    queries::update_thread_scope(
+        &conn,
+        &id,
+        &scope_mode_override,
+        root_path_override.as_deref(),
+    )
+    .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn resolve_effective_scope(
+    state: tauri::State<'_, Mutex<Connection>>,
+    thread_id: String,
+) -> Result<EffectiveScope, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    let thread = queries::get_thread(&conn, &thread_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Thread not found".to_string())?;
+
+    let (mode, root_path) = match thread.scope_mode_override.as_str() {
+        "directory" => (
+            "directory".to_string(),
+            thread.root_path_override.clone(),
+        ),
+        "system" => ("system".to_string(), None),
+        _ => {
+            // inherit from project (folder)
+            let folder = thread
+                .folder_id
+                .as_ref()
+                .and_then(|fid| queries::get_folder(&conn, fid).ok().flatten());
+            match folder {
+                Some(f) if f.scope_mode == "directory" => {
+                    ("directory".to_string(), f.root_path.clone())
+                }
+                _ => ("system".to_string(), None),
+            }
+        }
+    };
+
+    let display_label = if mode == "directory" {
+        root_path
+            .clone()
+            .unwrap_or_else(|| "Directory".to_string())
+    } else {
+        "Entire System".to_string()
+    };
+
+    Ok(EffectiveScope {
+        mode,
+        root_path,
+        display_label,
+    })
+}
+
+#[tauri::command]
+pub async fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let path = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog().file().blocking_pick_folder()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(path.map(|p| p.to_string()))
 }
 
 #[tauri::command]

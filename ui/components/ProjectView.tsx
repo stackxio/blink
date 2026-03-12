@@ -83,6 +83,15 @@ export default function ProjectView() {
             <div className="relative min-w-0 flex-1">
               <h1 className="truncate text-xl font-semibold text-neutral-100">{folder.name}</h1>
               <p className="text-xs text-neutral-500">Project</p>
+              {folder.scopeMode === "system" || !folder.rootPath ? (
+                <p className="mt-1 text-xs text-amber-600/90" title="This project can operate across the entire system">
+                  Target scope: entire system
+                </p>
+              ) : (
+                <p className="mt-1 truncate text-xs text-neutral-500" title={folder.rootPath}>
+                  Target: {folder.rootPath}
+                </p>
+              )}
             </div>
             <div className="relative">
               <button

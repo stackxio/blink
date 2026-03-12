@@ -28,10 +28,6 @@ pub fn init_db() -> rusqlite::Result<Connection> {
     }
     log::info!("init_db: migrations applied");
 
-    // Optional migrations for existing DBs (e.g. add folder icon/color); ignore if columns exist
-    let _ = conn.execute_batch("ALTER TABLE folders ADD COLUMN icon TEXT NOT NULL DEFAULT 'Folder'");
-    let _ = conn.execute_batch("ALTER TABLE folders ADD COLUMN color TEXT NOT NULL DEFAULT '#6b7280'");
-
     log::info!("init_db: ready");
     Ok(conn)
 }

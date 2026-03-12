@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 interface SkillFile {
@@ -17,15 +17,11 @@ export default function SettingsSkills() {
   const [saving, setSaving] = useState(false);
   const newNameRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadSkills();
-  }, []);
-
-  async function loadSkills() {
+  const loadSkills = useCallback(async () => {
     try {
       const list = await invoke<SkillFile[]>("list_skills");
       setSkills(list);
-      if (!selected && list.length > 0) {
+      if (list.length > 0) {
         setSelected(list[0].filename);
         setEditContent(list[0].content);
         setDirty(false);
@@ -33,7 +29,27 @@ export default function SettingsSkills() {
     } catch {
       // ignore
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await invoke<SkillFile[]>("list_skills");
+        if (!cancelled) {
+          setSkills(list);
+          if (list.length > 0) {
+            setSelected(list[0].filename);
+            setEditContent(list[0].content);
+            setDirty(false);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   function handleSelect(filename: string) {
     const skill = skills.find((s) => s.filename === filename);

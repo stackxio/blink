@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- file exports constants and lookup for folder icons */
 import {
   Folder,
   FolderOpen,
@@ -84,7 +85,7 @@ interface FolderIconRenderProps {
 }
 
 export function FolderIconRender({ name, color, size = 14, className }: FolderIconRenderProps) {
-  const Icon = getFolderIconComponent(name);
+  const Icon = ICON_MAP[name] ?? Folder;
   return <Icon size={size} color={color} className={className} />;
 }
 
