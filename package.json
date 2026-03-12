@@ -11,7 +11,7 @@
     "format:check": "prettier --check .",
     "preview": "vite preview",
     "tauri": "TAURI_DIR=core tauri",
-    "app": "TAURI_DIR=core pnpm tauri dev",
+    "app": "bash scripts/start-dev-app.sh",
     "app:build": "TAURI_DIR=core pnpm tauri build",
     "db:reset": "rm -f ~/.caret/caret.db && echo 'Database reset. It will be recreated on next app launch.'"
   },

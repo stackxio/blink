@@ -34,6 +34,7 @@ export default function ProjectView() {
   if (!folder) return null;
 
   async function handleNewChatInProject() {
+    if (!folder) return;
     await onNewThread(folder.id);
   }
 
