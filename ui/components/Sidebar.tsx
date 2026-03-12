@@ -1,22 +1,30 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { PanelLeftClose, Plus, FolderPlus } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { PanelLeftClose, Plus, FolderPlus, ListFilter, Clock, Archive, Settings, Pencil, Trash2 } from "lucide-react";
 import type { ChatThread, Folder } from "@/layout/ChatLayout";
+import { FolderIconRender } from "@/lib/folder-icons";
 
 interface SidebarProps {
   folders: Folder[];
   threads: ChatThread[];
   activeThreadId: string | null;
   onSelectThread: (id: string) => void;
+  onSelectFolder: (folderId: string) => void;
   onNewThread: (folderId?: string | null) => void;
   onNewFolder: (name: string) => void;
   onToggleFolder: (folderId: string) => void;
   onDeleteFolder: (folderId: string) => void;
   onDeleteThread: (threadId: string) => void;
+  onArchiveThread: (threadId: string) => void;
   onMoveThread: (threadId: string, folderId: string | null) => void;
   onRenameFolder: (folderId: string, name: string) => void;
   onRenameThread: (threadId: string, title: string) => void;
+  onUpdateFolderAppearance?: (
+    folderId: string,
+    updates: { icon?: string; color?: string },
+  ) => void;
   onOpenSettings: () => void;
   onToggleSidebar: () => void;
+  onOpenAutomations: () => void;
 }
 
 export default function Sidebar({
@@ -24,55 +32,29 @@ export default function Sidebar({
   threads,
   activeThreadId,
   onSelectThread,
+  onSelectFolder,
   onNewThread,
   onNewFolder,
   onToggleFolder,
   onDeleteFolder,
   onDeleteThread,
+  onArchiveThread,
   onMoveThread,
   onRenameFolder,
   onRenameThread,
   onOpenSettings,
   onToggleSidebar,
+  onOpenAutomations,
 }: SidebarProps) {
-  const [width, setWidth] = useState(260);
-  const isResizing = useRef(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const folderInputRef = useRef<HTMLInputElement>(null);
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [dragOverLoose, setDragOverLoose] = useState(false);
   const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
   const [renamingFolderName, setRenamingFolderName] = useState("");
   const renameFolderInputRef = useRef<HTMLInputElement>(null);
   const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
   const [renamingThreadName, setRenamingThreadName] = useState("");
   const renameThreadInputRef = useRef<HTMLInputElement>(null);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isResizing.current = true;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing.current) return;
-      const maxW = Math.min(320, window.innerWidth * 0.4);
-      const newWidth = Math.min(maxW, Math.max(200, e.clientX));
-      setWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      isResizing.current = false;
-      document.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseup", handleMouseUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-  }, []);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -81,17 +63,16 @@ export default function Sidebar({
     id: string;
   } | null>(null);
 
+  const [moveThreadId, setMoveThreadId] = useState<string | null>(null);
+  const [moveSearch, setMoveSearch] = useState("");
+
   const looseThreads = threads.filter((t) => t.folderId === null);
 
   function threadsInFolder(folderId: string) {
     return threads.filter((t) => t.folderId === folderId);
   }
 
-  function handleContextMenu(
-    e: React.MouseEvent,
-    type: "folder" | "thread",
-    id: string,
-  ) {
+  function handleContextMenu(e: React.MouseEvent, type: "folder" | "thread", id: string) {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, type, id });
   }
@@ -170,300 +151,387 @@ export default function Sidebar({
     if (renamingThreadId) renameThreadInputRef.current?.focus();
   }, [renamingThreadId]);
 
-  // Drag and drop
-  function handleDragStart(e: React.DragEvent, threadId: string) {
-    e.dataTransfer.setData("text/plain", threadId);
-    e.dataTransfer.effectAllowed = "move";
-  }
-
-  function handleFolderDragOver(e: React.DragEvent, folderId: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverFolderId(folderId);
-    setDragOverLoose(false);
-  }
-
-  function handleFolderDrop(e: React.DragEvent, folderId: string) {
-    e.preventDefault();
-    const threadId = e.dataTransfer.getData("text/plain");
-    if (threadId) onMoveThread(threadId, folderId);
-    setDragOverFolderId(null);
-  }
-
-  function handleLooseDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverLoose(true);
-    setDragOverFolderId(null);
-  }
-
-  function handleLooseDrop(e: React.DragEvent) {
-    e.preventDefault();
-    const threadId = e.dataTransfer.getData("text/plain");
-    if (threadId) onMoveThread(threadId, null);
-    setDragOverLoose(false);
-  }
-
-  function handleDragLeave() {
-    setDragOverFolderId(null);
-    setDragOverLoose(false);
-  }
-
   return (
-    <div className="relative flex h-full shrink-0 overflow-hidden" style={{ width: Math.min(width, 280) }}>
-    <aside
-      className="flex h-full flex-1 flex-col text-[13px]"
+    <div
+      className="relative flex h-full min-h-0 w-[260px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-[13px] text-foreground"
       onClick={closeContextMenu}
     >
-      {/* New chat + actions */}
-      <div className="flex items-center gap-1 px-2 pb-2 pt-2">
-        <button
-          onClick={onToggleSidebar}
-          title="Hide sidebar (Cmd+B)"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-        >
-          <PanelLeftClose size={14} />
-        </button>
-        <button
-          onClick={() => onNewThread(null)}
-          className="flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-xs font-medium text-neutral-300 transition-colors hover:bg-surface-raised"
-        >
-          <Plus size={14} />
-          New chat
-        </button>
-        <button
-          onClick={handleStartCreateFolder}
-          title="New folder"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-        >
-          <FolderPlus size={14} />
-        </button>
-      </div>
+      <aside className="flex h-full min-h-0 flex-1 flex-col">
+        <div className="titlebar-no-drag flex flex-col gap-0.5 px-3 py-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onToggleSidebar}
+              title="Hide sidebar (Cmd+B)"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              <PanelLeftClose size={14} />
+            </button>
+            <button
+              onClick={() => onNewThread(null)}
+              className="flex flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              <Plus size={16} />
+              <span>New thread</span>
+            </button>
+          </div>
+          <button
+            onClick={onOpenAutomations}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+          >
+            <Clock size={16} />
+            <span>Automations</span>
+          </button>
+        </div>
 
-      <div className="mx-2 border-t border-neutral-800/60" />
+        <div className="mx-2 border-t border-border" />
 
-      {/* Threads & folders */}
-      <div className="flex-1 overflow-y-auto px-2 py-1.5">
-        {/* Inline folder creation */}
-        {isCreatingFolder && (
-          <div className="mb-1 flex items-center gap-1.5 rounded px-1.5 py-1">
-            <FolderIcon />
-            <input
-              ref={folderInputRef}
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleConfirmCreateFolder();
-                if (e.key === "Escape") handleCancelCreateFolder();
+        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
+          <div className="flex items-center justify-between gap-1 px-3 py-2">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Threads
+            </span>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={handleStartCreateFolder}
+                title="New folder"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+              >
+                <FolderPlus size={14} />
+              </button>
+              <button
+                title="Filter or sort"
+                className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+              >
+                <ListFilter size={14} />
+              </button>
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            {isCreatingFolder && (
+              <div className="mb-1 flex items-center gap-1.5 rounded px-1.5 py-1">
+                <FolderIcon />
+                <input
+                  ref={folderInputRef}
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleConfirmCreateFolder();
+                    if (e.key === "Escape") handleCancelCreateFolder();
+                  }}
+                  onBlur={handleConfirmCreateFolder}
+                  placeholder="Folder name..."
+                  className="flex-1 rounded bg-input px-1.5 py-0.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+                />
+              </div>
+            )}
+
+            {folders.map((folder) => {
+              const folderThreads = threadsInFolder(folder.id);
+              const isRenaming = renamingFolderId === folder.id;
+
+              return (
+                <div
+                  key={folder.id}
+                  className="mb-0.5 w-full"
+                  onContextMenu={(e) => handleContextMenu(e, "folder", folder.id)}
+                >
+                  <button
+                    type="button"
+                    onClick={() => !isRenaming && onToggleFolder(folder.id)}
+                    className="flex w-full min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left hover:bg-surface-raised"
+                  >
+                    <FolderIconRender
+                      name={folder.icon}
+                      color={folder.color}
+                      size={14}
+                      className="shrink-0"
+                    />
+                    {isRenaming ? (
+                      <input
+                        ref={renameFolderInputRef}
+                        value={renamingFolderName}
+                        onChange={(e) => setRenamingFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Enter") handleConfirmRenameFolder();
+                          if (e.key === "Escape") handleCancelRenameFolder();
+                        }}
+                        onBlur={handleConfirmRenameFolder}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 rounded bg-input px-1 py-0 text-xs text-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+                      />
+                    ) : (
+                      <span className="flex-1 truncate text-foreground">{folder.name}</span>
+                    )}
+                    <span className="shrink-0 text-muted-foreground">{folderThreads.length}</span>
+                  </button>
+
+                {folder.expanded && (
+                  <div className="ml-4 mt-0.5">
+                    {folderThreads.length === 0 ? (
+                      <button
+                        onClick={() => onNewThread(folder.id)}
+                        className="w-full rounded px-2 py-1 text-left text-muted-foreground transition-colors hover:bg-surface-raised/60 hover:text-foreground"
+                      >
+                        + New chat
+                      </button>
+                    ) : (
+                      folderThreads.map((thread) => (
+                        <ThreadItem
+                          key={thread.id}
+                          thread={thread}
+                          isActive={activeThreadId === thread.id}
+                          isRenaming={renamingThreadId === thread.id}
+                          renameValue={renamingThreadName}
+                          renameInputRef={renameThreadInputRef}
+                          onRenameChange={setRenamingThreadName}
+                          onRenameConfirm={handleConfirmRenameThread}
+                          onRenameCancel={handleCancelRenameThread}
+                          onClick={() => onSelectThread(thread.id)}
+                          onDelete={() => onDeleteThread(thread.id)}
+                          onArchive={() => onArchiveThread(thread.id)}
+                          onStartRename={() => handleStartRenameThread(thread.id, thread.title)}
+                          onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
+                        />
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {looseThreads.length > 0 && folders.length > 0 && (
+            <div className="mx-1 my-1 border-t border-border" />
+          )}
+          <div className="min-h-[4px] rounded">
+            {looseThreads.map((thread) => (
+              <ThreadItem
+                key={thread.id}
+                thread={thread}
+                isActive={activeThreadId === thread.id}
+                isRenaming={renamingThreadId === thread.id}
+                renameValue={renamingThreadName}
+                renameInputRef={renameThreadInputRef}
+                onRenameChange={setRenamingThreadName}
+                onRenameConfirm={handleConfirmRenameThread}
+                onRenameCancel={handleCancelRenameThread}
+                onClick={() => onSelectThread(thread.id)}
+                onDelete={() => onDeleteThread(thread.id)}
+                onArchive={() => onArchiveThread(thread.id)}
+                onStartRename={() => handleStartRenameThread(thread.id, thread.title)}
+                onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
+              />
+            ))}
+          </div>
+        </div>
+        </div>
+
+        <div className="border-t border-border p-2">
+          <button
+            onClick={onOpenSettings}
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+          >
+            <Settings size={16} />
+            <span>Settings</span>
+          </button>
+        </div>
+
+        {contextMenu && contextMenu.type === "folder" && (
+          <div
+            className="fixed z-50 min-w-32 rounded-md border border-border bg-surface py-1 shadow-lg"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                onSelectFolder(contextMenu.id);
+                closeContextMenu();
               }}
-              onBlur={handleConfirmCreateFolder}
-              placeholder="Folder name..."
-              className="flex-1 rounded bg-neutral-800 px-1.5 py-0.5 text-xs text-neutral-200 placeholder-neutral-600 outline-none focus:ring-1 focus:ring-neutral-600"
-            />
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
+            >
+              Open project
+            </button>
+            <button
+              onClick={() => {
+                onNewThread(contextMenu.id);
+                closeContextMenu();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
+            >
+              New chat in folder
+            </button>
+            <button
+              onClick={() => {
+                const folder = folders.find((f) => f.id === contextMenu.id);
+                if (folder) handleStartRenameFolder(folder.id, folder.name);
+                closeContextMenu();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
+            >
+              Rename folder
+            </button>
+            <button
+              onClick={() => {
+                onDeleteFolder(contextMenu.id);
+                closeContextMenu();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-red-500 hover:bg-surface-raised"
+            >
+              Delete folder
+            </button>
           </div>
         )}
 
-        {/* Folders */}
-        {folders.map((folder) => {
-          const folderThreads = threadsInFolder(folder.id);
-          const isDragOver = dragOverFolderId === folder.id;
-          const isRenaming = renamingFolderId === folder.id;
-
-          return (
-            <div
-              key={folder.id}
-              className="mb-0.5"
-              onDragOver={(e) => handleFolderDragOver(e, folder.id)}
-              onDrop={(e) => handleFolderDrop(e, folder.id)}
-              onDragLeave={handleDragLeave}
+        {contextMenu && contextMenu.type === "thread" && (
+          <div
+            className="fixed z-50 min-w-40 rounded-md border border-border bg-surface py-1 shadow-lg"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                onSelectThread(contextMenu.id);
+                closeContextMenu();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
             >
-              <button
-                onClick={() => onToggleFolder(folder.id)}
-                onContextMenu={(e) => handleContextMenu(e, "folder", folder.id)}
-                className={`flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors hover:bg-surface-raised ${
-                  isDragOver ? "bg-[#55aaff]/10 ring-1 ring-[#55aaff]/40" : ""
-                }`}
-              >
-                <svg
-                  className={`h-2.5 w-2.5 shrink-0 text-neutral-600 transition-transform ${folder.expanded ? "rotate-90" : ""}`}
-                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-                <FolderIcon />
-                {isRenaming ? (
-                  <input
-                    ref={renameFolderInputRef}
-                    value={renamingFolderName}
-                    onChange={(e) => setRenamingFolderName(e.target.value)}
-                    onKeyDown={(e) => {
-                      e.stopPropagation();
-                      if (e.key === "Enter") handleConfirmRenameFolder();
-                      if (e.key === "Escape") handleCancelRenameFolder();
-                    }}
-                    onBlur={handleConfirmRenameFolder}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 rounded bg-neutral-800 px-1 py-0 text-xs text-neutral-200 outline-none focus:ring-1 focus:ring-neutral-600"
-                  />
-                ) : (
-                  <span className="flex-1 truncate text-neutral-300">{folder.name}</span>
-                )}
-                <span className="text-neutral-600">{folderThreads.length}</span>
-              </button>
-
-              {folder.expanded && (
-                <div className="ml-4 mt-0.5">
-                  {folderThreads.length === 0 ? (
+              Open chat
+            </button>
+            <div className="my-1 border-t border-border" />
+            <button
+              onClick={() => {
+                setMoveThreadId(contextMenu.id);
+                setMoveSearch("");
+                closeContextMenu();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
+            >
+              Move to project…
+            </button>
+            {(() => {
+              const thread = threads.find((t) => t.id === contextMenu.id);
+              if (thread?.folderId != null) {
+                return (
+                  <>
+                    <div className="my-1 border-t border-border" />
                     <button
-                      onClick={() => onNewThread(folder.id)}
-                      className="w-full rounded px-2 py-1 text-left text-neutral-600 transition-colors hover:bg-surface-raised/60 hover:text-neutral-400"
+                      onClick={() => {
+                        onMoveThread(contextMenu.id, null);
+                        closeContextMenu();
+                      }}
+                      className="block w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-surface-raised"
                     >
-                      + New chat
+                      Move outside project
                     </button>
-                  ) : (
-                    folderThreads.map((thread) => (
-                      <ThreadItem
-                        key={thread.id}
-                        thread={thread}
-                        isActive={activeThreadId === thread.id}
-                        isRenaming={renamingThreadId === thread.id}
-                        renameValue={renamingThreadName}
-                        renameInputRef={renameThreadInputRef}
-                        onRenameChange={setRenamingThreadName}
-                        onRenameConfirm={handleConfirmRenameThread}
-                        onRenameCancel={handleCancelRenameThread}
-                        onClick={() => onSelectThread(thread.id)}
-                        onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
-                        onDragStart={(e) => handleDragStart(e, thread.id)}
-                      />
-                    ))
-                  )}
+                  </>
+                );
+              }
+              return null;
+            })()}
+          </div>
+        )}
+
+        {moveThreadId && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+            onClick={() => setMoveThreadId(null)}
+          >
+            <div
+              className="w-full max-w-sm rounded-lg border border-border bg-surface p-3 shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Move to project
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Choose a project for this chat.
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setMoveThreadId(null)}
+                  className="rounded p-1 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="mb-2">
+                <input
+                  autoFocus
+                  value={moveSearch}
+                  onChange={(e) => setMoveSearch(e.target.value)}
+                  placeholder="Search projects…"
+                  className="w-full rounded-md bg-input px-2 py-1.5 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+                />
+              </div>
+              <div className="max-h-52 overflow-y-auto rounded-md border border-border/60 bg-background/40">
+                {folders
+                  .filter((folder) =>
+                    folder.name.toLowerCase().includes(moveSearch.toLowerCase()),
+                  )
+                  .map((folder) => (
+                    <button
+                      key={folder.id}
+                      type="button"
+                      onClick={() => {
+                        onMoveThread(moveThreadId, folder.id);
+                        setMoveThreadId(null);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-foreground hover:bg-surface-raised"
+                    >
+                      <FolderIconRender
+                        name={folder.icon}
+                        color={folder.color}
+                        size={14}
+                        className="shrink-0"
+                      />
+                      <span className="truncate">{folder.name}</span>
+                    </button>
+                  ))}
+                {folders.length === 0 && (
+                  <div className="px-3 py-2 text-[11px] text-muted-foreground">
+                    No projects yet. Create one from the sidebar.
+                  </div>
+                )}
+              </div>
+              {folders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onMoveThread(moveThreadId, null);
+                    setMoveThreadId(null);
+                  }}
+                  className="mt-2 block w-full rounded-md bg-surface-raised px-3 py-1.5 text-center text-[11px] text-muted-foreground hover:bg-surface"
+                >
+                  Remove from project
+                </button>
               )}
             </div>
-          );
-        })}
-
-        {/* Loose threads (no folder) */}
-        {looseThreads.length > 0 && folders.length > 0 && (
-          <div className="mx-1 my-1 border-t border-neutral-800/40" />
+          </div>
         )}
-        <div
-          onDragOver={handleLooseDragOver}
-          onDrop={handleLooseDrop}
-          onDragLeave={handleDragLeave}
-          className={`min-h-[4px] rounded transition-colors ${dragOverLoose ? "bg-[#55aaff]/10 ring-1 ring-[#55aaff]/40" : ""}`}
-        >
-          {looseThreads.map((thread) => (
-            <ThreadItem
-              key={thread.id}
-              thread={thread}
-              isActive={activeThreadId === thread.id}
-              isRenaming={renamingThreadId === thread.id}
-              renameValue={renamingThreadName}
-              renameInputRef={renameThreadInputRef}
-              onRenameChange={setRenamingThreadName}
-              onRenameConfirm={handleConfirmRenameThread}
-              onRenameCancel={handleCancelRenameThread}
-              onClick={() => onSelectThread(thread.id)}
-              onContextMenu={(e) => handleContextMenu(e, "thread", thread.id)}
-              onDragStart={(e) => handleDragStart(e, thread.id)}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* Settings */}
-      <div className="border-t border-neutral-800/60 p-2">
-        <button
-          onClick={onOpenSettings}
-          className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-        >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7 7 0 010 .255c-.007.378.138.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a7 7 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a7 7 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.991a7 7 0 010-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Settings
-        </button>
-      </div>
-
-      {/* Context menu */}
-      {contextMenu && (
-        <div
-          className="fixed z-50 min-w-32 rounded-md border border-neutral-700 bg-neutral-900 py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contextMenu.type === "folder" ? (
-            <>
-              <button
-                onClick={() => {
-                  onNewThread(contextMenu.id);
-                  closeContextMenu();
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800"
-              >
-                New chat in folder
-              </button>
-              <button
-                onClick={() => {
-                  const folder = folders.find((f) => f.id === contextMenu.id);
-                  if (folder) handleStartRenameFolder(folder.id, folder.name);
-                  closeContextMenu();
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800"
-              >
-                Rename folder
-              </button>
-              <button
-                onClick={() => {
-                  onDeleteFolder(contextMenu.id);
-                  closeContextMenu();
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800"
-              >
-                Delete folder
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => {
-                  const thread = threads.find((t) => t.id === contextMenu.id);
-                  if (thread) handleStartRenameThread(thread.id, thread.title);
-                  closeContextMenu();
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-neutral-300 hover:bg-neutral-800"
-              >
-                Rename chat
-              </button>
-              <button
-                onClick={() => {
-                  onDeleteThread(contextMenu.id);
-                  closeContextMenu();
-                }}
-                className="block w-full px-3 py-1.5 text-left text-xs text-red-400 hover:bg-neutral-800"
-              >
-                Delete chat
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </aside>
-    {/* Resize handle */}
-    <div
-      onMouseDown={handleMouseDown}
-      className="absolute right-0 top-0 z-10 h-full w-1 cursor-col-resize border-r border-neutral-800 transition-colors hover:border-neutral-600"
-    />
+      </aside>
     </div>
   );
 }
 
 function FolderIcon() {
   return (
-    <svg className="h-3.5 w-3.5 shrink-0 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z" />
+    <svg
+      className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"
+      />
     </svg>
   );
 }
@@ -478,8 +546,10 @@ function ThreadItem({
   onRenameConfirm,
   onRenameCancel,
   onClick,
+  onDelete,
+  onArchive,
+  onStartRename,
   onContextMenu,
-  onDragStart,
 }: {
   thread: ChatThread;
   isActive: boolean;
@@ -490,38 +560,84 @@ function ThreadItem({
   onRenameConfirm: () => void;
   onRenameCancel: () => void;
   onClick: () => void;
-  onContextMenu: (e: React.MouseEvent) => void;
-  onDragStart: (e: React.DragEvent) => void;
+  onDelete: () => void;
+  onArchive: () => void;
+  onStartRename: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }) {
+  const isEmpty = thread.messageCount === 0;
   return (
-    <button
-      draggable={!isRenaming}
-      onDragStart={onDragStart}
-      onClick={isRenaming ? undefined : onClick}
+    <div
       onContextMenu={onContextMenu}
-      className={`flex w-full cursor-grab items-center rounded px-2 py-1 text-left transition-colors active:cursor-grabbing ${
+      className={`group flex w-full cursor-grab items-center gap-1 rounded px-2 py-1 text-left transition-colors active:cursor-grabbing select-none ${
         isActive
-          ? "bg-surface-raised text-neutral-100"
-          : "text-neutral-400 hover:bg-surface-raised/60 hover:text-neutral-200"
+          ? "bg-surface-raised text-foreground"
+          : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
       }`}
     >
-      {isRenaming ? (
-        <input
-          ref={renameInputRef}
-          value={renameValue}
-          onChange={(e) => onRenameChange(e.target.value)}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === "Enter") onRenameConfirm();
-            if (e.key === "Escape") onRenameCancel();
-          }}
-          onBlur={onRenameConfirm}
-          onClick={(e) => e.stopPropagation()}
-          className="w-full rounded bg-neutral-800 px-1 py-0 text-xs text-neutral-200 outline-none focus:ring-1 focus:ring-neutral-600"
-        />
-      ) : (
-        <span className="truncate">{thread.title}</span>
+      <button
+        type="button"
+        onClick={isRenaming ? undefined : onClick}
+        className="min-w-0 flex-1 truncate text-left"
+      >
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            value={renameValue}
+            onChange={(e) => onRenameChange(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") onRenameConfirm();
+              if (e.key === "Escape") onRenameCancel();
+            }}
+            onBlur={onRenameConfirm}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full rounded bg-input px-1 py-0 text-xs text-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+          />
+        ) : (
+          <span className="truncate">{thread.title}</span>
+        )}
+      </button>
+      {!isRenaming && (
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onStartRename();
+            }}
+            title="Rename"
+            className="rounded p-0.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
+          >
+            <Pencil size={12} />
+          </button>
+          {isEmpty ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Delete"
+              className="rounded p-0.5 text-muted-foreground hover:bg-surface-raised hover:text-red-500"
+            >
+              <Trash2 size={12} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onArchive();
+              }}
+              title="Archive"
+              className="rounded p-0.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
+            >
+              <Archive size={12} />
+            </button>
+          )}
+        </div>
       )}
-    </button>
+    </div>
   );
 }

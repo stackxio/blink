@@ -1,5 +1,5 @@
-use serde::Serialize;
 use crate::settings::prompts;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct SkillFile {

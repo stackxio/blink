@@ -6,21 +6,22 @@ use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
-use crate::ai::codex_server::{ActivityEvent, CodexServer, CodexStreamEvent};
-use crate::ai::custom::CustomProvider;
-use crate::ai::ollama::OllamaProvider;
-use crate::ai::router::AIRouter;
-use crate::ai::types::ChatRequest;
 use crate::db::queries;
+use crate::providers::ollama::{OllamaModelInfo, OllamaProvider};
+use crate::providers::openai::{ActivityEvent, CodexServer, CodexStreamEvent};
+use crate::services::chat;
 use crate::settings::prompts;
 use crate::settings::store::SettingsStore;
 
 // --- Types ---
 
 #[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatInput {
     pub prompt: String,
     pub thread_id: Option<String>,
+    pub reasoning_effort: Option<String>,
+    pub fast_mode: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -33,7 +34,6 @@ pub struct ChatOutput {
 pub struct StreamSession {
     pub cancelled: Arc<AtomicBool>,
     pub child_pid: Option<u32>,
-    /// Codex thread/turn IDs for cancel via turn/interrupt
     pub codex_thread_id: Option<String>,
     pub codex_turn_id: Option<String>,
 }
@@ -44,7 +44,7 @@ pub fn create_stream_sessions() -> StreamSessions {
     Arc::new(Mutex::new(HashMap::new()))
 }
 
-// --- Persistent codex server state ---
+// --- Codex app-server state (persistent JSON-RPC process) ---
 
 pub type CodexState = Arc<tokio::sync::Mutex<Option<Arc<CodexServer>>>>;
 
@@ -52,19 +52,16 @@ pub fn create_codex_state() -> CodexState {
     Arc::new(tokio::sync::Mutex::new(None))
 }
 
-/// Get or lazily initialize the persistent codex app-server.
 async fn get_codex_server(state: &CodexState) -> Result<Arc<CodexServer>, String> {
     let mut guard = state.lock().await;
     if let Some(server) = guard.as_ref() {
         return Ok(server.clone());
     }
 
-    // Spawn the codex app-server process
     let server = CodexServer::spawn("/opt/homebrew/bin/codex")
         .await
         .map_err(|e| format!("Failed to start codex app-server: {}", e))?;
 
-    // Initialize handshake
     server.ensure_initialized().await?;
 
     let server = Arc::new(server);
@@ -99,34 +96,23 @@ struct ChatStreamActivity {
     activity: ActivityEvent,
 }
 
-/// Build the full prompt including system instructions and conversation history.
-/// Used for non-codex providers that don't maintain their own context.
-fn build_full_prompt(
-    conn: &Connection,
-    thread_id: Option<&str>,
-    current_prompt: &str,
-    prompt_mode: &str,
-) -> String {
-    let system_prompt = prompts::load_system_prompt_with_mode(prompt_mode);
+// --- Helpers ---
 
-    let mut history = String::new();
-    if let Some(tid) = thread_id {
-        if let Ok(messages) = queries::list_messages(conn, tid) {
-            for msg in &messages {
-                let role_label = if msg.role == "user" { "User" } else { "Assistant" };
-                history.push_str(&format!("{}: {}\n\n", role_label, msg.content));
-            }
-        }
-    }
+fn generate_session_id() -> String {
+    format!(
+        "{:032x}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    )
+}
 
-    if history.is_empty() {
-        format!("{}\n\n---\n\nUser: {}", system_prompt, current_prompt)
-    } else {
-        format!(
-            "{}\n\n---\n\nConversation so far:\n\n{}User: {}",
-            system_prompt, history, current_prompt
-        )
-    }
+/// Codex uses a persistent JSON-RPC server process with its own thread/turn
+/// management. This is the only provider that streams via a long-lived child
+/// process rather than the generic AIRouter.
+fn uses_persistent_server(provider: &str) -> bool {
+    provider == "codex"
 }
 
 // --- Commands ---
@@ -139,23 +125,29 @@ pub async fn chat_stream(
     codex_state: tauri::State<'_, CodexState>,
     input: ChatInput,
 ) -> Result<String, String> {
+    log::info!(
+        "chat_stream: provider lookup, thread_id={:?}, prompt_len={}",
+        input.thread_id,
+        input.prompt.len()
+    );
+
     let store = SettingsStore::new();
-    let settings = store.load().map_err(|e| e.to_string())?;
+    let settings = store.load().map_err(|e| {
+        log::error!("chat_stream: failed to load settings: {}", e);
+        e.to_string()
+    })?;
 
     let provider = settings.active_provider.clone();
+    log::info!("chat_stream: provider={}", provider);
 
-    // Create a session with cancellation token
-    let session_id = format!(
-        "{:032x}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    );
+    let session_id = generate_session_id();
     let cancelled = Arc::new(AtomicBool::new(false));
 
     {
-        let mut sess = sessions.lock().map_err(|e| e.to_string())?;
+        let mut sess = sessions.lock().map_err(|e| {
+            log::error!("chat_stream: failed to lock sessions: {}", e);
+            e.to_string()
+        })?;
         sess.insert(
             session_id.clone(),
             StreamSession {
@@ -170,292 +162,356 @@ pub async fn chat_stream(
     let session_id_clone = session_id.clone();
     let sessions_inner = sessions.inner().clone();
 
-    if provider == "codex" {
-        // Get the persistent codex server
-        let server = get_codex_server(&codex_state.inner()).await?;
+    if uses_persistent_server(&provider) {
+        stream_via_codex_server(
+            app_handle,
+            state,
+            sessions,
+            codex_state,
+            &settings,
+            input,
+            session_id.clone(),
+            session_id_clone,
+            sessions_inner,
+            cancelled,
+        )
+        .await?;
+    } else {
+        stream_via_router(
+            app_handle,
+            state,
+            &settings,
+            &provider,
+            input,
+            session_id_clone,
+            sessions_inner,
+            cancelled,
+        )?;
+    }
 
-        // Determine our thread ID
-        let our_thread_id = input.thread_id.clone().unwrap_or_else(|| "default".to_string());
+    log::info!("chat_stream: session started session_id={}", session_id);
+    Ok(session_id)
+}
 
-        // Look up stored codex thread ID from DB
-        let stored_codex_id: Option<String> = {
-            let conn = state.lock().map_err(|e| e.to_string())?;
-            queries::get_codex_thread_id(&conn, &our_thread_id).unwrap_or(None)
-        };
+/// Stream via the generic AIRouter. Used by all providers except those with
+/// persistent server processes.
+fn stream_via_router(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Connection>>,
+    settings: &crate::settings::config::CaretSettings,
+    provider: &str,
+    input: ChatInput,
+    session_id_clone: String,
+    sessions_inner: StreamSessions,
+    cancelled: Arc<AtomicBool>,
+) -> Result<(), String> {
+    let req = {
+        let conn = state.lock().map_err(|e| {
+            log::error!("chat_stream: failed to lock db: {}", e);
+            e.to_string()
+        })?;
+        chat::build_chat_request(
+            provider,
+            &conn,
+            input.thread_id.as_deref(),
+            &input.prompt,
+            &settings.prompt_mode,
+        )
+    };
 
-        // Get or create the codex thread (tries resume if stored ID exists)
-        let (codex_thread_id, is_new_thread) = server
-            .get_or_create_thread(&our_thread_id, stored_codex_id.as_deref())
-            .await?;
+    let settings = settings.clone();
+    tauri::async_runtime::spawn(async move {
+        let router = chat::build_router(&settings);
 
-        // Persist the codex thread ID mapping to DB if new
-        if is_new_thread {
-            if let Ok(conn) = state.lock() {
-                let _ = queries::set_codex_thread_id(&conn, &our_thread_id, &codex_thread_id);
+        if cancelled.load(Ordering::Relaxed) {
+            let _ = app_handle.emit(
+                "chat:cancelled",
+                ChatStreamCancelled {
+                    partial_text: String::new(),
+                },
+            );
+            if let Ok(mut sess) = sessions_inner.lock() {
+                sess.remove(&session_id_clone);
             }
+            return;
         }
 
-        // Store codex thread ID in session for cancellation
-        if let Ok(mut sess) = sessions.lock() {
-            if let Some(session) = sess.get_mut(&session_id) {
-                session.codex_thread_id = Some(codex_thread_id.clone());
-                session.child_pid = server.pid();
-            }
-        }
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
 
-        let server_clone = server.clone();
+        let cancelled_reader = cancelled.clone();
+        let app_reader = app_handle.clone();
+        let sessions_reader = sessions_inner.clone();
+        let session_id_reader = session_id_clone.clone();
 
-        // Load system prompt for injection on first turn
-        let system_prompt = if server.needs_system_prompt(&codex_thread_id).await {
-            Some(prompts::load_system_prompt_with_mode(&settings.prompt_mode))
-        } else {
-            None
-        };
-
-        tauri::async_runtime::spawn(async move {
+        let reader_handle = tauri::async_runtime::spawn(async move {
             let mut full_text = String::new();
 
-            // Inject system prompt on first turn of this codex thread
-            if let Some(sys_prompt) = &system_prompt {
-                // Send system prompt as a silent turn, then wait for completion
-                match server.send_turn(&codex_thread_id, &format!("[SYSTEM INSTRUCTIONS — follow these for all responses]\n\n{}", sys_prompt)).await {
-                    Ok((_sys_turn_id, mut sys_rx)) => {
-                        // Drain the system prompt response (we don't show it)
-                        loop {
-                            match tokio::time::timeout(
-                                std::time::Duration::from_secs(60),
-                                sys_rx.recv(),
-                            ).await {
-                                Ok(Some(CodexStreamEvent::TurnCompleted)) => break,
-                                Ok(Some(CodexStreamEvent::Error(_))) => break,
-                                Ok(None) => break,
-                                Ok(Some(CodexStreamEvent::Delta(_) | CodexStreamEvent::Activity(_))) => continue, // discard
-                                Err(_) => break, // timeout
-                            }
-                        }
-                        server.mark_prompted(&codex_thread_id).await;
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to inject system prompt: {}", e);
-                        // Continue anyway
-                    }
-                }
-            }
-
-            // Now send the actual user message
-            let (turn_id, mut event_rx) = match server.send_turn(&codex_thread_id, &input.prompt).await {
-                Ok(result) => result,
-                Err(e) => {
-                    let _ = app_handle.emit(
-                        "chat:error",
-                        ChatStreamError {
-                            error: format!("Codex turn/start failed: {}", e),
-                        },
-                    );
-                    if let Ok(mut sess) = sessions_inner.lock() {
-                        sess.remove(&session_id_clone);
-                    }
-                    return;
-                }
-            };
-
-            // Store turn ID for cancellation
-            if let Ok(mut sess) = sessions_inner.lock() {
-                if let Some(session) = sess.get_mut(&session_id_clone) {
-                    session.codex_turn_id = Some(turn_id.clone());
-                }
-            }
-
-            // Read streaming events
-            loop {
-                if cancelled.load(Ordering::Relaxed) {
-                    let _ = server.turn_interrupt(&codex_thread_id, &turn_id).await;
-                    let _ = app_handle.emit(
+            while let Some(chunk) = rx.recv().await {
+                if cancelled_reader.load(Ordering::Relaxed) {
+                    let _ = app_reader.emit(
                         "chat:cancelled",
                         ChatStreamCancelled {
                             partial_text: full_text.trim().to_string(),
                         },
                     );
-                    break;
+                    if let Ok(mut sess) = sessions_reader.lock() {
+                        sess.remove(&session_id_reader);
+                    }
+                    return full_text;
                 }
 
-                match tokio::time::timeout(
-                    std::time::Duration::from_millis(100),
-                    event_rx.recv(),
-                )
-                .await
-                {
-                    Ok(Some(CodexStreamEvent::Delta(delta))) => {
-                        full_text.push_str(&delta);
-                        let _ = app_handle.emit(
-                            "chat:stream",
-                            ChatStreamChunk { chunk: delta },
-                        );
-                    }
-                    Ok(Some(CodexStreamEvent::Activity(activity))) => {
-                        let _ = app_handle.emit(
-                            "chat:activity",
-                            ChatStreamActivity { activity },
-                        );
-                    }
-                    Ok(Some(CodexStreamEvent::TurnCompleted)) => {
-                        let _ = app_handle.emit(
-                            "chat:done",
-                            ChatStreamDone {
-                                full_text: full_text.trim().to_string(),
-                            },
-                        );
-                        break;
-                    }
-                    Ok(Some(CodexStreamEvent::Error(e))) => {
-                        let _ = app_handle.emit(
-                            "chat:error",
-                            ChatStreamError { error: e },
-                        );
-                        break;
-                    }
-                    Ok(None) => {
-                        if !full_text.is_empty() {
-                            let _ = app_handle.emit(
-                                "chat:done",
-                                ChatStreamDone {
-                                    full_text: full_text.trim().to_string(),
-                                },
-                            );
-                        } else {
-                            let _ = app_handle.emit(
-                                "chat:error",
-                                ChatStreamError {
-                                    error: "Codex connection lost".to_string(),
-                                },
-                            );
-                        }
-                        break;
-                    }
-                    Err(_) => continue, // Timeout — loop to check cancellation
-                }
+                full_text.push_str(&chunk);
+                let _ = app_reader.emit("chat:stream", ChatStreamChunk { chunk });
             }
 
-            // Cleanup subscriber and session
-            server_clone.remove_subscriber(&codex_thread_id).await;
-            if let Ok(mut sess) = sessions_inner.lock() {
-                sess.remove(&session_id_clone);
-            }
+            full_text
         });
 
-        Ok(session_id)
-    } else {
-        // Non-codex providers — build full prompt with history
-        let prompt = {
-            let conn = state.lock().map_err(|e| e.to_string())?;
-            build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt, &settings.prompt_mode)
-        };
+        let stream_result = router.chat_stream(req, tx).await;
+        let full_text = reader_handle.await.unwrap_or_default();
 
-        tauri::async_runtime::spawn(async move {
-            let mut router = AIRouter::new(provider);
-            router.register(Box::new(OllamaProvider::new(
-                Some(settings.ollama.endpoint.clone()),
-                settings.ollama.model.clone(),
-            )));
-            if !settings.custom.endpoint.is_empty() {
-                let api_key = if settings.custom.api_key.is_empty() {
-                    None
-                } else {
-                    Some(settings.custom.api_key.clone())
-                };
-                router.register(Box::new(CustomProvider::new(
-                    settings.custom.endpoint.clone(),
-                    settings.custom.model.clone(),
-                    api_key,
-                )));
+        if cancelled.load(Ordering::Relaxed) {
+            // Already handled by reader
+        } else {
+            match stream_result {
+                Ok(()) => {
+                    let _ = app_handle.emit(
+                        "chat:done",
+                        ChatStreamDone {
+                            full_text: full_text.trim().to_string(),
+                        },
+                    );
+                }
+                Err(e) => {
+                    let _ = app_handle.emit(
+                        "chat:error",
+                        ChatStreamError {
+                            error: e.to_string(),
+                        },
+                    );
+                }
             }
+        }
 
-            let req = ChatRequest {
-                prompt,
-                system: None,
-                context: vec![],
-            };
+        if let Ok(mut sess) = sessions_inner.lock() {
+            sess.remove(&session_id_clone);
+        }
+    });
 
-            if cancelled.load(Ordering::Relaxed) {
+    Ok(())
+}
+
+/// Stream via the Codex persistent JSON-RPC app-server process.
+/// This is Codex-specific: it maintains threads, injects system prompts on first
+/// turn, and reads streaming events from a long-lived child process.
+#[allow(clippy::too_many_arguments)]
+async fn stream_via_codex_server(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<Connection>>,
+    sessions: tauri::State<'_, StreamSessions>,
+    codex_state: tauri::State<'_, CodexState>,
+    settings: &crate::settings::config::CaretSettings,
+    input: ChatInput,
+    session_id: String,
+    session_id_clone: String,
+    sessions_inner: StreamSessions,
+    cancelled: Arc<AtomicBool>,
+) -> Result<(), String> {
+    let server = get_codex_server(&codex_state.inner()).await.map_err(|e| {
+        log::error!("chat_stream: codex server failed: {}", e);
+        e
+    })?;
+
+    let our_thread_id = input
+        .thread_id
+        .clone()
+        .unwrap_or_else(|| "default".to_string());
+
+    let stored_codex_id: Option<String> = {
+        let conn = state.lock().map_err(|e| {
+            log::error!("chat_stream: failed to lock db: {}", e);
+            e.to_string()
+        })?;
+        queries::get_codex_thread_id(&conn, &our_thread_id).unwrap_or(None)
+    };
+
+    let (codex_thread_id, is_new_thread) = server
+        .get_or_create_thread(&our_thread_id, stored_codex_id.as_deref())
+        .await
+        .map_err(|e| {
+            log::error!("chat_stream: get_or_create_thread failed: {}", e);
+            e
+        })?;
+
+    if is_new_thread {
+        if let Ok(conn) = state.lock() {
+            if let Err(e) = queries::set_codex_thread_id(&conn, &our_thread_id, &codex_thread_id) {
+                log::error!("chat_stream: set_codex_thread_id failed: {}", e);
+            }
+        }
+    }
+
+    if let Ok(mut sess) = sessions.lock() {
+        if let Some(session) = sess.get_mut(&session_id) {
+            session.codex_thread_id = Some(codex_thread_id.clone());
+            session.child_pid = server.pid();
+        }
+    }
+
+    let server_clone = server.clone();
+    let codex_state_clone = codex_state.inner().clone();
+
+    let system_prompt = if server.needs_system_prompt(&codex_thread_id).await {
+        Some(prompts::load_system_prompt_with_mode(&settings.prompt_mode))
+    } else {
+        None
+    };
+
+    let codex_model = settings.codex.model.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let mut full_text = String::new();
+
+        // Inject system prompt on first turn
+        if let Some(sys_prompt) = &system_prompt {
+            match server
+                .send_turn(
+                    &codex_thread_id,
+                    &format!(
+                        "[SYSTEM INSTRUCTIONS — follow these for all responses]\n\n{}",
+                        sys_prompt
+                    ),
+                    None,
+                    None,
+                    None,
+                )
+                .await
+            {
+                Ok((_sys_turn_id, mut sys_rx)) => {
+                    loop {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(60),
+                            sys_rx.recv(),
+                        )
+                        .await
+                        {
+                            Ok(Some(CodexStreamEvent::TurnCompleted)) => break,
+                            Ok(Some(CodexStreamEvent::Error(_))) => break,
+                            Ok(None) => break,
+                            Ok(Some(
+                                CodexStreamEvent::Delta(_) | CodexStreamEvent::Activity(_),
+                            )) => continue,
+                            Err(_) => break,
+                        }
+                    }
+                    server.mark_prompted(&codex_thread_id).await;
+                }
+                Err(e) => {
+                    log::warn!("Failed to inject system prompt: {}", e);
+                }
+            }
+        }
+
+        let model_ref = if codex_model.is_empty() { None } else { Some(codex_model.as_str()) };
+        let (turn_id, mut event_rx) = match server
+            .send_turn(
+                &codex_thread_id,
+                &input.prompt,
+                input.reasoning_effort.as_deref(),
+                input.fast_mode,
+                model_ref,
+            )
+            .await
+        {
+            Ok(result) => result,
+            Err(e) => {
                 let _ = app_handle.emit(
-                    "chat:cancelled",
-                    ChatStreamCancelled {
-                        partial_text: String::new(),
+                    "chat:error",
+                    ChatStreamError {
+                        error: format!("Turn start failed: {}", e),
                     },
                 );
                 if let Ok(mut sess) = sessions_inner.lock() {
                     sess.remove(&session_id_clone);
                 }
+                if e.contains("Broken pipe") || e.contains("Failed to write") {
+                    let mut guard = codex_state_clone.lock().await;
+                    *guard = None;
+                }
                 return;
             }
+        };
 
-            let (tx, mut rx) = tokio::sync::mpsc::channel::<String>(64);
+        if let Ok(mut sess) = sessions_inner.lock() {
+            if let Some(session) = sess.get_mut(&session_id_clone) {
+                session.codex_turn_id = Some(turn_id.clone());
+            }
+        }
 
-            let cancelled_reader = cancelled.clone();
-            let app_reader = app_handle.clone();
-            let sessions_reader = sessions_inner.clone();
-            let session_id_reader = session_id_clone.clone();
-
-            let reader_handle = tauri::async_runtime::spawn(async move {
-                let mut full_text = String::new();
-
-                while let Some(chunk) = rx.recv().await {
-                    if cancelled_reader.load(Ordering::Relaxed) {
-                        let _ = app_reader.emit(
-                            "chat:cancelled",
-                            ChatStreamCancelled {
-                                partial_text: full_text.trim().to_string(),
-                            },
-                        );
-                        if let Ok(mut sess) = sessions_reader.lock() {
-                            sess.remove(&session_id_reader);
-                        }
-                        return full_text;
-                    }
-
-                    full_text.push_str(&chunk);
-                    let _ = app_reader.emit(
-                        "chat:stream",
-                        ChatStreamChunk { chunk },
-                    );
-                }
-
-                full_text
-            });
-
-            let stream_result = router.chat_stream(req, tx).await;
-            let full_text = reader_handle.await.unwrap_or_default();
-
+        loop {
             if cancelled.load(Ordering::Relaxed) {
-                // Already handled by reader
-            } else {
-                match stream_result {
-                    Ok(()) => {
+                let _ = server.turn_interrupt(&codex_thread_id, &turn_id).await;
+                let _ = app_handle.emit(
+                    "chat:cancelled",
+                    ChatStreamCancelled {
+                        partial_text: full_text.trim().to_string(),
+                    },
+                );
+                break;
+            }
+
+            match tokio::time::timeout(std::time::Duration::from_millis(100), event_rx.recv())
+                .await
+            {
+                Ok(Some(CodexStreamEvent::Delta(delta))) => {
+                    full_text.push_str(&delta);
+                    let _ = app_handle.emit("chat:stream", ChatStreamChunk { chunk: delta });
+                }
+                Ok(Some(CodexStreamEvent::Activity(activity))) => {
+                    let _ = app_handle.emit("chat:activity", ChatStreamActivity { activity });
+                }
+                Ok(Some(CodexStreamEvent::TurnCompleted)) => {
+                    let _ = app_handle.emit(
+                        "chat:done",
+                        ChatStreamDone {
+                            full_text: full_text.trim().to_string(),
+                        },
+                    );
+                    break;
+                }
+                Ok(Some(CodexStreamEvent::Error(e))) => {
+                    let _ = app_handle.emit("chat:error", ChatStreamError { error: e });
+                    break;
+                }
+                Ok(None) => {
+                    if !full_text.is_empty() {
                         let _ = app_handle.emit(
                             "chat:done",
                             ChatStreamDone {
                                 full_text: full_text.trim().to_string(),
                             },
                         );
-                    }
-                    Err(e) => {
+                    } else {
                         let _ = app_handle.emit(
                             "chat:error",
                             ChatStreamError {
-                                error: e.to_string(),
+                                error: "Connection lost".to_string(),
                             },
                         );
                     }
+                    break;
                 }
+                Err(_) => continue,
             }
+        }
 
-            if let Ok(mut sess) = sessions_inner.lock() {
-                sess.remove(&session_id_clone);
-            }
-        });
+        server_clone.remove_subscriber(&codex_thread_id).await;
+        if let Ok(mut sess) = sessions_inner.lock() {
+            sess.remove(&session_id_clone);
+        }
+    });
 
-        Ok(session_id)
-    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -464,34 +520,40 @@ pub async fn cancel_stream(
     codex_state: tauri::State<'_, CodexState>,
     session_id: String,
 ) -> Result<(), String> {
-    let sess = sessions.lock().map_err(|e| e.to_string())?;
-    if let Some(session) = sess.get(&session_id) {
-        // Signal cancellation
-        session.cancelled.store(true, Ordering::Relaxed);
-
-        // For codex, also try turn/interrupt
-        if let (Some(thread_id), Some(turn_id)) = (&session.codex_thread_id, &session.codex_turn_id) {
-            let thread_id = thread_id.clone();
-            let turn_id = turn_id.clone();
-            let codex_state = codex_state.inner().clone();
-            tokio::spawn(async move {
-                if let Ok(server) = get_codex_server(&codex_state).await {
-                    let _ = server.turn_interrupt(&thread_id, &turn_id).await;
-                }
-            });
+    let (child_pid, codex_thread_id, codex_turn_id) = {
+        let sess = sessions.lock().map_err(|e| e.to_string())?;
+        if let Some(session) = sess.get(&session_id) {
+            session.cancelled.store(true, Ordering::Relaxed);
+            (
+                session.child_pid,
+                session.codex_thread_id.clone(),
+                session.codex_turn_id.clone(),
+            )
+        } else {
+            return Err("No active stream session found".to_string());
         }
+    };
 
-        // Also kill the child process directly for immediate effect
-        if let Some(pid) = session.child_pid {
-            unsafe {
-                libc::kill(pid as i32, libc::SIGTERM);
+    if let (Some(thread_id), Some(turn_id)) = (&codex_thread_id, &codex_turn_id) {
+        let thread_id = thread_id.clone();
+        let turn_id = turn_id.clone();
+        let codex_state = codex_state.inner().clone();
+        tokio::spawn(async move {
+            if let Ok(server) = get_codex_server(&codex_state).await {
+                let _ = server.turn_interrupt(&thread_id, &turn_id).await;
             }
-        }
-
-        Ok(())
-    } else {
-        Err("No active stream session found".to_string())
+        });
     }
+
+    if let Some(pid) = child_pid {
+        unsafe {
+            libc::kill(pid as i32, libc::SIGTERM);
+        }
+        let mut guard = codex_state.inner().lock().await;
+        *guard = None;
+    }
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -502,40 +564,30 @@ pub async fn chat(
     let store = SettingsStore::new();
     let settings = store.load().map_err(|e| e.to_string())?;
 
-    let prompt = {
+    let req = {
         let conn = state.lock().map_err(|e| e.to_string())?;
-        build_full_prompt(&conn, input.thread_id.as_deref(), &input.prompt, &settings.prompt_mode)
+        chat::build_chat_request(
+            &settings.active_provider,
+            &conn,
+            input.thread_id.as_deref(),
+            &input.prompt,
+            &settings.prompt_mode,
+        )
     };
 
-    let mut router = AIRouter::new(settings.active_provider.clone());
-
-    router.register(Box::new(OllamaProvider::new(
-        Some(settings.ollama.endpoint.clone()),
-        settings.ollama.model.clone(),
-    )));
-
-    if !settings.custom.endpoint.is_empty() {
-        let api_key = if settings.custom.api_key.is_empty() {
-            None
-        } else {
-            Some(settings.custom.api_key.clone())
-        };
-        router.register(Box::new(CustomProvider::new(
-            settings.custom.endpoint.clone(),
-            settings.custom.model.clone(),
-            api_key,
-        )));
-    }
-
-    let req = ChatRequest {
-        prompt,
-        system: None,
-        context: vec![],
-    };
-
+    let router = chat::build_router(&settings);
     let response = router.chat(req).await.map_err(|e| e.to_string())?;
 
     Ok(ChatOutput {
         text: response.text,
     })
+}
+
+// --- Ollama model listing ---
+
+#[tauri::command]
+pub async fn list_ollama_models() -> Result<Vec<OllamaModelInfo>, String> {
+    let store = SettingsStore::new();
+    let settings = store.load().map_err(|e| e.to_string())?;
+    OllamaProvider::list_models(&settings.ollama.endpoint).await
 }

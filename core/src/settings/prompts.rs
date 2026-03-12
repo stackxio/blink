@@ -131,7 +131,11 @@ pub fn load_system_prompt_with_mode(mode: &str) -> String {
 
             // Append today's memory if it exists
             if let Some(memory) = load_today_memory() {
-                assembled.push(format!("# Memory ({})\n\n{}", Local::now().format("%Y-%m-%d"), memory));
+                assembled.push(format!(
+                    "# Memory ({})\n\n{}",
+                    Local::now().format("%Y-%m-%d"),
+                    memory
+                ));
             }
 
             assembled.join("\n\n---\n\n")
@@ -154,7 +158,9 @@ fn today_memory_path() -> PathBuf {
 /// Load today's memory file, if it exists.
 pub fn load_today_memory() -> Option<String> {
     let path = today_memory_path();
-    fs::read_to_string(&path).ok().filter(|s| !s.trim().is_empty())
+    fs::read_to_string(&path)
+        .ok()
+        .filter(|s| !s.trim().is_empty())
 }
 
 /// Append a line to today's memory file.

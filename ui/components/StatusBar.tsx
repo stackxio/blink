@@ -4,8 +4,8 @@ interface StatusBarProps {
 
 export default function StatusBar({ isLoading }: StatusBarProps) {
   return (
-    <div className="flex h-6 shrink-0 items-center justify-between border-t border-neutral-800 bg-background px-3 text-[10px]">
-      <div className="flex items-center gap-1.5 text-neutral-500">
+    <div className="flex h-6 shrink-0 items-center justify-between border-t border-border bg-background px-3 text-[10px] text-muted-foreground">
+      <div className="flex items-center gap-1.5">
         {isLoading ? (
           <>
             <svg className="h-3 w-3 animate-spin text-amber-500" fill="none" viewBox="0 0 24 24">
@@ -32,7 +32,7 @@ export default function StatusBar({ isLoading }: StatusBarProps) {
           </>
         )}
       </div>
-      <span className="text-neutral-600">Codex</span>
+      <span className="text-muted-foreground">Codex</span>
     </div>
   );
 }

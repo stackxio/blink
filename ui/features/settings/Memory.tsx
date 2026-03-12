@@ -48,14 +48,14 @@ export default function SettingsMemory() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-100">Memory</h1>
-          <p className="text-xs text-neutral-500">
+          <h1 className="text-lg font-semibold text-foreground">Memory</h1>
+          <p className="text-xs text-muted-foreground">
             Daily memory logs stored in ~/.caret/memory/
           </p>
         </div>
         <button
           onClick={handleClearToday}
-          className="flex items-center gap-1.5 rounded-md bg-neutral-800 px-3 py-1.5 text-xs text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
+          className="flex items-center gap-1.5 rounded-md bg-input px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
         >
           <Trash2 size={12} />
           Clear today
@@ -66,7 +66,7 @@ export default function SettingsMemory() {
         {/* File list */}
         <div className="w-40 shrink-0 space-y-0.5">
           {files.length === 0 ? (
-            <p className="text-xs text-neutral-600">No memory files yet.</p>
+            <p className="text-xs text-muted-foreground">No memory files yet.</p>
           ) : (
             files.map((f) => (
               <button
@@ -74,8 +74,8 @@ export default function SettingsMemory() {
                 onClick={() => selectFile(f)}
                 className={`block w-full rounded px-2 py-1 text-left text-xs transition-colors ${
                   selectedFile === f
-                    ? "bg-neutral-800 text-neutral-200"
-                    : "text-neutral-500 hover:bg-neutral-800/50 hover:text-neutral-300"
+                    ? "bg-surface-raised text-foreground"
+                    : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
                 }`}
               >
                 {f.replace(".md", "")}
@@ -85,13 +85,13 @@ export default function SettingsMemory() {
         </div>
 
         {/* Content viewer */}
-        <div className="min-h-[300px] flex-1 rounded-lg border border-neutral-800 bg-neutral-900/50 p-4">
+        <div className="min-h-[300px] flex-1 rounded-lg border border-border bg-surface p-4">
           {selectedFile ? (
-            <pre className="whitespace-pre-wrap text-xs leading-relaxed text-neutral-300">
+            <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
               {content || "(empty)"}
             </pre>
           ) : (
-            <p className="text-xs text-neutral-600">Select a memory file to view.</p>
+            <p className="text-xs text-muted-foreground">Select a memory file to view.</p>
           )}
         </div>
       </div>

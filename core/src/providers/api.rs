@@ -1,19 +1,23 @@
+//! Generic OpenAI-compatible API provider.
+//! Works with any service exposing /v1/chat/completions (OpenAI, Anthropic via proxy, etc.).
+//! Provider name kept as "custom" for backward compatibility with existing settings.
+
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use super::provider::AIProvider;
-use super::types::{AIError, ChatRequest, ChatResponse};
+use crate::providers::traits::AIProvider;
+use crate::providers::types::{AIError, ChatRequest, ChatResponse};
 
-pub struct CustomProvider {
+pub struct ApiProvider {
     pub endpoint: String,
     pub model: String,
     pub api_key: Option<String>,
     client: Client,
 }
 
-impl CustomProvider {
+impl ApiProvider {
     pub fn new(endpoint: String, model: String, api_key: Option<String>) -> Self {
         Self {
             endpoint,
@@ -61,6 +65,8 @@ impl CustomProvider {
     }
 }
 
+// --- OpenAI-compatible wire types (kept private to provider) ---
+
 #[derive(Serialize)]
 struct OpenAIRequest {
     model: String,
@@ -90,7 +96,6 @@ struct OpenAIMessageResponse {
     content: String,
 }
 
-/// SSE streaming chunk: {"choices":[{"delta":{"content":"chunk"}}]}
 #[derive(Deserialize)]
 struct OpenAIStreamChunk {
     choices: Vec<OpenAIStreamChoice>,
@@ -107,7 +112,7 @@ struct OpenAIDelta {
 }
 
 #[async_trait]
-impl AIProvider for CustomProvider {
+impl AIProvider for ApiProvider {
     fn name(&self) -> &str {
         "custom"
     }
@@ -134,7 +139,7 @@ impl AIProvider for CustomProvider {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
             return Err(AIError::ProviderError(format!(
-                "Custom API error {}: {}",
+                "API error {}: {}",
                 status, text
             )));
         }
@@ -153,11 +158,7 @@ impl AIProvider for CustomProvider {
         Ok(ChatResponse { text })
     }
 
-    async fn chat_stream(
-        &self,
-        req: ChatRequest,
-        tx: mpsc::Sender<String>,
-    ) -> Result<(), AIError> {
+    async fn chat_stream(&self, req: ChatRequest, tx: mpsc::Sender<String>) -> Result<(), AIError> {
         let body = OpenAIRequest {
             model: self.model.clone(),
             messages: self.build_messages(&req),
@@ -179,18 +180,20 @@ impl AIProvider for CustomProvider {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
             return Err(AIError::ProviderError(format!(
-                "Custom API error {}: {}",
+                "API error {}: {}",
                 status, text
             )));
         }
 
-        // OpenAI-compatible SSE: lines starting with "data: "
         let mut buffer = String::new();
 
-        while let Some(chunk) = resp.chunk().await.map_err(|e| AIError::NetworkError(e.to_string()))? {
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| AIError::NetworkError(e.to_string()))?
+        {
             buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-            // Process complete lines
             while let Some(pos) = buffer.find('\n') {
                 let line = buffer[..pos].trim().to_string();
                 buffer = buffer[pos + 1..].to_string();
@@ -209,7 +212,7 @@ impl AIProvider for CustomProvider {
                             if let Some(content) = &choice.delta.content {
                                 if !content.is_empty() {
                                     if tx.send(content.clone()).await.is_err() {
-                                        return Ok(()); // receiver dropped
+                                        return Ok(());
                                     }
                                 }
                             }

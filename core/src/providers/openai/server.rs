@@ -17,7 +17,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::{mpsc, oneshot, Mutex};
 
-// --- JSON-RPC types ---
+// --- JSON-RPC types (Codex-specific wire format) ---
 
 #[derive(Serialize)]
 struct JsonRpcRequest {
@@ -39,8 +39,6 @@ struct JsonRpcMessage {
 struct JsonRpcError {
     message: String,
 }
-
-// --- Codex notification params ---
 
 #[derive(Deserialize, Debug)]
 struct DeltaParams {
@@ -64,36 +62,28 @@ pub struct ActivityEvent {
     pub detail: Option<String>,
 }
 
-// --- Pending request tracking ---
-
 struct PendingRequest {
     tx: oneshot::Sender<Result<Value, String>>,
 }
 
-/// Subscriber for streaming events from a specific active turn.
 type TurnSubscriber = mpsc::Sender<CodexStreamEvent>;
 
 /// A persistent handle to a running codex app-server process.
 ///
-/// This is meant to be created once at app startup and stored as Tauri managed state.
-/// It supports multiple concurrent threads, each mapping to a codex-internal thread.
+/// Created once at app startup and stored as Tauri managed state.
+/// Supports multiple concurrent threads, each mapping to a codex-internal thread.
 pub struct CodexServer {
     stdin: Arc<Mutex<tokio::process::ChildStdin>>,
     next_id: AtomicU64,
     pending: Arc<Mutex<HashMap<u64, PendingRequest>>>,
-    /// Maps our internal thread IDs to codex thread IDs.
     thread_map: Arc<Mutex<HashMap<String, String>>>,
-    /// Tracks which codex threads have already received the system prompt.
     prompted_threads: Arc<Mutex<std::collections::HashSet<String>>>,
-    /// Active turn subscribers: maps a turn key to an event sender.
-    /// We use the codex thread ID as the key since only one turn runs per thread at a time.
     turn_subscribers: Arc<Mutex<HashMap<String, TurnSubscriber>>>,
     child_pid: Option<u32>,
     initialized: AtomicBool,
 }
 
 impl CodexServer {
-    /// Spawn `codex app-server` and return a handle.
     pub async fn spawn(codex_binary: &str) -> Result<Self, String> {
         let mut cmd = Command::new(codex_binary);
         cmd.arg("app-server");
@@ -107,11 +97,7 @@ impl CodexServer {
 
         let child_pid = child.id();
 
-        let stdin = child
-            .stdin
-            .take()
-            .ok_or("Failed to capture codex stdin")?;
-
+        let stdin = child.stdin.take().ok_or("Failed to capture codex stdin")?;
         let stdout = child
             .stdout
             .take()
@@ -122,7 +108,6 @@ impl CodexServer {
         let turn_subscribers: Arc<Mutex<HashMap<String, TurnSubscriber>>> =
             Arc::new(Mutex::new(HashMap::new()));
 
-        // Spawn stdout reader that routes responses and notifications
         let pending_clone = pending.clone();
         let subs_clone = turn_subscribers.clone();
         tokio::spawn(async move {
@@ -144,9 +129,7 @@ impl CodexServer {
                             Err(_) => continue,
                         };
 
-                        // Response to our request
                         if let Some(id) = msg.id {
-                            // But only if there's no method — otherwise it's a server request
                             if msg.method.is_none() {
                                 let mut pending = pending_clone.lock().await;
                                 if let Some(req) = pending.remove(&id) {
@@ -160,13 +143,14 @@ impl CodexServer {
                             }
                         }
 
-                        // Notification from codex
                         if let Some(method) = &msg.method {
                             let params = msg.params.as_ref();
 
-                            // Extract the codex thread ID from notification params to route events
                             let codex_thread_id = params
-                                .and_then(|p| p.get("threadId").or_else(|| p.get("thread").and_then(|t| t.get("id"))))
+                                .and_then(|p| {
+                                    p.get("threadId")
+                                        .or_else(|| p.get("thread").and_then(|t| t.get("id")))
+                                })
                                 .and_then(|v| v.as_str())
                                 .unwrap_or("")
                                 .to_string();
@@ -174,12 +158,16 @@ impl CodexServer {
                             match method.as_str() {
                                 "item/agentMessage/delta" => {
                                     if let Some(params) = params {
-                                        if let Ok(dp) = serde_json::from_value::<DeltaParams>(params.clone()) {
+                                        if let Ok(dp) =
+                                            serde_json::from_value::<DeltaParams>(params.clone())
+                                        {
                                             if let Some(delta) = dp.delta {
                                                 if !delta.is_empty() {
                                                     let subs = subs_clone.lock().await;
                                                     if let Some(tx) = subs.get(&codex_thread_id) {
-                                                        let _ = tx.send(CodexStreamEvent::Delta(delta)).await;
+                                                        let _ = tx
+                                                            .send(CodexStreamEvent::Delta(delta))
+                                                            .await;
                                                     }
                                                 }
                                             }
@@ -187,10 +175,12 @@ impl CodexServer {
                                     }
                                 }
                                 "item/started" | "item/completed" => {
-                                    if let Some(activity) = parse_activity(params, method.as_str()) {
+                                    if let Some(activity) = parse_activity(params, method.as_str())
+                                    {
                                         let subs = subs_clone.lock().await;
                                         if let Some(tx) = subs.get(&codex_thread_id) {
-                                            let _ = tx.send(CodexStreamEvent::Activity(activity)).await;
+                                            let _ =
+                                                tx.send(CodexStreamEvent::Activity(activity)).await;
                                         }
                                     }
                                 }
@@ -207,22 +197,22 @@ impl CodexServer {
                                         .and_then(|m| m.as_str())
                                         .unwrap_or("Unknown codex error")
                                         .to_string();
-                                    // Broadcast error to all subscribers if we can't determine thread
                                     if codex_thread_id.is_empty() {
                                         let subs = subs_clone.lock().await;
                                         for tx in subs.values() {
-                                            let _ = tx.send(CodexStreamEvent::Error(error_msg.clone())).await;
+                                            let _ = tx
+                                                .send(CodexStreamEvent::Error(error_msg.clone()))
+                                                .await;
                                         }
                                     } else {
                                         let subs = subs_clone.lock().await;
                                         if let Some(tx) = subs.get(&codex_thread_id) {
-                                            let _ = tx.send(CodexStreamEvent::Error(error_msg)).await;
+                                            let _ =
+                                                tx.send(CodexStreamEvent::Error(error_msg)).await;
                                         }
                                     }
                                 }
-                                _ => {
-                                    // Ignore other notifications
-                                }
+                                _ => {}
                             }
                         }
                     }
@@ -249,7 +239,6 @@ impl CodexServer {
         self.child_pid
     }
 
-    /// Send a JSON-RPC request and wait for the response.
     async fn request(&self, method: &str, params: Value) -> Result<Value, String> {
         let id = self.next_id.fetch_add(1, Ordering::SeqCst);
 
@@ -288,7 +277,6 @@ impl CodexServer {
         }
     }
 
-    /// Initialize the codex app-server handshake (only done once).
     pub async fn ensure_initialized(&self) -> Result<(), String> {
         if self.initialized.load(Ordering::SeqCst) {
             return Ok(());
@@ -313,15 +301,11 @@ impl CodexServer {
         Ok(())
     }
 
-    /// Get or create a codex thread for the given internal thread ID.
-    /// If `stored_codex_id` is provided (from DB), tries to resume that thread first.
-    /// Returns (codex_thread_id, is_new) — `is_new` is true if a fresh thread was created.
     pub async fn get_or_create_thread(
         &self,
         our_thread_id: &str,
         stored_codex_id: Option<&str>,
     ) -> Result<(String, bool), String> {
-        // Check in-memory cache first
         {
             let map = self.thread_map.lock().await;
             if let Some(codex_id) = map.get(our_thread_id) {
@@ -329,7 +313,6 @@ impl CodexServer {
             }
         }
 
-        // Try to resume from stored codex thread ID
         if let Some(stored_id) = stored_codex_id {
             if let Ok(result) = self
                 .request(
@@ -352,16 +335,13 @@ impl CodexServer {
                 let mut map = self.thread_map.lock().await;
                 map.insert(our_thread_id.to_string(), codex_thread_id.clone());
 
-                // Mark as already prompted (it was prompted in the original session)
                 let mut prompted = self.prompted_threads.lock().await;
                 prompted.insert(codex_thread_id.clone());
 
                 return Ok((codex_thread_id, false));
             }
-            // Resume failed — fall through to create new thread
         }
 
-        // Create a new codex thread
         let result = self
             .request(
                 "thread/start",
@@ -385,48 +365,61 @@ impl CodexServer {
         Ok((codex_thread_id, true))
     }
 
-    /// Check if a codex thread needs the system prompt injected.
     pub async fn needs_system_prompt(&self, codex_thread_id: &str) -> bool {
         let prompted = self.prompted_threads.lock().await;
         !prompted.contains(codex_thread_id)
     }
 
-    /// Mark a codex thread as having received the system prompt.
     pub async fn mark_prompted(&self, codex_thread_id: &str) {
         let mut prompted = self.prompted_threads.lock().await;
         prompted.insert(codex_thread_id.to_string());
     }
 
-    /// Send a user message and subscribe to streaming events.
-    /// Returns (turn_id, event_receiver).
     pub async fn send_turn(
         &self,
         codex_thread_id: &str,
         text: &str,
+        reasoning_effort: Option<&str>,
+        fast_mode: Option<bool>,
+        model: Option<&str>,
     ) -> Result<(String, mpsc::Receiver<CodexStreamEvent>), String> {
-        // Create subscriber channel for this turn
         let (tx, rx) = mpsc::channel::<CodexStreamEvent>(256);
         {
             let mut subs = self.turn_subscribers.lock().await;
             subs.insert(codex_thread_id.to_string(), tx);
         }
 
-        // Send turn/start
-        let result = self
-            .request(
-                "turn/start",
-                serde_json::json!({
-                    "threadId": codex_thread_id,
-                    "input": [
-                        {
-                            "type": "text",
-                            "text": text,
-                            "text_elements": []
-                        }
-                    ]
-                }),
-            )
-            .await?;
+        let mut params = serde_json::json!({
+            "threadId": codex_thread_id,
+            "input": [
+                {
+                    "type": "text",
+                    "text": text,
+                    "text_elements": []
+                }
+            ]
+        });
+        if let Some(obj) = params.as_object_mut() {
+            if let Some(effort) = reasoning_effort {
+                obj.insert(
+                    "reasoningEffort".to_string(),
+                    serde_json::Value::String(effort.to_string()),
+                );
+            }
+            if let Some(fast) = fast_mode {
+                obj.insert("fastMode".to_string(), serde_json::Value::Bool(fast));
+            }
+            if let Some(m) = model {
+                if !m.is_empty() {
+                    obj.insert(
+                        "model".to_string(),
+                        serde_json::Value::String(m.to_string()),
+                    );
+                }
+            }
+        }
+
+        let result = self.request("turn/start", params).await?;
 
         let turn_id = result
             .get("turn")
@@ -438,18 +431,12 @@ impl CodexServer {
         Ok((turn_id, rx))
     }
 
-    /// Remove the turn subscriber for a codex thread (cleanup after turn ends).
     pub async fn remove_subscriber(&self, codex_thread_id: &str) {
         let mut subs = self.turn_subscribers.lock().await;
         subs.remove(codex_thread_id);
     }
 
-    /// Interrupt a running turn.
-    pub async fn turn_interrupt(
-        &self,
-        codex_thread_id: &str,
-        turn_id: &str,
-    ) -> Result<(), String> {
+    pub async fn turn_interrupt(&self, codex_thread_id: &str, turn_id: &str) -> Result<(), String> {
         self.request(
             "turn/interrupt",
             serde_json::json!({
@@ -462,9 +449,8 @@ impl CodexServer {
     }
 }
 
-// --- Activity parsing helpers ---
+// --- Activity parsing helpers (Codex-specific notification format) ---
 
-/// Returns None for items we don't want to show (reasoning, unknown, etc.)
 fn classify_item_type(raw: &str) -> Option<&'static str> {
     let lower = raw.to_lowercase();
     if lower.contains("command") {
@@ -478,7 +464,6 @@ fn classify_item_type(raw: &str) -> Option<&'static str> {
     } else if lower.contains("mcp") || lower.contains("dynamic tool") {
         Some("tool_call")
     } else {
-        // Skip reasoning, unknown, and other internal items
         None
     }
 }
@@ -516,8 +501,6 @@ fn extract_detail(source: &Value) -> Option<String> {
 
 fn parse_activity(params: Option<&Value>, method: &str) -> Option<ActivityEvent> {
     let params = params?;
-
-    // item/started and item/completed have payload.item or just the payload itself
     let item = params.get("item").unwrap_or(params);
 
     let raw_type = item
@@ -528,7 +511,6 @@ fn parse_activity(params: Option<&Value>, method: &str) -> Option<ActivityEvent>
 
     log::debug!("codex item {}: type={:?}", method, raw_type);
 
-    // Skip messages and uninteresting internal items (reasoning, unknown types)
     let lower = raw_type.to_lowercase();
     if lower.contains("user") || lower.contains("assistant") || lower.contains("agent message") {
         return None;
@@ -537,11 +519,9 @@ fn parse_activity(params: Option<&Value>, method: &str) -> Option<ActivityEvent>
     let kind = classify_item_type(raw_type)?;
     let title = item_type_title(kind);
 
-    // For completed items, also check nested result for detail
     let detail = extract_detail(item).or_else(|| {
         if method == "item/completed" {
-            item.get("result")
-                .and_then(|r| extract_detail(r))
+            item.get("result").and_then(|r| extract_detail(r))
         } else {
             None
         }

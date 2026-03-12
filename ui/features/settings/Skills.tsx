@@ -124,22 +124,22 @@ export default function SettingsSkills() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-neutral-100">Skills</h1>
+        <h1 className="text-lg font-semibold text-foreground">Skills</h1>
         <button
           onClick={handleReset}
-          className="rounded px-2.5 py-1 text-xs text-neutral-500 transition-colors hover:bg-neutral-800 hover:text-neutral-300"
+          className="rounded px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
         >
           Reset defaults
         </button>
       </div>
 
-      <p className="mb-4 text-xs text-neutral-500">
+      <p className="mb-4 text-xs text-muted-foreground">
         Skills are prompt files that shape how your AI behaves. System skills cannot be deleted, only edited.
       </p>
 
-      <div className="flex min-h-[400px] overflow-hidden rounded-lg border border-neutral-800 bg-neutral-900/50">
+      <div className="flex min-h-[400px] overflow-hidden rounded-lg border border-border bg-surface">
         {/* File list */}
-        <div className="flex w-44 shrink-0 flex-col border-r border-neutral-800">
+        <div className="flex w-44 shrink-0 flex-col border-r border-border">
           <div className="flex-1 overflow-y-auto p-2">
             {skills.map((skill) => (
               <div key={skill.filename} className="group flex items-center">
@@ -147,12 +147,12 @@ export default function SettingsSkills() {
                   onClick={() => handleSelect(skill.filename)}
                   className={`flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors ${
                     selected === skill.filename
-                      ? "bg-surface-raised text-neutral-100"
-                      : "text-neutral-400 hover:bg-surface-raised/60 hover:text-neutral-200"
+                      ? "bg-surface-raised text-foreground"
+                      : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
                   }`}
                 >
                   <svg
-                    className="h-3 w-3 shrink-0 text-neutral-600"
+                    className="h-3 w-3 shrink-0 text-muted-foreground"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -166,7 +166,7 @@ export default function SettingsSkills() {
                   </svg>
                   <span className="truncate">{skill.filename.replace(".md", "")}</span>
                   {skill.is_system && (
-                    <span className="ml-auto shrink-0 rounded bg-neutral-800 px-1 text-[10px] text-neutral-600">
+                    <span className="ml-auto shrink-0 rounded bg-input px-1 text-[10px] text-muted-foreground">
                       sys
                     </span>
                   )}
@@ -174,7 +174,7 @@ export default function SettingsSkills() {
                 {!skill.is_system && (
                   <button
                     onClick={() => handleDelete(skill.filename)}
-                    className="mr-1 hidden h-5 w-5 shrink-0 items-center justify-center rounded text-neutral-600 hover:bg-red-900/30 hover:text-red-400 group-hover:flex"
+                    className="mr-1 hidden h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-red-500/20 hover:text-red-500 group-hover:flex"
                   >
                     <svg
                       className="h-3 w-3"
@@ -202,13 +202,13 @@ export default function SettingsSkills() {
                   }}
                   onBlur={handleCreate}
                   placeholder="filename..."
-                  className="w-full rounded bg-neutral-800 px-2 py-1 text-xs text-neutral-200 placeholder-neutral-600 outline-none focus:ring-1 focus:ring-neutral-600"
+                  className="w-full rounded bg-input px-2 py-1 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
                 />
               </div>
             ) : (
               <button
                 onClick={handleStartCreate}
-                className="mt-1 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-neutral-600 transition-colors hover:bg-surface-raised/60 hover:text-neutral-400"
+                className="mt-1 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-raised/60 hover:text-foreground"
               >
                 <svg
                   className="h-3 w-3"
@@ -229,16 +229,16 @@ export default function SettingsSkills() {
         <div className="flex min-w-0 flex-1 flex-col">
           {selected ? (
             <>
-              <div className="flex items-center justify-between border-b border-neutral-800/60 px-4 py-2">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-neutral-300">{selected}</span>
+                  <span className="text-xs font-medium text-foreground">{selected}</span>
                   {selectedSkill?.is_system && (
-                    <span className="rounded bg-neutral-800 px-1.5 py-0.5 text-[10px] text-neutral-500">
+                    <span className="rounded bg-input px-1.5 py-0.5 text-[10px] text-muted-foreground">
                       system
                     </span>
                   )}
                   {dirty && (
-                    <span className="rounded bg-amber-900/30 px-1.5 py-0.5 text-[10px] text-amber-400">
+                    <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-600">
                       unsaved
                     </span>
                   )}
@@ -263,13 +263,13 @@ export default function SettingsSkills() {
                     handleSave();
                   }
                 }}
-                className="min-h-[350px] flex-1 resize-none bg-transparent p-4 font-mono text-xs leading-relaxed text-neutral-300 placeholder-neutral-600 outline-none"
+                className="min-h-[350px] flex-1 resize-none bg-transparent p-4 font-mono text-xs leading-relaxed text-foreground placeholder-muted-foreground outline-none"
                 placeholder="Write your prompt here..."
                 spellCheck={false}
               />
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-neutral-600">
+            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
               Select a skill to edit
             </div>
           )}

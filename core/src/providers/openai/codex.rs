@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
-use super::provider::AIProvider;
-use super::types::{AIError, ChatRequest, ChatResponse};
+use crate::providers::traits::AIProvider;
+use crate::providers::types::{AIError, ChatRequest, ChatResponse};
 
 pub struct CodexProvider {
     pub model: String,
@@ -22,7 +22,6 @@ impl AIProvider for CodexProvider {
     }
 
     async fn chat(&self, req: ChatRequest) -> Result<ChatResponse, AIError> {
-        // Build the prompt: prepend system prompt if provided
         let prompt = if let Some(system) = &req.system {
             format!("{}\n\n{}", system, req.prompt)
         } else {
@@ -31,9 +30,6 @@ impl AIProvider for CodexProvider {
 
         let mut cmd = Command::new("/opt/homebrew/bin/codex");
         cmd.arg("exec").arg(&prompt);
-
-        // If a model override is configured, pass it via environment or flag
-        // For now codex CLI picks its own model; model field reserved for future use.
 
         let output = cmd
             .output()
@@ -49,16 +45,10 @@ impl AIProvider for CodexProvider {
         }
 
         let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
         Ok(ChatResponse { text })
     }
 
-    async fn chat_stream(
-        &self,
-        req: ChatRequest,
-        tx: mpsc::Sender<String>,
-    ) -> Result<(), AIError> {
-        // Codex CLI doesn't support incremental streaming, so fall back to non-streaming
+    async fn chat_stream(&self, req: ChatRequest, tx: mpsc::Sender<String>) -> Result<(), AIError> {
         let response = self.chat(req).await?;
         let _ = tx.send(response.text).await;
         Ok(())

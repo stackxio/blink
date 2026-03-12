@@ -3,8 +3,8 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 
-use super::provider::AIProvider;
-use super::types::{AIError, ChatRequest, ChatResponse};
+use crate::providers::traits::AIProvider;
+use crate::providers::types::{AIError, ChatRequest, ChatResponse};
 
 pub struct OllamaProvider {
     pub endpoint: String,
@@ -45,7 +45,50 @@ impl OllamaProvider {
 
         messages
     }
+
+    /// List locally available models from the Ollama server.
+    pub async fn list_models(endpoint: &str) -> Result<Vec<OllamaModelInfo>, String> {
+        let url = format!("{}/api/tags", endpoint.trim_end_matches('/'));
+        let client = Client::new();
+        let resp = client
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+            .map_err(|e| format!("Cannot reach Ollama at {}: {}", url, e))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("Ollama returned status {}", resp.status()));
+        }
+
+        let body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+
+        let models = body["models"]
+            .as_array()
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|m| OllamaModelInfo {
+                name: m["name"].as_str().unwrap_or("").to_string(),
+                size: m["size"].as_u64().unwrap_or(0),
+                parameter_size: m["details"]["parameter_size"]
+                    .as_str()
+                    .unwrap_or("")
+                    .to_string(),
+            })
+            .collect();
+
+        Ok(models)
+    }
 }
+
+#[derive(Debug, Clone, Serialize)]
+pub struct OllamaModelInfo {
+    pub name: String,
+    pub size: u64,
+    pub parameter_size: String,
+}
+
+// --- Ollama-specific wire types (kept private to provider) ---
 
 #[derive(Serialize)]
 struct OllamaRequest {
@@ -70,7 +113,6 @@ struct OllamaResponseMessage {
     content: String,
 }
 
-/// Streaming response line: {"message":{"content":"chunk"},"done":false}
 #[derive(Deserialize)]
 struct OllamaStreamChunk {
     message: OllamaStreamMessage,
@@ -124,11 +166,7 @@ impl AIProvider for OllamaProvider {
         })
     }
 
-    async fn chat_stream(
-        &self,
-        req: ChatRequest,
-        tx: mpsc::Sender<String>,
-    ) -> Result<(), AIError> {
+    async fn chat_stream(&self, req: ChatRequest, tx: mpsc::Sender<String>) -> Result<(), AIError> {
         let body = OllamaRequest {
             model: self.model.clone(),
             messages: self.build_messages(&req),
@@ -154,14 +192,15 @@ impl AIProvider for OllamaProvider {
             )));
         }
 
-        // Ollama streams JSONL — one JSON object per line
-        // Use chunk() to read raw bytes and split by newlines
         let mut buffer = String::new();
 
-        while let Some(chunk) = resp.chunk().await.map_err(|e| AIError::NetworkError(e.to_string()))? {
+        while let Some(chunk) = resp
+            .chunk()
+            .await
+            .map_err(|e| AIError::NetworkError(e.to_string()))?
+        {
             buffer.push_str(&String::from_utf8_lossy(&chunk));
 
-            // Process complete lines
             while let Some(pos) = buffer.find('\n') {
                 let line = buffer[..pos].trim().to_string();
                 buffer = buffer[pos + 1..].to_string();
@@ -173,7 +212,7 @@ impl AIProvider for OllamaProvider {
                 if let Ok(stream_chunk) = serde_json::from_str::<OllamaStreamChunk>(&line) {
                     if !stream_chunk.message.content.is_empty() {
                         if tx.send(stream_chunk.message.content).await.is_err() {
-                            return Ok(()); // receiver dropped
+                            return Ok(());
                         }
                     }
                     if stream_chunk.done {

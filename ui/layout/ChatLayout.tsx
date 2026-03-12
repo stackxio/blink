@@ -1,28 +1,32 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { PanelLeftOpen } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import StatusBar from "@/components/StatusBar";
-import { useTheme } from "@/lib/theme";
 
 export interface ChatThread {
   id: string;
   title: string;
   folderId: string | null;
   createdAt: Date;
+  messageCount: number;
 }
 
 export interface Folder {
   id: string;
   name: string;
   expanded: boolean;
+  icon: string;
+  color: string;
 }
 
 interface DbFolder {
   id: string;
   name: string;
   position: number;
+  icon?: string;
+  color?: string;
   created_at: string;
 }
 
@@ -32,10 +36,17 @@ interface DbThread {
   title: string;
   created_at: string;
   updated_at: string;
+  message_count: number;
 }
 
 function dbFolderToFolder(db: DbFolder): Folder {
-  return { id: db.id, name: db.name, expanded: true };
+  return {
+    id: db.id,
+    name: db.name,
+    expanded: true,
+    icon: db.icon ?? "Folder",
+    color: db.color ?? "#6b7280",
+  };
 }
 
 function dbThreadToThread(db: DbThread): ChatThread {
@@ -44,6 +55,7 @@ function dbThreadToThread(db: DbThread): ChatThread {
     title: db.title,
     folderId: db.folder_id,
     createdAt: new Date(db.created_at),
+    messageCount: db.message_count ?? 0,
   };
 }
 
@@ -55,7 +67,7 @@ export default function ChatLayout() {
   const navigate = useNavigate();
   const params = useParams();
   const activeThreadId = params.threadId ?? null;
-  useTheme();
+  const pendingFolderIdRef = useRef<string | null>(null);
 
   // Cmd+B to toggle sidebar
   useEffect(() => {
@@ -92,23 +104,19 @@ export default function ChatLayout() {
   }, []);
 
   async function handleNewThread(folderId?: string | null) {
-    try {
-      const dbThread = await invoke<DbThread>("create_thread", {
-        folderId: folderId ?? null,
-        title: "New chat",
-      });
-      const thread = dbThreadToThread(dbThread);
-      setThreads((prev) => [thread, ...prev]);
-      navigate(`/chat/${thread.id}`);
-    } catch {
-      // Fallback to local-only if db fails
-      const id = crypto.randomUUID();
-      setThreads((prev) => [
-        { id, title: "New chat", folderId: folderId ?? null, createdAt: new Date() },
-        ...prev,
-      ]);
-      navigate(`/chat/${id}`);
-    }
+    pendingFolderIdRef.current = folderId ?? null;
+    navigate("/chat");
+  }
+
+  async function createThread(folderId?: string | null): Promise<ChatThread> {
+    const dbThread = await invoke<DbThread>("create_thread", {
+      folderId: folderId ?? null,
+      title: "New chat",
+    });
+    const thread = dbThreadToThread(dbThread);
+    setThreads((prev) => [thread, ...prev]);
+    navigate(`/chat/${thread.id}`);
+    return thread;
   }
 
   async function handleNewFolder(name: string) {
@@ -117,10 +125,7 @@ export default function ChatLayout() {
       setFolders((prev) => [...prev, dbFolderToFolder(dbFolder)]);
     } catch {
       // Fallback to local-only
-      setFolders((prev) => [
-        ...prev,
-        { id: crypto.randomUUID(), name, expanded: true },
-      ]);
+      setFolders((prev) => [...prev, { id: crypto.randomUUID(), name, expanded: true, icon: "Folder", color: "#6b7280" }]);
     }
   }
 
@@ -132,9 +137,7 @@ export default function ChatLayout() {
 
   async function handleDeleteFolder(folderId: string) {
     setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    setThreads((prev) =>
-      prev.map((t) => (t.folderId === folderId ? { ...t, folderId: null } : t)),
-    );
+    setThreads((prev) => prev.map((t) => (t.folderId === folderId ? { ...t, folderId: null } : t)));
 
     try {
       await invoke("delete_folder", { id: folderId });
@@ -149,6 +152,17 @@ export default function ChatLayout() {
 
     try {
       await invoke("delete_thread", { id: threadId });
+    } catch {
+      // Already removed from UI
+    }
+  }
+
+  async function handleArchiveThread(threadId: string) {
+    setThreads((prev) => prev.filter((t) => t.id !== threadId));
+    if (activeThreadId === threadId) navigate("/");
+
+    try {
+      await invoke("archive_thread", { id: threadId });
     } catch {
       // Already removed from UI
     }
@@ -184,43 +198,89 @@ export default function ChatLayout() {
     }
   }
 
+  async function handleUpdateFolderAppearance(
+    folderId: string,
+    updates: { icon?: string; color?: string },
+  ) {
+    setFolders((prev) =>
+      prev.map((f) =>
+        f.id === folderId
+          ? {
+              ...f,
+              icon: updates.icon ?? f.icon,
+              color: updates.color ?? f.color,
+            }
+          : f,
+      ),
+    );
+    try {
+      await invoke("update_folder_appearance", {
+        id: folderId,
+        icon: updates.icon ?? null,
+        color: updates.color ?? null,
+      });
+    } catch {
+      // Already updated in UI
+    }
+  }
+
   return (
-    <div className="flex h-full text-neutral-100">
-      {sidebarOpen ? (
+    <div className="flex h-full min-h-0 text-foreground">
+      {/* Sidebar wrapper: slide animation via width + overflow */}
+      <div
+        className={`flex shrink-0 flex-col overflow-hidden transition-[width] duration-200 ease-out ${
+          sidebarOpen ? "w-[260px]" : "w-0"
+        }`}
+      >
         <Sidebar
           folders={folders}
           threads={threads}
           activeThreadId={activeThreadId}
           onSelectThread={(id) => navigate(`/chat/${id}`)}
+          onSelectFolder={(id) => navigate(`/project/${id}`)}
           onNewThread={handleNewThread}
           onNewFolder={handleNewFolder}
           onToggleFolder={handleToggleFolder}
           onDeleteFolder={handleDeleteFolder}
           onDeleteThread={handleDeleteThread}
+          onArchiveThread={handleArchiveThread}
           onMoveThread={handleMoveThread}
           onRenameFolder={handleRenameFolder}
           onRenameThread={handleRenameThread}
+          onUpdateFolderAppearance={handleUpdateFolderAppearance}
           onOpenSettings={() => navigate("/settings")}
           onToggleSidebar={() => setSidebarOpen(false)}
+          onOpenAutomations={() => navigate("/automations")}
         />
-      ) : (
-        <button
-          onClick={() => setSidebarOpen(true)}
-          title="Show sidebar (Cmd+B)"
-          className="absolute left-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded text-neutral-500 transition-colors hover:bg-surface-raised hover:text-neutral-300"
-        >
-          <PanelLeftOpen size={14} />
-        </button>
-      )}
-      <div className="relative flex min-w-0 flex-1 flex-col bg-background">
-        <Outlet
-          context={{
-            onLoadingChange: handleLoadingChange,
-            onRenameThread: handleRenameThread,
-            onNewThread: handleNewThread,
-            activeThreadId,
-          }}
-        />
+      </div>
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-out">
+        <div className="titlebar-drag relative h-12 shrink-0">
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              title="Show sidebar (Cmd+B)"
+              className="titlebar-no-drag absolute left-2 top-3 z-20 flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+            >
+              <PanelLeftOpen size={14} />
+            </button>
+          )}
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Outlet
+            context={{
+              onLoadingChange: handleLoadingChange,
+              onRenameThread: handleRenameThread,
+              onNewThread: handleNewThread,
+              createThread,
+              pendingFolderIdRef,
+              activeThreadId,
+              folders,
+              threads,
+              onSelectThread: (id: string) => navigate(`/chat/${id}`),
+              onUpdateFolderAppearance: handleUpdateFolderAppearance,
+            }}
+          />
+        </div>
         <StatusBar isLoading={isLoading} />
       </div>
     </div>
