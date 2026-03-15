@@ -1,14 +1,44 @@
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Mutex;
+
+use rusqlite::Connection;
 
 use crate::connectors::filesystem::{FilesystemConnector, FilesystemEntry};
+use crate::db::queries;
+use crate::scope::ScopeGuard;
 use crate::services::chat;
 use crate::settings::store::SettingsStore;
 
+fn scope_guard_for_thread(
+    conn: &Connection,
+    thread_id: Option<&str>,
+) -> Result<ScopeGuard, String> {
+    let guard = match thread_id {
+        Some(tid) => {
+            let (mode, root_path) = queries::get_effective_scope(conn, tid)
+                .map_err(|e| e.to_string())?
+                .unwrap_or(("system".to_string(), None));
+            ScopeGuard::new(&mode, root_path.as_deref())
+        }
+        None => ScopeGuard::system(),
+    };
+    Ok(guard)
+}
+
 #[tauri::command]
-pub async fn summarize_folder(path: String) -> Result<String, String> {
+pub async fn summarize_folder(
+    state: tauri::State<'_, Mutex<Connection>>,
+    path: String,
+    thread_id: Option<String>,
+) -> Result<String, String> {
+    let guard = {
+        let conn = state.lock().map_err(|e| e.to_string())?;
+        scope_guard_for_thread(&conn, thread_id.as_deref())?
+    };
     let connector = FilesystemConnector::new();
     let path = connector.expand_path(&path);
+    guard.allow_read(&path).map_err(|e| e.to_string())?;
     let entries = connector.list_dir(&path).map_err(|e| e.to_string())?;
 
     let directories = entries.iter().filter(|entry| entry.is_dir).count();
@@ -93,11 +123,19 @@ pub async fn summarize_folder(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn organize_downloads() -> Result<String, String> {
+pub async fn organize_downloads(
+    state: tauri::State<'_, Mutex<Connection>>,
+    thread_id: Option<String>,
+) -> Result<String, String> {
+    let guard = {
+        let conn = state.lock().map_err(|e| e.to_string())?;
+        scope_guard_for_thread(&conn, thread_id.as_deref())?
+    };
     let connector = FilesystemConnector::new();
     let downloads_dir = dirs::download_dir()
         .or_else(|| dirs::home_dir().map(|home| home.join("Downloads")))
         .ok_or_else(|| "Could not resolve Downloads directory".to_string())?;
+    guard.allow_read(&downloads_dir).map_err(|e| e.to_string())?;
     let entries = connector
         .list_dir(&downloads_dir)
         .map_err(|e| e.to_string())?;
@@ -113,6 +151,9 @@ pub async fn organize_downloads() -> Result<String, String> {
 
         let category = category_for_entry(&entry);
         let target_dir = downloads_dir.join(category);
+
+        guard.allow_read(&entry.path).map_err(|e| e.to_string())?;
+        guard.allow_write(&target_dir).map_err(|e| e.to_string())?;
 
         if entry.path.parent() == Some(target_dir.as_path()) {
             skipped += 1;
@@ -150,9 +191,18 @@ pub async fn organize_downloads() -> Result<String, String> {
 }
 
 #[tauri::command]
-pub async fn rename_file_with_ai(path: String) -> Result<String, String> {
+pub async fn rename_file_with_ai(
+    state: tauri::State<'_, Mutex<Connection>>,
+    path: String,
+    thread_id: Option<String>,
+) -> Result<String, String> {
+    let guard = {
+        let conn = state.lock().map_err(|e| e.to_string())?;
+        scope_guard_for_thread(&conn, thread_id.as_deref())?
+    };
     let connector = FilesystemConnector::new();
     let path = connector.expand_path(&path);
+    guard.allow_read(&path).map_err(|e| e.to_string())?;
     let metadata = std::fs::metadata(&path).map_err(|e| e.to_string())?;
 
     if !metadata.is_file() {
@@ -178,6 +228,9 @@ pub async fn rename_file_with_ai(path: String) -> Result<String, String> {
     if final_name == original_name {
         return Ok(format!("Kept existing file name: {}", original_name));
     }
+
+    let target_path = path.parent().map(|p| p.join(&final_name)).unwrap_or_else(|| path.clone());
+    guard.allow_write(&target_path).map_err(|e| e.to_string())?;
 
     let renamed = connector
         .rename_path(&path, &final_name)

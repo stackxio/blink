@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
 
 interface Settings {
   active_provider: string;
@@ -80,18 +81,21 @@ export default function SettingsGeneral() {
           </div>
           <div className="flex gap-1 rounded-md bg-input p-0.5">
             {modes.map((m) => (
-              <button
+              <Button
                 key={m.value}
-                onClick={() => handlePromptModeChange(m.value)}
+                type="button"
+                variant={settings?.prompt_mode === m.value ? "secondary" : "ghost"}
+                size="sm"
                 title={m.desc}
-                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                className={`rounded px-2.5 py-1 text-xs ${
                   settings?.prompt_mode === m.value
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                onClick={() => handlePromptModeChange(m.value)}
               >
                 {m.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -109,17 +113,20 @@ export default function SettingsGeneral() {
               { value: "queue", label: "Queue" },
               { value: "steer", label: "Steer" },
             ].map((opt) => (
-              <button
+              <Button
                 key={opt.value}
-                onClick={() => handleFollowUpBehaviorChange(opt.value)}
-                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                type="button"
+                variant={(settings?.follow_up_behavior ?? "queue") === opt.value ? "secondary" : "ghost"}
+                size="sm"
+                className={`rounded px-2.5 py-1 text-xs ${
                   (settings?.follow_up_behavior ?? "queue") === opt.value
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                onClick={() => handleFollowUpBehaviorChange(opt.value)}
               >
                 {opt.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

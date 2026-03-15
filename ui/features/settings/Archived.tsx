@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { RotateCcw, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ArchivedThread {
   id: string;
@@ -66,22 +67,26 @@ export default function SettingsArchived() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleRestore(thread.id)}
                     title="Restore to sidebar"
-                    className="rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
+                    className="h-8 w-8 rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
                   >
                     <RotateCcw size={14} />
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleDeletePermanent(thread.id)}
                     title="Delete permanently"
-                    className="rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-red-500"
+                    className="h-8 w-8 rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-destructive"
                   >
                     <Trash2 size={14} />
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}

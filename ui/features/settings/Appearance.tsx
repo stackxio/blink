@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { type Theme, getStoredTheme, changeTheme } from "@/lib/theme";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsAppearance() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
@@ -27,17 +28,20 @@ export default function SettingsAppearance() {
           </div>
           <div className="flex gap-1 rounded-md bg-input p-0.5">
             {themes.map((t) => (
-              <button
+              <Button
                 key={t.value}
-                onClick={() => handleThemeChange(t.value)}
-                className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                type="button"
+                variant={theme === t.value ? "secondary" : "ghost"}
+                size="sm"
+                className={`rounded px-2.5 py-1 text-xs ${
                   theme === t.value
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                onClick={() => handleThemeChange(t.value)}
               >
                 {t.label}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

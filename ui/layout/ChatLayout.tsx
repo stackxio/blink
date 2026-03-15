@@ -1,19 +1,20 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
-import { PanelLeftOpen } from "lucide-react";
+import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import StatusBar from "@/components/StatusBar";
 
 export interface ChatThread {
   id: string;
   title: string;
-  folderId: string | null;
+  projectId: string | null;
   createdAt: Date;
   messageCount: number;
 }
 
-export interface Folder {
+/** UI model for a project (backend still uses "folder" in DB and invoke names). */
+export interface Project {
   id: string;
   name: string;
   expanded: boolean;
@@ -46,7 +47,7 @@ interface DbThread {
   message_count: number;
 }
 
-function dbFolderToFolder(db: DbFolder): Folder {
+function dbFolderToProject(db: DbFolder): Project {
   return {
     id: db.id,
     name: db.name,
@@ -62,7 +63,7 @@ function dbThreadToThread(db: DbThread): ChatThread {
   return {
     id: db.id,
     title: db.title,
-    folderId: db.folder_id,
+    projectId: db.folder_id,
     createdAt: new Date(db.created_at),
     messageCount: db.message_count ?? 0,
   };
@@ -70,13 +71,14 @@ function dbThreadToThread(db: DbThread): ChatThread {
 
 export default function ChatLayout() {
   const [isLoading, setIsLoading] = useState(false);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [headerExtra, setHeaderExtra] = useState<React.ReactNode>(null);
   const navigate = useNavigate();
   const params = useParams();
   const activeThreadId = params.threadId ?? null;
-  const pendingFolderIdRef = useRef<string | null>(null);
+  const pendingProjectIdRef = useRef<string | null>(null);
 
   // Cmd+B to toggle sidebar
   useEffect(() => {
@@ -90,7 +92,7 @@ export default function ChatLayout() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Load folders and threads from db on mount
+  // Load projects and threads from db on mount
   useEffect(() => {
     async function loadData() {
       try {
@@ -98,7 +100,7 @@ export default function ChatLayout() {
           invoke<DbFolder[]>("list_folders"),
           invoke<DbThread[]>("list_threads"),
         ]);
-        setFolders(dbFolders.map(dbFolderToFolder));
+        setProjects(dbFolders.map(dbFolderToProject));
         setThreads(dbThreads.map(dbThreadToThread));
       } catch {
         // db may not be ready yet — start with empty state
@@ -112,18 +114,18 @@ export default function ChatLayout() {
     setIsLoading(loading);
   }, []);
 
-  async function handleNewThread(folderId?: string | null) {
-    pendingFolderIdRef.current = folderId ?? null;
+  async function handleNewThread(projectId?: string | null) {
+    pendingProjectIdRef.current = projectId ?? null;
     navigate("/chat");
   }
 
   async function createThread(
-    folderId?: string | null,
+    projectId?: string | null,
     scopeModeOverride?: string | null,
     rootPathOverride?: string | null,
   ): Promise<ChatThread> {
     const dbThread = await invoke<DbThread>("create_thread", {
-      folderId: folderId ?? null,
+      folderId: projectId ?? null,
       title: "New chat",
       scopeModeOverride: scopeModeOverride ?? null,
       rootPathOverride: rootPathOverride ?? null,
@@ -134,7 +136,7 @@ export default function ChatLayout() {
     return thread;
   }
 
-  async function handleNewFolder(
+  async function handleNewProject(
     name: string,
     scopeMode?: string,
     rootPath?: string | null,
@@ -145,9 +147,9 @@ export default function ChatLayout() {
         scopeMode: scopeMode ?? "system",
         rootPath: rootPath ?? null,
       });
-      setFolders((prev) => [...prev, dbFolderToFolder(dbFolder)]);
+      setProjects((prev) => [...prev, dbFolderToProject(dbFolder)]);
     } catch {
-      setFolders((prev) => [
+      setProjects((prev) => [
         ...prev,
         {
           id: crypto.randomUUID(),
@@ -162,18 +164,18 @@ export default function ChatLayout() {
     }
   }
 
-  function handleToggleFolder(folderId: string) {
-    setFolders((prev) =>
-      prev.map((f) => (f.id === folderId ? { ...f, expanded: !f.expanded } : f)),
+  function handleToggleProject(projectId: string) {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, expanded: !p.expanded } : p)),
     );
   }
 
-  async function handleDeleteFolder(folderId: string) {
-    setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    setThreads((prev) => prev.map((t) => (t.folderId === folderId ? { ...t, folderId: null } : t)));
+  async function handleDeleteProject(projectId: string) {
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    setThreads((prev) => prev.map((t) => (t.projectId === projectId ? { ...t, projectId: null } : t)));
 
     try {
-      await invoke("delete_folder", { id: folderId });
+      await invoke("delete_folder", { id: projectId });
     } catch {
       // Already removed from UI
     }
@@ -211,44 +213,44 @@ export default function ChatLayout() {
     }
   }
 
-  async function handleMoveThread(threadId: string, folderId: string | null) {
-    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, folderId } : t)));
+  async function handleMoveThread(threadId: string, projectId: string | null) {
+    setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, projectId } : t)));
 
     try {
-      await invoke("move_thread_to_folder", { id: threadId, folderId });
+      await invoke("move_thread_to_folder", { id: threadId, folderId: projectId });
     } catch {
       // Already updated in UI
     }
   }
 
-  async function handleRenameFolder(folderId: string, name: string) {
-    setFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, name } : f)));
+  async function handleRenameProject(projectId: string, name: string) {
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, name } : p)));
 
     try {
-      await invoke("rename_folder", { id: folderId, name });
+      await invoke("rename_folder", { id: projectId, name });
     } catch {
       // Already updated in UI
     }
   }
 
-  async function handleUpdateFolderAppearance(
-    folderId: string,
+  async function handleUpdateProjectAppearance(
+    projectId: string,
     updates: { icon?: string; color?: string },
   ) {
-    setFolders((prev) =>
-      prev.map((f) =>
-        f.id === folderId
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
           ? {
-              ...f,
-              icon: updates.icon ?? f.icon,
-              color: updates.color ?? f.color,
+              ...p,
+              icon: updates.icon ?? p.icon,
+              color: updates.color ?? p.color,
             }
-          : f,
+          : p,
       ),
     );
     try {
       await invoke("update_folder_appearance", {
-        id: folderId,
+        id: projectId,
         icon: updates.icon ?? null,
         color: updates.color ?? null,
       });
@@ -266,38 +268,46 @@ export default function ChatLayout() {
         }`}
       >
         <Sidebar
-          folders={folders}
+          projects={projects}
           threads={threads}
           activeThreadId={activeThreadId}
           onSelectThread={(id) => navigate(`/chat/${id}`)}
-          onSelectFolder={(id) => navigate(`/project/${id}`)}
+          onSelectProject={(id) => navigate(`/project/${id}`)}
           onNewThread={handleNewThread}
-          onNewFolder={handleNewFolder}
-          onToggleFolder={handleToggleFolder}
-          onDeleteFolder={handleDeleteFolder}
+          onNewProject={handleNewProject}
+          onToggleProject={handleToggleProject}
+          onDeleteProject={handleDeleteProject}
           onDeleteThread={handleDeleteThread}
           onArchiveThread={handleArchiveThread}
           onMoveThread={handleMoveThread}
-          onRenameFolder={handleRenameFolder}
+          onRenameProject={handleRenameProject}
           onRenameThread={handleRenameThread}
-          onUpdateFolderAppearance={handleUpdateFolderAppearance}
+          onUpdateProjectAppearance={handleUpdateProjectAppearance}
           onOpenSettings={() => navigate("/settings")}
+          onOpenSkills={() => navigate("/settings/skills")}
           onToggleSidebar={() => setSidebarOpen(false)}
           onOpenAutomations={() => navigate("/automations")}
         />
       </div>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-out">
-        <div className="titlebar-drag relative h-12 shrink-0">
-          {!sidebarOpen && (
+        {/* Single compact header: drag region, centered target, sidebar toggle */}
+        <header className="titlebar-drag grid h-7 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border bg-surface/50 px-2">
+          <div className="flex items-center">
             <button
-              onClick={() => setSidebarOpen(true)}
-              title="Show sidebar (Cmd+B)"
-              className="titlebar-no-drag absolute left-2 top-3 z-20 flex h-7 w-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+              onClick={() => setSidebarOpen((v) => !v)}
+              title="Toggle sidebar (Cmd+B)"
+              className="titlebar-no-drag flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
             >
-              <PanelLeftOpen size={14} />
+              {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
             </button>
+          </div>
+          {headerExtra && (
+            <div className="titlebar-no-drag text-center text-[11px] text-muted-foreground">
+              {headerExtra}
+            </div>
           )}
-        </div>
+          <div className="min-w-0" />
+        </header>
         <div className="flex min-h-0 flex-1 flex-col">
           <Outlet
             context={{
@@ -305,12 +315,13 @@ export default function ChatLayout() {
               onRenameThread: handleRenameThread,
               onNewThread: handleNewThread,
               createThread,
-              pendingFolderIdRef,
+              pendingProjectIdRef,
               activeThreadId,
-              folders,
+              projects,
               threads,
               onSelectThread: (id: string) => navigate(`/chat/${id}`),
-              onUpdateFolderAppearance: handleUpdateFolderAppearance,
+              onUpdateProjectAppearance: handleUpdateProjectAppearance,
+              setHeaderExtra,
             }}
           />
         </div>

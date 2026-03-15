@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Terminal, Pencil, FileText, Sparkles, Search, Wrench, ChevronRight } from "lucide-react";
+import { Terminal, Pencil, FileText, Sparkles, Search, Wrench, ChevronRight, Lightbulb } from "lucide-react";
 
 export interface Activity {
   kind: string;
@@ -24,10 +24,25 @@ export interface MessageBubbleProps {
   showActionsInChat?: boolean;
 }
 
+/** Parse <think>...</think> from model output. */
+function parseThinking(raw: string): { thinking: string | null; text: string; isOpen: boolean } {
+  if (!raw.startsWith("<think>")) return { thinking: null, text: raw, isOpen: false };
+
+  const closeIdx = raw.indexOf("</think>");
+  if (closeIdx === -1) {
+    // Still streaming — thinking block is open
+    return { thinking: raw.slice(7), text: "", isOpen: true };
+  }
+
+  const thinking = raw.slice(7, closeIdx).trim();
+  const text = raw.slice(closeIdx + 8).trim();
+  return { thinking, text, isOpen: false };
+}
+
 function sanitizeAssistantContent(content: string): string {
   return content
-    .replace(/cite[^]+/g, "")
-    .replace(/\w+[^]+/g, "")
+    .replace(/cite[^]+/g, "")
+    .replace(/\w+[^]+/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -94,17 +109,48 @@ function ActivityLog({ activities }: { activities: Activity[] }) {
   );
 }
 
+function ThinkingBlock({ content, isOpen, isStreaming }: { content: string; isOpen: boolean; isStreaming?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="mb-3">
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <Lightbulb size={13} className="shrink-0" />
+        <span>{isOpen && isStreaming ? "Thinking..." : "Thought process"}</span>
+        {!isOpen && (
+          <ChevronRight size={12} className={`transition-transform ${expanded ? "rotate-90" : ""}`} />
+        )}
+      </button>
+
+      {(expanded || isOpen) && content && (
+        <div className="ml-5 mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
+          {content}
+          {isOpen && isStreaming && (
+            <span className="ml-1 inline-block h-3 w-1 animate-pulse rounded-sm bg-muted" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MessageBubble({ message, showActionsInChat = true }: MessageBubbleProps) {
   const isUser = message.role === "user";
   const hasActivities = showActionsInChat && !isUser && message.activities && message.activities.length > 0;
-  const renderedContent = isUser ? message.content : sanitizeAssistantContent(message.content);
+
+  const { thinking, text: parsedText, isOpen: isThinkingOpen } = isUser
+    ? { thinking: null, text: message.content, isOpen: false }
+    : parseThinking(message.content);
+
+  const renderedContent = isUser ? parsedText : sanitizeAssistantContent(parsedText);
 
   return (
     <div>
       <div className="mb-0.5 flex items-center gap-1.5">
-        <span
-          className={`text-[11px] font-medium ${isUser ? "text-muted-foreground" : "text-muted-foreground"}`}
-        >
+        <span className="text-[11px] font-medium text-muted-foreground">
           {isUser ? "You" : "Caret"}
         </span>
         <span className="text-[10px] text-muted-foreground">
@@ -118,15 +164,18 @@ export default function MessageBubble({ message, showActionsInChat = true }: Mes
         }`}
       >
         {hasActivities && <ActivityLog activities={message.activities!} />}
+        {thinking != null && (
+          <ThinkingBlock content={thinking} isOpen={isThinkingOpen} isStreaming={message.isStreaming} />
+        )}
         {isUser ? (
           <p>{renderedContent}</p>
         ) : (
           <div className="prose-caret">
-            <Markdown remarkPlugins={[remarkGfm]}>{renderedContent}</Markdown>
+            {renderedContent && <Markdown remarkPlugins={[remarkGfm]}>{renderedContent}</Markdown>}
+            {message.isStreaming && !isThinkingOpen && (
+              <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-muted" />
+            )}
           </div>
-        )}
-        {message.isStreaming && (
-          <span className="inline-block h-4 w-1.5 animate-pulse rounded-sm bg-muted" />
         )}
       </div>
     </div>

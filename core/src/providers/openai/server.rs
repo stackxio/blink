@@ -301,10 +301,14 @@ impl CodexServer {
         Ok(())
     }
 
+    /// approval_policy: "never" (full access) or "always" (require approval).
+    /// sandbox: e.g. "danger-full-access" or a stricter sandbox id when approval required.
     pub async fn get_or_create_thread(
         &self,
         our_thread_id: &str,
         stored_codex_id: Option<&str>,
+        approval_policy: &str,
+        sandbox: &str,
     ) -> Result<(String, bool), String> {
         {
             let map = self.thread_map.lock().await;
@@ -319,8 +323,8 @@ impl CodexServer {
                     "thread/resume",
                     serde_json::json!({
                         "threadId": stored_id,
-                        "approvalPolicy": "never",
-                        "sandbox": "danger-full-access"
+                        "approvalPolicy": approval_policy,
+                        "sandbox": sandbox
                     }),
                 )
                 .await
@@ -346,8 +350,8 @@ impl CodexServer {
             .request(
                 "thread/start",
                 serde_json::json!({
-                    "approvalPolicy": "never",
-                    "sandbox": "danger-full-access"
+                    "approvalPolicy": approval_policy,
+                    "sandbox": sandbox
                 }),
             )
             .await?;

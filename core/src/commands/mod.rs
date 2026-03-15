@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod attachments;
 pub mod files;
 pub mod memory;
 pub mod settings;

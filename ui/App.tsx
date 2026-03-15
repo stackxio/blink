@@ -23,7 +23,7 @@ export default function App() {
         <Route element={<ChatLayout />}>
           <Route index element={<ChatArea />} />
           <Route path="chat/:threadId" element={<ChatArea />} />
-          <Route path="project/:folderId" element={<ProjectView />} />
+          <Route path="project/:projectId" element={<ProjectView />} />
           <Route path="automations" element={<AutomationsView />} />
         </Route>
         <Route path="settings" element={<SettingsLayout />}>

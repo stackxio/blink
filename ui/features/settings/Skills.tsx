@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface SkillFile {
   filename: string;
@@ -141,12 +143,15 @@ export default function SettingsSkills() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold text-foreground">Skills</h1>
-        <button
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
           onClick={handleReset}
-          className="rounded px-2.5 py-1 text-xs text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+          className="text-xs text-muted-foreground hover:bg-surface-raised hover:text-foreground"
         >
           Reset defaults
-        </button>
+        </Button>
       </div>
 
       <p className="mb-4 text-xs text-muted-foreground">
@@ -159,9 +164,12 @@ export default function SettingsSkills() {
           <div className="flex-1 overflow-y-auto p-2">
             {skills.map((skill) => (
               <div key={skill.filename} className="group flex items-center">
-                <button
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleSelect(skill.filename)}
-                  className={`flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs transition-colors ${
+                  className={`flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs ${
                     selected === skill.filename
                       ? "bg-surface-raised text-foreground"
                       : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
@@ -186,11 +194,14 @@ export default function SettingsSkills() {
                       sys
                     </span>
                   )}
-                </button>
+                </Button>
                 {!skill.is_system && (
-                  <button
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
                     onClick={() => handleDelete(skill.filename)}
-                    className="mr-1 hidden h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-red-500/20 hover:text-red-500 group-hover:flex"
+                    className="mr-1 hidden h-5 w-5 shrink-0 text-muted-foreground hover:bg-red-500/20 hover:text-red-500 group-hover:flex"
                   >
                     <svg
                       className="h-3 w-3"
@@ -201,14 +212,14 @@ export default function SettingsSkills() {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </button>
+                  </Button>
                 )}
               </div>
             ))}
 
             {isCreating ? (
               <div className="mt-1 px-1">
-                <input
+                <Input
                   ref={newNameRef}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -218,13 +229,16 @@ export default function SettingsSkills() {
                   }}
                   onBlur={handleCreate}
                   placeholder="filename..."
-                  className="w-full rounded bg-input px-2 py-1 text-xs text-foreground placeholder-muted-foreground outline-none focus:ring-1 focus:ring-muted-foreground"
+                  className="h-7 w-full px-2 py-1 text-xs"
                 />
               </div>
             ) : (
-              <button
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
                 onClick={handleStartCreate}
-                className="mt-1 flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-raised/60 hover:text-foreground"
+                className="mt-1 w-full justify-start gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
               >
                 <svg
                   className="h-3 w-3"
@@ -236,7 +250,7 @@ export default function SettingsSkills() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 New skill
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -259,13 +273,15 @@ export default function SettingsSkills() {
                     </span>
                   )}
                 </div>
-                <button
+                <Button
+                  type="button"
+                  size="sm"
                   onClick={handleSave}
                   disabled={!dirty || saving}
-                  className="rounded bg-[#55aaff] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[#66bbff] disabled:opacity-30"
+                  className="bg-[#55aaff] text-xs text-white hover:bg-[#66bbff] disabled:opacity-30"
                 >
                   {saving ? "Saving..." : "Save"}
-                </button>
+                </Button>
               </div>
               <textarea
                 value={editContent}

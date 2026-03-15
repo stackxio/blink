@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsMemory() {
   const [files, setFiles] = useState<string[]>([]);
@@ -42,6 +43,15 @@ export default function SettingsMemory() {
     }
   }
 
+  async function loadFiles() {
+    try {
+      const list = await invoke<string[]>("list_memory_files");
+      setFiles(list);
+    } catch {
+      setFiles([]);
+    }
+  }
+
   async function handleClearToday() {
     try {
       await invoke("clear_today_memory");
@@ -62,13 +72,15 @@ export default function SettingsMemory() {
             Daily memory logs stored in ~/.caret/memory/
           </p>
         </div>
-        <button
+        <Button
+          variant="secondary"
+          size="sm"
           onClick={handleClearToday}
-          className="flex items-center gap-1.5 rounded-md bg-input px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+          className="gap-1.5 text-xs text-muted-foreground hover:bg-surface-raised hover:text-foreground"
         >
           <Trash2 size={12} />
           Clear today
-        </button>
+        </Button>
       </div>
 
       <div className="flex gap-4">
@@ -78,17 +90,19 @@ export default function SettingsMemory() {
             <p className="text-xs text-muted-foreground">No memory files yet.</p>
           ) : (
             files.map((f) => (
-              <button
+              <Button
                 key={f}
+                variant="ghost"
+                size="sm"
                 onClick={() => selectFile(f)}
-                className={`block w-full rounded px-2 py-1 text-left text-xs transition-colors ${
+                className={`block w-full justify-start rounded px-2 py-1 text-left text-xs ${
                   selectedFile === f
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
                 }`}
               >
                 {f.replace(".md", "")}
-              </button>
+              </Button>
             ))
           )}
         </div>

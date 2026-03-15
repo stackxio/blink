@@ -1,4 +1,5 @@
 import { ExternalLink, Plus, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const DOCS_URL = "https://modelcontextprotocol.io";
 
@@ -71,27 +72,31 @@ export default function SettingsMcp() {
       <h2 className="mb-2 text-sm font-medium text-foreground">Custom servers</h2>
       <div className="mb-8 flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3">
         <p className="text-sm text-muted-foreground">No custom MCP servers connected</p>
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={handleAddServer}
-          className="flex items-center gap-1.5 rounded-md border border-border bg-transparent px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-raised"
+          className="gap-1.5 text-xs"
         >
           <Plus size={14} />
           Add server
-        </button>
+        </Button>
       </div>
 
       {/* Recommended servers */}
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-sm font-medium text-foreground">Recommended servers</h2>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={handleRefresh}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
           <RefreshCw size={12} />
           Refresh
-        </button>
+        </Button>
       </div>
       <div className="mt-3 space-y-2">
         {RECOMMENDED_SERVERS.map((server) => (
@@ -110,13 +115,14 @@ export default function SettingsMcp() {
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">{server.description}</p>
             </div>
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={() => handleInstall(server.id)}
-              className="shrink-0 rounded-md bg-[#55aaff] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#66bbff]"
+              className="shrink-0 bg-[#55aaff] text-xs text-white hover:bg-[#66bbff]"
             >
               Install
-            </button>
+            </Button>
           </div>
         ))}
       </div>

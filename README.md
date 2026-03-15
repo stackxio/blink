@@ -34,7 +34,7 @@ caret/
 │   │   ├── tools/
 │   │   ├── lib.rs
 │   │   └── main.rs
-│   ├── icons/            # App icon (PNGs, .icns, .ico, icon.iconset)
+│   ├── icons/            # App icon (PNGs, .icns, .ico, icon.iconset); see "App icon" below
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── assets/               # Source assets (e.g. app icon)
@@ -76,11 +76,27 @@ pnpm app:build
 
 Produces a release build and bundle (e.g. `core/target/release/bundle/macos/Caret.app` and a DMG).
 
+### App icon (macOS)
+
+On macOS, the system does **not** apply rounded corners to app icons; the icon art must include the shape. If the Dock shows Caret as a sharp square instead of a rounded “squircle” like other apps:
+
+**Quick fix:** From the repo root, run:
+
+```bash
+pnpm icon:fix
+```
+
+This applies a squircle mask (transparent corners) to the existing 1024×1024 icon, writes `core/app-icon.png`, and regenerates the full icon set (including `icon.icns`). Rebuild the app so the Dock picks up the new icon.
+
+**Custom icon:** To use your own 1024×1024 source with transparent corners or a drawn squircle, create the PNG and run `pnpm icon path/to/your-icon.png`. You can use [Apple Design Resources](https://developer.apple.com/design/resources/) (macOS App Icon template).
+
 ### Other Scripts
 
 ```bash
 pnpm dev          # Vite dev server only (no Tauri)
 pnpm build        # Frontend build only
+pnpm icon [file]  # Regenerate app icons from a 1024×1024 PNG (default: core/app-icon.png)
+pnpm icon:fix     # Apply squircle mask to current icon so macOS Dock shows rounded corners
 pnpm db:reset     # Remove ~/.caret/caret.db (recreated on next launch)
 pnpm lint         # ESLint
 pnpm format       # Prettier format

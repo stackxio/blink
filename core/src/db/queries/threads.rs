@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection, Result};
 
 use crate::db::models::DbThread;
+use crate::db::queries::folders;
 
 const THREAD_COLS: &str =
     "id, folder_id, title, root_path_override, scope_mode_override, created_at, updated_at, archived_at";
@@ -96,6 +97,32 @@ pub fn update_thread_scope(
         params![scope_mode_override, root_path_override, id],
     )?;
     Ok(())
+}
+
+/// Resolve effective scope (mode, root_path) for a thread. Used by ScopeGuard and resolve_effective_scope command.
+pub fn get_effective_scope(
+    conn: &Connection,
+    thread_id: &str,
+) -> Result<Option<(String, Option<String>)>> {
+    let thread = match get_thread(conn, thread_id)? {
+        Some(t) => t,
+        None => return Ok(None),
+    };
+    let (mode, root_path) = match thread.scope_mode_override.as_str() {
+        "directory" => ("directory".to_string(), thread.root_path_override),
+        "system" => ("system".to_string(), None),
+        _ => {
+            let folder = thread
+                .folder_id
+                .as_ref()
+                .and_then(|fid| folders::get_folder(conn, fid).ok().flatten());
+            match folder {
+                Some(f) if f.scope_mode == "directory" => ("directory".to_string(), f.root_path),
+                _ => ("system".to_string(), None),
+            }
+        }
+    };
+    Ok(Some((mode, root_path)))
 }
 
 pub fn get_codex_thread_id(conn: &Connection, thread_id: &str) -> Result<Option<String>> {

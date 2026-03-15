@@ -25,6 +25,65 @@ pub fn provider_manages_context(provider: &str) -> bool {
     matches!(provider, "codex" | "claude_code")
 }
 
+/// Load project memory block for a thread (from its project/folder). Returns empty string if none.
+fn project_memory_block(conn: &Connection, thread_id: Option<&str>) -> String {
+    let Some(tid) = thread_id else {
+        return String::new();
+    };
+    let thread = match queries::get_thread(conn, tid) {
+        Ok(Some(t)) => t,
+        _ => return String::new(),
+    };
+    let project_id = match &thread.folder_id {
+        Some(id) => id,
+        None => return String::new(),
+    };
+    let memories = match queries::list_by_project(conn, project_id) {
+        Ok(m) => m,
+        Err(_) => return String::new(),
+    };
+    if memories.is_empty() {
+        return String::new();
+    }
+    let mut block = String::from("\n\n--- Project context (shared across chats in this project) ---\n");
+    for m in &memories {
+        block.push_str(&m.content);
+        block.push_str("\n");
+    }
+    block.push_str("---\n");
+    block
+}
+
+/// Load attachment summaries for a thread (files attached to this chat). Returns empty string if none.
+fn attachment_summaries_block(conn: &Connection, thread_id: Option<&str>) -> String {
+    let Some(tid) = thread_id else {
+        return String::new();
+    };
+    let attachments = match queries::list_attachments_by_thread(conn, tid) {
+        Ok(a) => a,
+        Err(_) => return String::new(),
+    };
+    if attachments.is_empty() {
+        return String::new();
+    }
+    let mut block = String::from("\n\n--- Attached files (preview) ---\n");
+    for a in &attachments {
+        block.push_str(&format!("[{}] ", a.original_name));
+        if let Some(ref preview) = a.preview_text {
+            let snippet: String = preview.chars().take(1500).collect();
+            block.push_str(&snippet);
+            if preview.len() > 1500 {
+                block.push_str("...");
+            }
+        } else {
+            block.push_str("(extraction pending or not available)");
+        }
+        block.push_str("\n");
+    }
+    block.push_str("---\n");
+    block
+}
+
 /// Build a ChatRequest appropriate for the active provider.
 ///
 /// For context-aware providers: raw prompt + system prompt separately.
@@ -36,15 +95,23 @@ pub fn build_chat_request(
     current_prompt: &str,
     prompt_mode: &str,
 ) -> ChatRequest {
+    let project_block = project_memory_block(conn, thread_id);
+    let attachment_block = attachment_summaries_block(conn, thread_id);
+    let extra_blocks = format!("{}{}", project_block, attachment_block);
     if provider_manages_context(provider) {
         let system = prompts::load_system_prompt_with_mode(prompt_mode);
+        let system = if extra_blocks.is_empty() {
+            system
+        } else {
+            format!("{}{}", system, extra_blocks)
+        };
         ChatRequest {
             prompt: current_prompt.to_string(),
             system: Some(system),
             context: vec![],
         }
     } else {
-        let full_prompt = build_full_prompt(conn, thread_id, current_prompt, prompt_mode);
+        let full_prompt = build_full_prompt(conn, thread_id, current_prompt, prompt_mode, &extra_blocks);
         ChatRequest {
             prompt: full_prompt,
             system: None,
@@ -60,18 +127,25 @@ fn build_full_prompt(
     thread_id: Option<&str>,
     current_prompt: &str,
     prompt_mode: &str,
+    extra_blocks: &str,
 ) -> String {
-    let system_prompt = prompts::load_system_prompt_with_mode(prompt_mode);
+    let mut system_prompt = prompts::load_system_prompt_with_mode(prompt_mode);
+    if !extra_blocks.is_empty() {
+        system_prompt.push_str(extra_blocks);
+    }
 
     let mut history = String::new();
     if let Some(tid) = thread_id {
         if let Ok(messages) = queries::list_messages(conn, tid) {
-            for msg in &messages {
-                let role_label = if msg.role == "user" {
-                    "User"
-                } else {
-                    "Assistant"
-                };
+            // The current user message was already saved to the DB before this call,
+            // so we skip the last entry to avoid duplicating it at the end of the prompt.
+            let prior = if messages.last().map(|m| m.role.as_str()) == Some("user") {
+                &messages[..messages.len().saturating_sub(1)]
+            } else {
+                &messages[..]
+            };
+            for msg in prior {
+                let role_label = if msg.role == "user" { "User" } else { "Assistant" };
                 history.push_str(&format!("{}: {}\n\n", role_label, msg.content));
             }
         }

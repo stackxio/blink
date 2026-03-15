@@ -1,4 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
+import { ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const NAV_ITEMS = [
   { label: "General", path: "/settings" },
@@ -21,18 +23,11 @@ export default function SettingsLayout() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar">
         <div className="h-3 shrink-0" />
         <button
+          type="button"
           onClick={() => navigate("/")}
-          className="flex items-center gap-1.5 px-4 pb-3 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="flex items-center gap-1 px-4 pb-3 text-xs text-muted-foreground hover:text-foreground"
         >
-          <svg
-            className="h-3.5 w-3.5"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft size={13} />
           Back to app
         </button>
 
@@ -40,17 +35,19 @@ export default function SettingsLayout() {
           {NAV_ITEMS.map((item) => {
             const isActive = location.pathname === item.path;
             return (
-              <button
+              <Button
                 key={item.path}
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate(item.path)}
-                className={`rounded-md px-3 py-1.5 text-left text-sm transition-colors ${
+                className={`w-full justify-start px-3 py-1.5 text-left text-[13px] font-normal ${
                   isActive
                     ? "bg-surface-raised text-foreground"
                     : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
                 }`}
               >
                 {item.label}
-              </button>
+              </Button>
             );
           })}
         </nav>

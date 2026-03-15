@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
 
 const APP_VERSION = "0.1.0";
 
@@ -27,13 +28,15 @@ export default function SettingsAbout() {
               Third-party notices for bundled dependencies.
             </p>
           </div>
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={() => navigate("/settings/licenses")}
-            className="rounded-md bg-input px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-surface-raised"
+            className="text-xs"
           >
             View
-          </button>
+          </Button>
         </div>
       </div>
     </div>

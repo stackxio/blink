@@ -8,6 +8,7 @@ mod connectors;
 mod db;
 pub mod providers;
 pub mod services;
+mod scope;
 mod settings;
 mod tools;
 
@@ -45,6 +46,10 @@ pub fn run() {
             commands::files::summarize_folder,
             commands::files::organize_downloads,
             commands::files::rename_file_with_ai,
+            commands::attachments::attach_files,
+            commands::attachments::list_attachments,
+            commands::attachments::read_attachment_preview,
+            commands::attachments::extract_attachment_text,
             commands::threads::create_folder,
             commands::threads::list_folders,
             commands::threads::delete_folder,
@@ -62,6 +67,10 @@ pub fn run() {
             commands::threads::update_thread_scope,
             commands::threads::resolve_effective_scope,
             commands::threads::pick_directory,
+            commands::threads::pick_files,
+            commands::threads::list_project_memories,
+            commands::threads::pin_project_memory,
+            commands::threads::append_thread_summary,
             commands::threads::send_message,
             commands::threads::list_messages,
             commands::skills::list_skills,

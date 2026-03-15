@@ -22,6 +22,8 @@ pub struct ChatInput {
     pub thread_id: Option<String>,
     pub reasoning_effort: Option<String>,
     pub fast_mode: Option<bool>,
+    /// "full-access" | "approval-required". When approval-required, Codex gets approvalPolicy: "always" and stricter sandbox.
+    pub runtime_mode: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -335,8 +337,18 @@ async fn stream_via_codex_server(
         queries::get_codex_thread_id(&conn, &our_thread_id).unwrap_or(None)
     };
 
+    let (approval_policy, sandbox) = match input.runtime_mode.as_deref() {
+        Some("approval-required") => ("always", "default"),
+        _ => ("never", "danger-full-access"),
+    };
+
     let (codex_thread_id, is_new_thread) = server
-        .get_or_create_thread(&our_thread_id, stored_codex_id.as_deref())
+        .get_or_create_thread(
+            &our_thread_id,
+            stored_codex_id.as_deref(),
+            approval_policy,
+            sandbox,
+        )
         .await
         .map_err(|e| {
             log::error!("chat_stream: get_or_create_thread failed: {}", e);

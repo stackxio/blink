@@ -1,4 +1,4 @@
-use crate::db::models::{DbFolder, DbMessage, DbThread};
+use crate::db::models::{DbFolder, DbMessage, DbProjectMemory, DbThread};
 use crate::db::queries;
 use rusqlite::Connection;
 use serde::Serialize;
@@ -230,6 +230,22 @@ pub async fn pick_directory(app: tauri::AppHandle) -> Result<Option<String>, Str
 }
 
 #[tauri::command]
+pub async fn pick_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let paths = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .add_filter("Documents", &["txt", "md", "csv", "pdf"])
+            .blocking_pick_files()
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(paths
+        .map(|v| v.into_iter().map(|p| p.to_string()).collect())
+        .unwrap_or_default())
+}
+
+#[tauri::command]
 pub fn send_message(
     state: tauri::State<'_, Mutex<Connection>>,
     thread_id: String,
@@ -283,6 +299,69 @@ pub fn list_messages(
             Err(e.to_string())
         }
     }
+}
+
+#[tauri::command]
+pub fn list_project_memories(
+    state: tauri::State<'_, Mutex<Connection>>,
+    project_id: String,
+) -> Result<Vec<DbProjectMemory>, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    queries::list_by_project(&conn, &project_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn pin_project_memory(
+    state: tauri::State<'_, Mutex<Connection>>,
+    project_id: String,
+    content: String,
+) -> Result<DbProjectMemory, String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    let id = uuid_v4();
+    queries::insert_project_memory(
+        &conn,
+        &id,
+        &project_id,
+        "manual_note",
+        None,
+        content.trim(),
+        0,
+    )
+    .map_err(|e| e.to_string())
+}
+
+/// Append a thread turn summary to the thread's project memory (if the thread belongs to a project).
+/// Called after each assistant response so project context stays updated.
+#[tauri::command]
+pub fn append_thread_summary(
+    state: tauri::State<'_, Mutex<Connection>>,
+    thread_id: String,
+    user_content: String,
+    assistant_content: String,
+) -> Result<(), String> {
+    let conn = state.lock().map_err(|e| e.to_string())?;
+    let thread = queries::get_thread(&conn, &thread_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| "Thread not found".to_string())?;
+    let project_id = match &thread.folder_id {
+        Some(id) => id.as_str(),
+        None => return Ok(()),
+    };
+    let u = user_content.chars().take(300).collect::<String>();
+    let a = assistant_content.chars().take(800).collect::<String>();
+    let content = format!("User: {} | Assistant: {}", u, a);
+    let id = uuid_v4();
+    queries::insert_project_memory(
+        &conn,
+        &id,
+        project_id,
+        "thread_summary",
+        Some(&thread_id),
+        &content,
+        0,
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 /// Simple UUID v4 generator using random bytes.

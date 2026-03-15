@@ -1,3 +1,5 @@
+import { Input } from "@/components/ui/input";
+
 export default function SettingsProviders() {
   return (
     <div>
@@ -26,15 +28,15 @@ export default function SettingsProviders() {
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Connect to a local Ollama server</p>
           <div className="mt-2 flex gap-2">
-            <input
+            <Input
               type="text"
               placeholder="http://localhost:11434"
-              className="flex-1 rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-muted-foreground"
+              className="h-8 flex-1 px-2 py-1 text-xs"
             />
-            <input
+            <Input
               type="text"
               placeholder="Model (e.g. llama3)"
-              className="w-36 rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-muted-foreground"
+              className="h-8 w-36 px-2 py-1 text-xs"
             />
           </div>
         </div>
@@ -47,21 +49,21 @@ export default function SettingsProviders() {
           </div>
           <p className="mt-1 text-xs text-muted-foreground">Any OpenAI-compatible endpoint</p>
           <div className="mt-2 flex flex-col gap-2">
-            <input
+            <Input
               type="text"
               placeholder="Endpoint URL"
-              className="rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-muted-foreground"
+              className="h-8 px-2 py-1 text-xs"
             />
             <div className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 placeholder="Model"
-                className="flex-1 rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-muted-foreground"
+                className="h-8 flex-1 px-2 py-1 text-xs"
               />
-              <input
+              <Input
                 type="password"
                 placeholder="API key (optional)"
-                className="flex-1 rounded border border-border bg-input px-2 py-1 text-xs text-foreground outline-none focus:border-muted-foreground"
+                className="h-8 flex-1 px-2 py-1 text-xs"
               />
             </div>
           </div>

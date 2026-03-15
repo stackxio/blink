@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsLicenses() {
   const navigate = useNavigate();
@@ -6,10 +7,12 @@ export default function SettingsLicenses() {
   return (
     <div>
       <div className="mb-4 flex items-center gap-2">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => navigate("/settings/about")}
-          className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <svg
             className="h-3.5 w-3.5"
@@ -21,7 +24,7 @@ export default function SettingsLicenses() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
           Back
-        </button>
+        </Button>
       </div>
       <h1 className="mb-4 text-lg font-semibold text-foreground">Open source licenses</h1>
       <p className="mb-4 text-sm text-muted-foreground">
