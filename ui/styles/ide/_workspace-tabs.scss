@@ -71,12 +71,19 @@
   }
 
   &__dropdown {
-    position: absolute !important;
+    position: absolute;
     left: 0;
     top: 100%;
     margin-top: 4px;
     width: 320px;
     max-height: 400px;
+    z-index: 200;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    padding: 4px;
+    overflow: hidden;
   }
 
   &__recent-list {

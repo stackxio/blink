@@ -129,7 +129,7 @@ export default function WorkspaceTabs() {
         </button>
 
         {dropdownOpen && (
-          <div ref={dropdownRef} className="workspace-tabs__dropdown menu">
+          <div ref={dropdownRef} className="workspace-tabs__dropdown">
             <div className="menu__search">
               <input
                 ref={inputRef}
