@@ -1,0 +1,112 @@
+@use "../mixins" as *;
+
+.editor-pane {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  background: var(--c-bg);
+  // Override global user-select: none for the editor
+  user-select: text !important;
+  -webkit-user-select: text !important;
+
+  // CodeMirror container fills available space
+  .cm-editor {
+    flex: 1;
+    height: 100%;
+    overflow: hidden;
+    user-select: text;
+    -webkit-user-select: text;
+
+    &.cm-focused {
+      outline: none;
+    }
+
+    * {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+  }
+
+  // Theme CodeMirror to match IDE tokens
+  .cm-editor {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.6;
+
+    .cm-scroller {
+      @include scrollbar;
+      overflow: auto;
+    }
+
+    .cm-content {
+      padding: 8px 0;
+      caret-color: var(--c-accent);
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .cm-gutters {
+      background: var(--c-bg);
+      border-right: 1px solid var(--c-border);
+      color: var(--c-muted-fg);
+      font-size: 12px;
+      min-width: 48px;
+    }
+
+    .cm-activeLineGutter {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+
+    .cm-activeLine {
+      background: color-mix(in srgb, var(--c-surface-raised) 50%, transparent);
+    }
+
+    .cm-selectionBackground {
+      background: color-mix(in srgb, var(--c-accent) 25%, transparent) !important;
+    }
+
+    .cm-cursor {
+      border-left-color: var(--c-accent);
+    }
+
+    .cm-matchingBracket {
+      background: color-mix(in srgb, var(--c-accent) 20%, transparent);
+      outline: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);
+    }
+
+    .cm-searchMatch {
+      background: color-mix(in srgb, var(--c-warning) 30%, transparent);
+      outline: 1px solid var(--c-warning);
+    }
+
+    .cm-searchMatch-selected {
+      background: color-mix(in srgb, var(--c-warning) 50%, transparent);
+    }
+
+    // Line wrapping
+    .cm-line {
+      padding: 0 12px;
+    }
+
+    // Autocomplete tooltip
+    .cm-tooltip {
+      background: var(--c-popover);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .cm-tooltip-autocomplete {
+      ul li {
+        padding: 2px 8px;
+        font-size: 13px;
+
+        &[aria-selected] {
+          background: var(--c-surface-raised);
+          color: var(--c-fg);
+        }
+      }
+    }
+  }
+}

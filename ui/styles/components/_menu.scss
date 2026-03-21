@@ -1,0 +1,103 @@
+@use "../mixins" as *;
+
+// Shared styles for dropdown menus and context menus
+.menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 160px;
+  max-width: 320px;
+  padding: 4px;
+  background: var(--c-popover);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  animation: menu-in var(--transition-fast) ease;
+  @include scrollbar;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    @include transition(background);
+    @include no-select;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--c-surface-raised);
+      outline: none;
+    }
+
+    &--danger {
+      color: var(--c-danger);
+
+      &:hover { background: color-mix(in srgb, var(--c-danger) 10%, transparent); }
+    }
+
+    &--disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    svg {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  &__label {
+    padding: 4px 10px 2px;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    color: var(--c-muted-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  &__separator {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--c-border);
+  }
+
+  &__sub-trigger {
+    @extend .menu__item;
+    justify-content: space-between;
+
+    &::after {
+      content: "›";
+      color: var(--c-muted);
+      font-size: 1.1em;
+    }
+  }
+
+  &__radio-item {
+    @extend .menu__item;
+
+    &::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: transparent;
+    }
+
+    &--checked::before {
+      background: var(--c-accent);
+    }
+  }
+}
+
+@keyframes menu-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}

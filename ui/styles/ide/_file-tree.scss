@@ -1,0 +1,114 @@
+@use "../mixins" as *;
+
+.file-tree {
+  @include flex-col;
+  @include full-height;
+  overflow-y: auto;
+  @include scrollbar;
+  padding: 4px 0;
+  font-size: var(--font-size-sm);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    height: 24px;
+    padding: 0 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    @include no-select;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      background: var(--c-surface-raised);
+    }
+
+    &--dir {
+      color: var(--c-fg);
+    }
+
+    &--file {
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--c-muted-fg);
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    @include flex-center;
+    color: var(--c-muted-fg);
+    @include transition(transform);
+
+    svg {
+      width: 12px;
+      height: 12px;
+    }
+
+    &--expanded {
+      transform: rotate(90deg);
+    }
+
+    &--hidden {
+      visibility: hidden;
+    }
+  }
+
+  &__name {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__children {
+    // Indent is handled by padding-left on items
+  }
+
+  &__open-folder {
+    @include flex-center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px dashed var(--c-border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    margin: 8px;
+    width: calc(100% - 16px);
+    cursor: pointer;
+    @include transition(color, border-color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      border-color: var(--c-muted);
+      background: var(--c-surface-raised);
+    }
+  }
+}

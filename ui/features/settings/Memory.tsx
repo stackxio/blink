@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export default function SettingsMemory() {
   const [files, setFiles] = useState<string[]>([]);
@@ -64,57 +63,52 @@ export default function SettingsMemory() {
   }
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
+    <div className="settings-section">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Memory</h1>
-          <p className="text-xs text-muted-foreground">
+          <h1 className="settings-section__title" style={{ marginBottom: 4 }}>Memory</h1>
+          <p className="settings-section__description" style={{ marginBottom: 0 }}>
             Daily memory logs stored in ~/.caret/memory/
           </p>
         </div>
-        <Button
-          variant="secondary"
-          size="sm"
+        <button
+          type="button"
+          className="btn btn--secondary btn--sm"
           onClick={handleClearToday}
-          className="gap-1.5 text-xs text-muted-foreground hover:bg-surface-raised hover:text-foreground"
         >
           <Trash2 size={12} />
           Clear today
-        </Button>
+        </button>
       </div>
 
-      <div className="flex gap-4">
+      <div style={{ display: "flex", gap: 16 }}>
         {/* File list */}
-        <div className="w-40 shrink-0 space-y-0.5">
+        <div style={{ width: 160, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
           {files.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No memory files yet.</p>
+            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>No memory files yet.</span>
           ) : (
             files.map((f) => (
-              <Button
+              <button
                 key={f}
-                variant="ghost"
-                size="sm"
+                type="button"
+                className={`btn btn--ghost btn--sm btn--full`}
                 onClick={() => selectFile(f)}
-                className={`block w-full justify-start rounded px-2 py-1 text-left text-xs ${
-                  selectedFile === f
-                    ? "bg-surface-raised text-foreground"
-                    : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
-                }`}
+                style={selectedFile === f ? { background: "var(--c-surface-raised)", color: "var(--c-fg)" } : {}}
               >
                 {f.replace(".md", "")}
-              </Button>
+              </button>
             ))
           )}
         </div>
 
         {/* Content viewer */}
-        <div className="min-h-[300px] flex-1 rounded-lg border border-border bg-surface p-4">
+        <div className="settings-card" style={{ flex: 1, minHeight: 300, padding: 16 }}>
           {selectedFile ? (
-            <pre className="whitespace-pre-wrap text-xs leading-relaxed text-foreground">
+            <pre style={{ whiteSpace: "pre-wrap", fontSize: "var(--font-size-xs)", lineHeight: 1.6, color: "var(--c-fg)" }}>
               {content || "(empty)"}
             </pre>
           ) : (
-            <p className="text-xs text-muted-foreground">Select a memory file to view.</p>
+            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>Select a memory file to view.</span>
           )}
         </div>
       </div>

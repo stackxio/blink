@@ -1,0 +1,94 @@
+@use "../mixins" as *;
+
+.tab-bar {
+  display: flex;
+  align-items: stretch;
+  height: var(--tab-bar-h);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  @include no-select;
+  @include scrollbar(4px);
+
+  // Padding for macOS traffic lights (when no activity bar takes the space)
+  padding-top: 0;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 12px;
+  border-right: 1px solid var(--c-border);
+  background: transparent;
+  color: var(--c-muted-fg);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  @include transition(color, background);
+  @include no-select;
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 200px;
+  border: none;
+  border-right: 1px solid var(--c-border);
+
+  &:hover {
+    color: var(--c-fg);
+    background: var(--c-surface-raised);
+  }
+
+  &--active {
+    color: var(--c-fg);
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-surface); // cover the bar's bottom border
+    margin-bottom: -1px;
+  }
+
+  &__name {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__modified {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    flex-shrink: 0;
+  }
+
+  &__close {
+    @include flex-center;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    flex-shrink: 0;
+    opacity: 0;
+    @include transition(opacity, color, background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+
+  &:hover &__close,
+  &--active &__close {
+    opacity: 1;
+  }
+
+  // When modified, show dot instead of close button until hover
+  &--modified &__close {
+    opacity: 0;
+  }
+
+  &--modified:hover &__close {
+    opacity: 1;
+  }
+}

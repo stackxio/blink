@@ -1,0 +1,102 @@
+@use "../mixins" as *;
+
+// Side panel (file explorer, chat list, search, etc.)
+.side-panel {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+
+  &__header {
+    @include flex-between;
+    padding: 0 12px;
+    height: var(--tab-bar-h);
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--c-muted-fg);
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 2px;
+  }
+}
+
+// Resizer handle between panels
+.panel-resizer {
+  width: 4px;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 10;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 1px;
+    margin: 0 auto;
+    background: transparent;
+    @include transition(background);
+  }
+
+  &:hover::after,
+  &--dragging::after {
+    background: var(--c-accent);
+  }
+
+  &--horizontal {
+    width: auto;
+    height: 4px;
+    cursor: row-resize;
+
+    &::after {
+      width: auto;
+      height: 1px;
+      margin: auto 0;
+    }
+  }
+}
+
+// Welcome / empty state — centered to the full window using negative offset
+.empty-state {
+  @include flex-col;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  color: var(--c-muted-fg);
+  // Offset left to account for activity bar + side panel so it looks screen-centered
+  margin-left: calc(-1 * (var(--activity-bar-w) + var(--side-panel-w)) / 2);
+
+  &__icon {
+    width: 48px;
+    height: 48px;
+    opacity: 0.4;
+  }
+
+  &__title {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__text {
+    font-size: var(--font-size-sm);
+    max-width: 280px;
+    text-align: center;
+    line-height: 1.5;
+  }
+}

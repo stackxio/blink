@@ -1,0 +1,49 @@
+@use "../mixins" as *;
+
+.input {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  background: var(--c-input);
+  color: var(--c-fg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  @include transition(border-color, box-shadow);
+
+  &::placeholder {
+    color: var(--c-muted-fg);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: var(--c-accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--sm {
+    height: 28px;
+    padding: 0 8px;
+    font-size: var(--font-size-xs);
+  }
+
+  &--lg {
+    height: 38px;
+    padding: 0 14px;
+    font-size: var(--font-size-base);
+  }
+}
+
+.textarea {
+  @extend .input;
+  height: auto;
+  min-height: 64px;
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.5;
+}

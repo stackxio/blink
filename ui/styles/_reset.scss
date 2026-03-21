@@ -1,0 +1,66 @@
+@use "mixins" as *;
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
+  @include no-select;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--c-bg);
+  color: var(--c-fg);
+}
+
+#root {
+  background: var(--c-bg);
+}
+
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+// Disable default browser context menu — we use custom ones
+// (re-enable in specific areas like terminal/editor if needed)
+
+// Tauri drag region — required CSS for data-tauri-drag-region to work
+*[data-tauri-drag-region] {
+  app-region: drag;
+}
+
+// macOS titlebar
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+// Re-enable selection for content
+.selectable {
+  user-select: text;
+  -webkit-user-select: text;
+}

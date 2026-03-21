@@ -1,0 +1,63 @@
+@use "../mixins" as *;
+
+.activity-bar {
+  @include flex-col;
+  align-items: center;
+  width: var(--activity-bar-w);
+  height: 100%;
+  padding-top: 4px;
+  background: var(--c-canvas);
+  @include no-select;
+
+  &__top {
+    @include flex-col;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+  }
+
+  &__bottom {
+    @include flex-col;
+    align-items: center;
+    gap: 2px;
+    padding-bottom: 8px;
+  }
+
+  &__item {
+    @include flex-center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-fg);
+      position: relative;
+
+      &::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 2px;
+        height: 20px;
+        background: var(--c-accent);
+        border-radius: 0 1px 1px 0;
+      }
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}

@@ -1,0 +1,104 @@
+@use "../mixins" as *;
+
+.terminal-panel {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  background: var(--c-bg);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  &__tabs {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    @include scrollbar(3px);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(color, background);
+    @include no-select;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__action {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  &__body {
+    flex: 1;
+    overflow: hidden;
+    background: var(--c-bg);
+
+    // xterm.js fills this
+    .xterm {
+      height: 100%;
+      padding: 4px 8px;
+    }
+
+    .xterm-viewport {
+      @include scrollbar;
+      background: transparent !important;
+    }
+
+    .xterm-screen {
+      height: 100%;
+    }
+  }
+}

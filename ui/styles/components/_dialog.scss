@@ -1,0 +1,78 @@
+@use "../mixins" as *;
+
+// Uses native <dialog> for focus trap + backdrop
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.5);
+  @include flex-center;
+  animation: dialog-fade-in var(--transition-fast) ease;
+}
+
+.dialog {
+  position: relative;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  padding: 20px;
+  max-width: 480px;
+  width: calc(100% - 32px);
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  animation: dialog-scale-in var(--transition-fast) ease;
+  @include scrollbar;
+
+  &__header {
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__description {
+    font-size: var(--font-size-sm);
+    color: var(--c-muted-fg);
+    margin-top: 4px;
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  &__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    @include flex-center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    @include transition(color, background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+}
+
+@keyframes dialog-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { type Theme, getStoredTheme, changeTheme } from "@/lib/theme";
-import { Button } from "@/components/ui/button";
 
 export default function SettingsAppearance() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
@@ -10,50 +9,34 @@ export default function SettingsAppearance() {
     changeTheme(t);
   }
 
-  const themes: { value: Theme; label: string }[] = [
-    { value: "light", label: "Light" },
-    { value: "dark", label: "Dark" },
-    { value: "system", label: "System" },
-  ];
-
   return (
-    <div>
-      <h1 className="mb-4 text-lg font-semibold text-foreground">Appearance</h1>
-
-      <div className="space-y-1 rounded-lg border border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <p className="text-sm text-foreground">Theme</p>
-            <p className="text-xs text-muted-foreground">Choose your preferred theme</p>
+    <div className="settings-section">
+      <h1 className="settings-section__title">Appearance</h1>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Theme</div>
+            <div className="settings-row__hint">Choose your preferred theme</div>
           </div>
-          <div className="flex gap-1 rounded-md bg-input p-0.5">
-            {themes.map((t) => (
-              <Button
-                key={t.value}
+          <div className="segment-control">
+            {(["light", "dark", "system"] as Theme[]).map((t) => (
+              <button
+                key={t}
                 type="button"
-                variant={theme === t.value ? "secondary" : "ghost"}
-                size="sm"
-                className={`rounded px-2.5 py-1 text-xs ${
-                  theme === t.value
-                    ? "bg-surface-raised text-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                onClick={() => handleThemeChange(t.value)}
+                className={`segment-control__item ${theme === t ? "segment-control__item--active" : ""}`}
+                onClick={() => handleThemeChange(t)}
               >
-                {t.label}
-              </Button>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
             ))}
           </div>
         </div>
-
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <p className="text-sm text-foreground">Font size</p>
-            <p className="text-xs text-muted-foreground">Adjust the UI font size</p>
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Font size</div>
+            <div className="settings-row__hint">Adjust the UI font size</div>
           </div>
-          <span className="rounded-md bg-input px-2.5 py-1 text-xs text-foreground">
-            13px
-          </span>
+          <span className="settings-row__value">13px</span>
         </div>
       </div>
     </div>

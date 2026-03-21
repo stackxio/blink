@@ -19,7 +19,8 @@
         "fullscreen": false,
         "decorations": true,
         "titleBarStyle": "overlay",
-        "effects": {
+        "hiddenTitle": true,
+        "windowEffects": {
           "effects": ["sidebar"],
           "state": "followsWindowActiveState"
         }

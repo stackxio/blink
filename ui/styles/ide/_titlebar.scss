@@ -1,0 +1,48 @@
+@use "../mixins" as *;
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: var(--titlebar-h);
+  padding: 0 8px;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  @include no-select;
+  z-index: 50;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    // Reserve space for macOS traffic lights
+    padding-left: 70px;
+  }
+
+  // Drag region fills all remaining space between left and right
+  &__drag {
+    flex: 1;
+    height: 100%;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__action {
+    @include flex-center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+}

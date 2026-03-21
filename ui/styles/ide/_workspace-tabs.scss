@@ -1,0 +1,91 @@
+@use "../mixins" as *;
+
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  height: 100%;
+  overflow-x: auto;
+  @include scrollbar(3px);
+  @include no-select;
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    padding: 0 10px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(color, background);
+    @include no-select;
+    white-space: nowrap;
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__close {
+    @include flex-center;
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0;
+    cursor: pointer;
+    @include transition(opacity, background);
+
+    .workspace-tabs__tab:hover &,
+    .workspace-tabs__tab--active & {
+      opacity: 0.6;
+    }
+
+    &:hover {
+      opacity: 1 !important;
+      background: var(--c-surface-raised);
+    }
+
+    svg {
+      width: 10px;
+      height: 10px;
+    }
+  }
+
+  &__add {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+}

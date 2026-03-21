@@ -1,5 +1,4 @@
 import { ExternalLink, Plus, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 const DOCS_URL = "https://modelcontextprotocol.io";
 
@@ -10,7 +9,7 @@ const RECOMMENDED_SERVERS = [
     by: "Linear",
     description: "Integrate with Linear's issue tracking and project management",
     icon: "L",
-    iconBg: "bg-neutral-600",
+    iconBg: "#525252",
   },
   {
     id: "notion",
@@ -18,7 +17,7 @@ const RECOMMENDED_SERVERS = [
     by: "Notion",
     description: "Read docs, update pages, manage tasks",
     icon: "N",
-    iconBg: "bg-neutral-600",
+    iconBg: "#525252",
   },
   {
     id: "figma",
@@ -26,7 +25,7 @@ const RECOMMENDED_SERVERS = [
     by: "Figma",
     description: "Generate better code by bringing in full Figma context",
     icon: "F",
-    iconBg: "bg-purple-600",
+    iconBg: "#9333ea",
   },
   {
     id: "playwright",
@@ -34,7 +33,7 @@ const RECOMMENDED_SERVERS = [
     by: "Microsoft",
     description: "Integrate browser automation to implement design and test UI.",
     icon: "P",
-    iconBg: "bg-emerald-600",
+    iconBg: "#059669",
   },
 ];
 
@@ -53,76 +52,88 @@ export default function SettingsMcp() {
   }
 
   return (
-    <div>
-      <h1 className="mb-1 text-lg font-semibold text-foreground">MCP servers</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
+    <div className="settings-section">
+      <h1 className="settings-section__title">MCP servers</h1>
+      <p className="settings-section__description">
         Connect external tools and data sources.{" "}
         <a
           href={DOCS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-foreground underline underline-offset-2 transition-colors hover:text-muted-foreground"
+          style={{ color: "var(--c-fg)", textDecoration: "underline", textUnderlineOffset: 2 }}
         >
           Docs
-          <ExternalLink size={12} />
+          <ExternalLink size={12} style={{ display: "inline", marginLeft: 4, verticalAlign: "middle" }} />
         </a>
       </p>
 
       {/* Custom servers */}
-      <h2 className="mb-2 text-sm font-medium text-foreground">Custom servers</h2>
-      <div className="mb-8 flex items-center justify-between rounded-lg border border-border bg-surface px-4 py-3">
-        <p className="text-sm text-muted-foreground">No custom MCP servers connected</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleAddServer}
-          className="gap-1.5 text-xs"
-        >
-          <Plus size={14} />
-          Add server
-        </Button>
+      <h2 className="settings-section__subtitle">Custom servers</h2>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__hint">No custom MCP servers connected</div>
+          </div>
+          <button
+            type="button"
+            className="btn btn--outline btn--sm"
+            onClick={handleAddServer}
+          >
+            <Plus size={14} />
+            Add server
+          </button>
+        </div>
       </div>
 
       {/* Recommended servers */}
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-foreground">Recommended servers</h2>
-        <Button
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, marginBottom: 12 }}>
+        <h2 className="settings-section__subtitle" style={{ margin: 0 }}>Recommended servers</h2>
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
+          className="btn btn--ghost btn--sm"
           onClick={handleRefresh}
-          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
         >
           <RefreshCw size={12} />
           Refresh
-        </Button>
+        </button>
       </div>
-      <div className="mt-3 space-y-2">
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {RECOMMENDED_SERVERS.map((server) => (
-          <div
-            key={server.id}
-            className="flex items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3"
-          >
-            <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${server.iconBg} text-sm font-semibold text-white`}
-            >
-              {server.icon}
+          <div key={server.id} className="settings-card">
+            <div className="settings-row">
+              <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: server.iconBg,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                    color: "#fff",
+                    fontSize: "var(--font-size-sm)",
+                    fontWeight: 600,
+                  }}
+                >
+                  {server.icon}
+                </div>
+                <div className="settings-row__info">
+                  <div className="settings-row__label">
+                    {server.name} by {server.by}
+                  </div>
+                  <div className="settings-row__hint">{server.description}</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn--default btn--sm"
+                onClick={() => handleInstall(server.id)}
+              >
+                Install
+              </button>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">
-                {server.name} by {server.by}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{server.description}</p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => handleInstall(server.id)}
-              className="shrink-0 bg-[#55aaff] text-xs text-white hover:bg-[#66bbff]"
-            >
-              Install
-            </Button>
           </div>
         ))}
       </div>

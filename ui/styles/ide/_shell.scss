@@ -1,0 +1,80 @@
+@use "../mixins" as *;
+
+.ide {
+  display: grid;
+  grid-template-columns: var(--activity-bar-w) auto 1fr;
+  grid-template-rows: var(--titlebar-h) 1fr var(--status-bar-h);
+  height: 100%;
+  overflow: hidden;
+
+  // ── Titlebar ──
+  &__titlebar {
+    grid-row: 1;
+    grid-column: 1 / -1;
+    z-index: 10;
+  }
+
+  // ── Activity bar — full height ──
+  &__activity-bar {
+    grid-row: 1 / -1;
+    grid-column: 1;
+    padding-top: var(--titlebar-h);
+    z-index: 5;
+    background: var(--c-bg);
+    border-right: 1px solid var(--c-border);
+  }
+
+  // ── Side panel ──
+  &__side-panel {
+    grid-row: 1 / -1;
+    grid-column: 2;
+    padding-top: var(--titlebar-h);
+    padding-bottom: var(--status-bar-h);
+    display: flex;
+    overflow: hidden;
+    border-right: 1px solid var(--c-border);
+    background: var(--c-bg);
+    z-index: 5;
+
+    .side-panel {
+      flex: 1;
+      min-width: 0;
+      @include flex-col;
+      overflow: hidden;
+    }
+  }
+
+  // ── Main area ──
+  &__main {
+    grid-row: 2;
+    grid-column: 3;
+    @include flex-col;
+    @include full-height;
+    overflow: hidden;
+    background: var(--c-bg);
+  }
+
+  &__editor-area {
+    flex: 1;
+    @include flex-col;
+    @include full-height;
+    overflow: hidden;
+  }
+
+  &__bottom-panel {
+    border-top: 1px solid var(--c-border);
+    background: var(--c-bg);
+    overflow: hidden;
+
+    &--collapsed {
+      display: none;
+    }
+  }
+
+  // ── Status bar ──
+  &__status-bar {
+    grid-row: 3;
+    grid-column: 1 / -1;
+    z-index: 6;
+  }
+}

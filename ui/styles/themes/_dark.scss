@@ -1,0 +1,9 @@
+// Dark theme — default
+// Variables are already set in _variables.scss as defaults.
+// This file exists for symmetry with light.scss and for
+// any dark-specific overrides beyond the defaults.
+
+html.dark,
+:root {
+  color-scheme: dark;
+}

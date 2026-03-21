@@ -1,42 +1,29 @@
 import { useNavigate } from "react-router";
-import { Button } from "@/components/ui/button";
 
-const APP_VERSION = "0.1.0";
+const APP_VERSION = "0.2.0";
 
 export default function SettingsAbout() {
   const navigate = useNavigate();
 
   return (
-    <div>
-      <h1 className="mb-4 text-lg font-semibold text-foreground">About</h1>
-
-      <div className="space-y-1 rounded-lg border border-border bg-surface">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <div>
-            <p className="text-sm text-foreground">App version</p>
-            <p className="text-xs text-muted-foreground">Current application version</p>
+    <div className="settings-section">
+      <h1 className="settings-section__title">About</h1>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">App version</div>
+            <div className="settings-row__hint">Current application version</div>
           </div>
-          <span className="rounded-md bg-input px-2.5 py-1 text-xs text-foreground">
-            {APP_VERSION}
-          </span>
+          <span className="settings-row__value">{APP_VERSION}</span>
         </div>
-
-        <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <p className="text-sm text-foreground">Open source licenses</p>
-            <p className="text-xs text-muted-foreground">
-              Third-party notices for bundled dependencies.
-            </p>
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Open source licenses</div>
+            <div className="settings-row__hint">Third-party notices for bundled dependencies.</div>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => navigate("/settings/licenses")}
-            className="text-xs"
-          >
+          <button type="button" className="btn btn--secondary btn--sm" onClick={() => navigate("/settings/licenses")}>
             View
-          </Button>
+          </button>
         </div>
       </div>
     </div>

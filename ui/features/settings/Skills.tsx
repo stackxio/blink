@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 interface SkillFile {
   filename: string;
@@ -140,43 +138,43 @@ export default function SettingsSkills() {
   const selectedSkill = skills.find((s) => s.filename === selected);
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-foreground">Skills</h1>
-        <Button
+    <div className="settings-section">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <h1 className="settings-section__title" style={{ marginBottom: 0 }}>Skills</h1>
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
+          className="btn btn--ghost btn--sm"
           onClick={handleReset}
-          className="text-xs text-muted-foreground hover:bg-surface-raised hover:text-foreground"
         >
           Reset defaults
-        </Button>
+        </button>
       </div>
 
-      <p className="mb-4 text-xs text-muted-foreground">
+      <p className="settings-section__description">
         Skills are prompt files that shape how your AI behaves. System skills cannot be deleted, only edited.
       </p>
 
-      <div className="flex min-h-[400px] overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="settings-card" style={{ display: "flex", minHeight: 400 }}>
         {/* File list */}
-        <div className="flex w-44 shrink-0 flex-col border-r border-border">
-          <div className="flex-1 overflow-y-auto p-2">
+        <div style={{ width: 176, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--c-border)" }}>
+          <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
             {skills.map((skill) => (
-              <div key={skill.filename} className="group flex items-center">
-                <Button
+              <div key={skill.filename} style={{ display: "flex", alignItems: "center" }}>
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
+                  className="btn btn--ghost btn--sm btn--full"
                   onClick={() => handleSelect(skill.filename)}
-                  className={`flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs ${
-                    selected === skill.filename
-                      ? "bg-surface-raised text-foreground"
-                      : "text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
-                  }`}
+                  style={{
+                    flex: 1,
+                    justifyContent: "flex-start",
+                    padding: "6px 8px",
+                    ...(selected === skill.filename
+                      ? { background: "var(--c-surface-raised)", color: "var(--c-fg)" }
+                      : {}),
+                  }}
                 >
                   <svg
-                    className="h-3 w-3 shrink-0 text-muted-foreground"
+                    style={{ width: 12, height: 12, flexShrink: 0, color: "var(--c-muted-fg)" }}
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -188,23 +186,32 @@ export default function SettingsSkills() {
                       d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
                     />
                   </svg>
-                  <span className="truncate">{skill.filename.replace(".md", "")}</span>
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {skill.filename.replace(".md", "")}
+                  </span>
                   {skill.is_system && (
-                    <span className="ml-auto shrink-0 rounded bg-input px-1 text-[10px] text-muted-foreground">
+                    <span style={{
+                      marginLeft: "auto",
+                      flexShrink: 0,
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--c-input)",
+                      padding: "0 4px",
+                      fontSize: 10,
+                      color: "var(--c-muted-fg)",
+                    }}>
                       sys
                     </span>
                   )}
-                </Button>
+                </button>
                 {!skill.is_system && (
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
+                    className="btn btn--ghost btn--icon"
                     onClick={() => handleDelete(skill.filename)}
-                    className="mr-1 hidden h-5 w-5 shrink-0 text-muted-foreground hover:bg-red-500/20 hover:text-red-500 group-hover:flex"
+                    style={{ width: 20, height: 20, marginRight: 4 }}
                   >
                     <svg
-                      className="h-3 w-3"
+                      style={{ width: 12, height: 12 }}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -212,14 +219,14 @@ export default function SettingsSkills() {
                     >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                  </Button>
+                  </button>
                 )}
               </div>
             ))}
 
             {isCreating ? (
-              <div className="mt-1 px-1">
-                <Input
+              <div style={{ marginTop: 4, padding: "0 4px" }}>
+                <input
                   ref={newNameRef}
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
@@ -229,19 +236,18 @@ export default function SettingsSkills() {
                   }}
                   onBlur={handleCreate}
                   placeholder="filename..."
-                  className="h-7 w-full px-2 py-1 text-xs"
+                  className="input input--sm"
                 />
               </div>
             ) : (
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
+                className="btn btn--ghost btn--sm btn--full"
                 onClick={handleStartCreate}
-                className="mt-1 w-full justify-start gap-1.5 px-2 py-1.5 text-xs text-muted-foreground hover:bg-surface-raised/60 hover:text-foreground"
+                style={{ marginTop: 4, justifyContent: "flex-start", padding: "6px 8px" }}
               >
                 <svg
-                  className="h-3 w-3"
+                  style={{ width: 12, height: 12 }}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -250,38 +256,49 @@ export default function SettingsSkills() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 New skill
-              </Button>
+              </button>
             )}
           </div>
         </div>
 
         {/* Editor */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           {selected ? (
             <>
-              <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-foreground">{selected}</span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--c-border)", padding: "8px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: "var(--font-size-xs)", fontWeight: 500, color: "var(--c-fg)" }}>{selected}</span>
                   {selectedSkill?.is_system && (
-                    <span className="rounded bg-input px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <span style={{
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--c-input)",
+                      padding: "2px 6px",
+                      fontSize: 10,
+                      color: "var(--c-muted-fg)",
+                    }}>
                       system
                     </span>
                   )}
                   {dirty && (
-                    <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-600">
+                    <span style={{
+                      borderRadius: "var(--radius-sm)",
+                      background: "rgba(245,158,11,0.2)",
+                      padding: "2px 6px",
+                      fontSize: 10,
+                      color: "#d97706",
+                    }}>
                       unsaved
                     </span>
                   )}
                 </div>
-                <Button
+                <button
                   type="button"
-                  size="sm"
+                  className="btn btn--default btn--sm"
                   onClick={handleSave}
                   disabled={!dirty || saving}
-                  className="bg-[#55aaff] text-xs text-white hover:bg-[#66bbff] disabled:opacity-30"
                 >
                   {saving ? "Saving..." : "Save"}
-                </Button>
+                </button>
               </div>
               <textarea
                 value={editContent}
@@ -295,14 +312,26 @@ export default function SettingsSkills() {
                     handleSave();
                   }
                 }}
-                className="min-h-[350px] flex-1 resize-none bg-transparent p-4 font-mono text-xs leading-relaxed text-foreground placeholder-muted-foreground outline-none"
+                style={{
+                  minHeight: 350,
+                  flex: 1,
+                  resize: "none",
+                  background: "transparent",
+                  padding: 16,
+                  fontFamily: "monospace",
+                  fontSize: "var(--font-size-xs)",
+                  lineHeight: 1.6,
+                  color: "var(--c-fg)",
+                  border: "none",
+                  outline: "none",
+                }}
                 placeholder="Write your prompt here..."
                 spellCheck={false}
               />
             </>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-              Select a skill to edit
+            <div className="empty-state">
+              <span className="empty-state__text">Select a skill to edit</span>
             </div>
           )}
         </div>

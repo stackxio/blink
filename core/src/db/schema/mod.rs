@@ -3,6 +3,7 @@ mod folders;
 mod messages;
 mod project_memories;
 mod threads;
+mod workspaces;
 
 pub const MIGRATIONS: &[&str] = &[
     folders::SQL,
@@ -10,4 +11,5 @@ pub const MIGRATIONS: &[&str] = &[
     messages::SQL,
     project_memories::SQL,
     attachments::SQL,
+    workspaces::SQL,
 ];

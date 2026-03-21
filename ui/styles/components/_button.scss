@@ -1,0 +1,107 @@
+@use "../mixins" as *;
+
+.btn {
+  @include flex-center;
+  @include transition(background-color, color, border-color);
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  @include no-select;
+
+  &:focus-visible {
+    @include focus-ring;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  // ── Variants ──
+
+  &--default {
+    background: var(--c-accent);
+    color: var(--c-accent-fg);
+
+    &:hover { opacity: 0.85; }
+  }
+
+  &--secondary {
+    background: var(--c-surface-raised);
+    color: var(--c-fg);
+
+    &:hover { opacity: 0.8; }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: var(--c-fg);
+
+    &:hover { background: var(--c-surface-raised); }
+  }
+
+  &--outline {
+    border-color: var(--c-border);
+    background: transparent;
+    color: var(--c-fg);
+
+    &:hover { background: var(--c-surface-raised); }
+  }
+
+  &--danger {
+    background: var(--c-danger);
+    color: var(--c-danger-fg);
+
+    &:hover { opacity: 0.85; }
+  }
+
+  &--link {
+    background: transparent;
+    color: var(--c-accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover { opacity: 0.8; }
+  }
+
+  // ── Sizes ──
+
+  &--sm {
+    height: 28px;
+    padding: 0 10px;
+    font-size: var(--font-size-xs);
+    border-radius: var(--radius-sm);
+  }
+
+  &--md {
+    height: 32px;
+    padding: 0 14px;
+  }
+
+  &--lg {
+    height: 38px;
+    padding: 0 18px;
+    font-size: var(--font-size-base);
+  }
+
+  &--icon {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+
+    &.btn--lg {
+      width: 34px;
+      height: 34px;
+    }
+  }
+
+  &--full {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

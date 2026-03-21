@@ -1,0 +1,61 @@
+// ─── Design tokens ───
+// All colors are CSS custom properties so theme switching is instant.
+// The SCSS file just organizes them — the values are set per-theme.
+
+:root {
+  // Core surfaces
+  --c-bg: color-mix(in srgb, #0a0a0a 95%, white);
+  --c-fg: #f5f5f5;
+  --c-surface: color-mix(in srgb, #0a0a0a 98%, white);
+  --c-surface-raised: color-mix(in srgb, white 4%, transparent);
+  --c-sidebar: transparent;
+  --c-popover: #1c1c1e;
+
+  // Text
+  --c-muted: #a3a3a3;
+  --c-muted-fg: color-mix(in srgb, #737373 90%, white);
+
+  // Borders & inputs
+  --c-border: color-mix(in srgb, white 6%, transparent);
+  --c-input: color-mix(in srgb, white 8%, transparent);
+  --c-ring: var(--c-accent);
+
+  // Accents
+  --c-accent: oklch(0.588 0.217 264);
+  --c-accent-fg: #fff;
+  --c-danger: oklch(0.577 0.245 27.325);
+  --c-danger-fg: #fff;
+  --c-success: oklch(0.62 0.2 145);
+  --c-warning: oklch(0.7 0.18 75);
+
+  // Typography
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, "Cascadia Code", monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 13px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+
+  // Spacing
+  --radius: 6px;
+  --radius-sm: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  // IDE layout
+  --activity-bar-w: 48px;
+  --side-panel-w: 260px;
+  --side-panel-min-w: 180px;
+  --side-panel-max-w: 480px;
+  --bottom-panel-h: 200px;
+  --status-bar-h: 24px;
+  --tab-bar-h: 36px;
+  --titlebar-h: 34px;
+
+  // Transitions
+  --transition-fast: 100ms ease;
+  --transition-normal: 150ms ease;
+  --transition-slow: 250ms ease;
+
+  color-scheme: dark;
+}

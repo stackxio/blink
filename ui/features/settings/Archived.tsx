@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { RotateCcw, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 interface ArchivedThread {
   id: string;
@@ -41,56 +40,49 @@ export default function SettingsArchived() {
   }
 
   return (
-    <div>
-      <h1 className="mb-4 text-lg font-semibold text-foreground">Archived</h1>
-      <p className="mb-4 text-xs text-muted-foreground">
+    <div className="settings-section">
+      <h1 className="settings-section__title">Archived</h1>
+      <p className="settings-section__description">
         Chats you archive are listed here. Restore to move them back to the sidebar, or delete
         permanently.
       </p>
 
-      <div className="rounded-lg border border-border bg-surface">
+      <div className="settings-card">
         {threads.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No archived chats.
+          <div className="empty-state" style={{ padding: "32px 16px" }}>
+            <span className="empty-state__text">No archived chats.</span>
           </div>
         ) : (
-          <ul className="divide-y divide-border">
+          <div>
             {threads.map((thread) => (
-              <li
-                key={thread.id}
-                className="group flex items-center justify-between gap-2 px-4 py-3 transition-colors hover:bg-surface-raised/60"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm text-foreground">{thread.title}</p>
-                  <p className="text-xs text-muted-foreground">
+              <div key={thread.id} className="settings-row">
+                <div className="settings-row__info">
+                  <div className="settings-row__label">{thread.title}</div>
+                  <div className="settings-row__hint">
                     Archived {thread.archived_at ? new Date(thread.archived_at).toLocaleDateString() : ""}
-                  </p>
+                  </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <Button
+                <div style={{ display: "flex", gap: 2 }}>
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
+                    className="btn btn--ghost btn--icon"
                     onClick={() => handleRestore(thread.id)}
                     title="Restore to sidebar"
-                    className="h-8 w-8 rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-foreground"
                   >
                     <RotateCcw size={14} />
-                  </Button>
-                  <Button
+                  </button>
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="icon"
+                    className="btn btn--ghost btn--icon"
                     onClick={() => handleDeletePermanent(thread.id)}
                     title="Delete permanently"
-                    className="h-8 w-8 rounded p-1.5 text-muted-foreground hover:bg-surface-raised hover:text-destructive"
                   >
                     <Trash2 size={14} />
-                  </Button>
+                  </button>
                 </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

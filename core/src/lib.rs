@@ -6,6 +6,7 @@ mod agent;
 mod commands;
 mod connectors;
 mod db;
+pub mod lsp;
 pub mod providers;
 pub mod services;
 mod scope;
@@ -35,6 +36,8 @@ pub fn run() {
             app.manage(std::sync::Mutex::new(conn));
             app.manage(commands::ai::create_stream_sessions());
             app.manage(commands::ai::create_codex_state());
+            app.manage(commands::terminal::create_terminal_state());
+            app.manage(lsp::manager::create_lsp_state());
             settings::prompts::ensure_defaults();
             Ok(())
         })
@@ -85,6 +88,30 @@ pub fn run() {
             commands::memory::read_memory_file,
             commands::memory::append_memory,
             commands::memory::clear_today_memory,
+            commands::editor::read_dir,
+            commands::editor::read_file_content,
+            commands::editor::write_file_content,
+            commands::editor::list_all_files,
+            commands::editor::open_file_dialog,
+            commands::editor::open_folder_dialog,
+            commands::editor::reveal_in_finder,
+            commands::editor::delete_path,
+            commands::editor::rename_path,
+            commands::editor::create_file,
+            commands::editor::create_directory,
+            commands::terminal::terminal_create,
+            commands::terminal::terminal_write,
+            commands::terminal::terminal_resize,
+            commands::terminal::terminal_close,
+            commands::workspaces::save_workspaces,
+            commands::workspaces::load_workspaces,
+            commands::lsp::lsp_start,
+            commands::lsp::lsp_request,
+            commands::lsp::lsp_notify,
+            commands::lsp::lsp_stop,
+            commands::lsp::lsp_list_installed,
+            commands::lsp::lsp_list_all_servers,
+            commands::lsp::lsp_install_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

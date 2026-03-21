@@ -1,10 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { useTheme } from "@/lib/theme";
-import { ChatLayout } from "@/layout";
-import { SettingsLayout } from "@/layout";
-import ChatArea from "@/components/ChatArea";
-import ProjectView from "@/components/ProjectView";
-import AutomationsView from "@/components/AutomationsView";
+import IdeLayout from "@/ide/IdeLayout";
+import Welcome from "@/ide/Welcome";
+import SettingsOverlay from "@/ide/SettingsOverlay";
+import ExtensionsOverlay from "@/ide/ExtensionsOverlay";
 import SettingsGeneral from "@/features/settings/General";
 import SettingsProviders from "@/features/settings/Providers";
 import SettingsMcp from "@/features/settings/Mcp";
@@ -20,13 +19,13 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route element={<ChatLayout />}>
-          <Route index element={<ChatArea />} />
-          <Route path="chat/:threadId" element={<ChatArea />} />
-          <Route path="project/:projectId" element={<ProjectView />} />
-          <Route path="automations" element={<AutomationsView />} />
+        {/* IDE layout */}
+        <Route element={<IdeLayout />}>
+          <Route index element={<Welcome />} />
         </Route>
-        <Route path="settings" element={<SettingsLayout />}>
+
+        {/* Settings — full overlay with its own sidebar nav */}
+        <Route path="settings" element={<SettingsOverlay />}>
           <Route index element={<SettingsGeneral />} />
           <Route path="providers" element={<SettingsProviders />} />
           <Route path="mcp" element={<SettingsMcp />} />
@@ -37,6 +36,10 @@ export default function App() {
           <Route path="about" element={<SettingsAbout />} />
           <Route path="licenses" element={<SettingsLicenses />} />
         </Route>
+
+        {/* Extensions — full overlay */}
+        <Route path="extensions" element={<ExtensionsOverlay />} />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

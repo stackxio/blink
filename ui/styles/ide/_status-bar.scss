@@ -1,0 +1,53 @@
+@use "../mixins" as *;
+
+.status-bar {
+  display: flex;
+  align-items: center;
+  height: var(--status-bar-h);
+  padding: 0 8px;
+  background: var(--c-accent);
+  color: var(--c-accent-fg);
+  font-size: var(--font-size-xs);
+  @include no-select;
+  gap: 2px;
+
+  &__left {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    color: inherit;
+    font-size: inherit;
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(background);
+    @include truncate;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    svg {
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
+  }
+}
