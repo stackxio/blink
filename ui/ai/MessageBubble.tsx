@@ -93,12 +93,6 @@ export default function MessageBubble({ message }: { message: Message }) {
 
   return (
     <div className={`chat-msg chat-msg--${message.role}`}>
-      <div className="chat-msg__label">
-        <span>{isUser ? "You" : "Caret"}</span>
-        <span className="chat-msg__time">
-          {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-        </span>
-      </div>
       <div className="chat-msg__content">
         {hasActivities && <ActivityLog activities={message.activities!} />}
         {thinking != null && <ThinkingBlock content={thinking} isOpen={isOpen} isStreaming={message.isStreaming} />}

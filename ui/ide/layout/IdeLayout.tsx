@@ -261,7 +261,7 @@ export default function IdeLayout() {
       {aiPanelOpen && (
         <div className="ide__ai-panel" style={{ width: aiPanelWidth }}>
           <PanelResizer onResize={handleAiResize} />
-          <AiPanel onClose={toggleAiPanel} />
+          <AiPanel />
         </div>
       )}
 

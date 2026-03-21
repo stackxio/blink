@@ -39,7 +39,7 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
   return {
     id, path, name,
     openFiles: [], activeFileIdx: -1,
-    sidePanelOpen: true, sidePanelView: "explorer", sidePanelWidth: 260,
+    sidePanelOpen: true, sidePanelView: "explorer", sidePanelWidth: 300,
     bottomPanelOpen: false, bottomPanelHeight: 200,
     terminalIds: [], activeTerminalId: null,
     expandedDirs: new Set(),

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { X, ArrowUp, Square, Plus, ChevronDown, FileCode, SquarePen } from "lucide-react";
+import { ArrowUp, Square, ChevronDown, FileCode, SquarePen, X, MessageSquare } from "lucide-react";
 import MessageBubble, { type Message, type Activity } from "./MessageBubble";
 import { useAppStore } from "@/store";
 
@@ -45,11 +45,7 @@ const CLAUDE_MODELS: ModelOption[] = [
   { slug: "haiku", label: "Haiku" },
 ];
 
-interface Props {
-  onClose: () => void;
-}
-
-export default function AiPanel({ onClose }: Props) {
+export default function AiPanel() {
   const [threads, setThreads] = useState<AiThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -63,6 +59,8 @@ export default function AiPanel({ onClose }: Props) {
   const [ollamaModels, setOllamaModels] = useState<{ name: string }[]>([]);
   const [composerReasoning, setComposerReasoning] = useState<ReasoningEffort>("high");
 
+  const [threadDropdownOpen, setThreadDropdownOpen] = useState(false);
+  const threadDropdownRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -70,6 +68,16 @@ export default function AiPanel({ onClose }: Props) {
 
   const ws = useAppStore((s) => s.activeWorkspace());
   const activeFile = ws && ws.activeFileIdx >= 0 ? ws.openFiles[ws.activeFileIdx] : null;
+
+  // Close thread dropdown on outside click
+  useEffect(() => {
+    if (!threadDropdownOpen) return;
+    function onClick(e: MouseEvent) {
+      if (threadDropdownRef.current && !threadDropdownRef.current.contains(e.target as Node)) setThreadDropdownOpen(false);
+    }
+    setTimeout(() => document.addEventListener("mousedown", onClick), 0);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [threadDropdownOpen]);
 
   // Load settings
   useEffect(() => {
@@ -263,24 +271,40 @@ export default function AiPanel({ onClose }: Props) {
     <div className="ai-panel">
       {/* Header with thread selector */}
       <div className="ai-panel__header">
-        <div className="ai-panel__header-left">
-          <select
-            className="ai-panel__thread-select"
-            value={activeThreadId ?? ""}
-            onChange={(e) => setActiveThreadId(e.target.value || null)}
+        <div className="ai-panel__thread-picker" ref={threadDropdownRef}>
+          <button
+            type="button"
+            className="ai-panel__thread-btn"
+            onClick={() => setThreadDropdownOpen((v) => !v)}
           >
-            <option value="">New Chat</option>
-            {recentThreads.map((t) => (
-              <option key={t.id} value={t.id}>{t.title}</option>
-            ))}
-          </select>
-          <button type="button" className="ai-panel__icon-btn" onClick={handleNewChat} title="New Chat">
-            <SquarePen size={14} />
+            <MessageSquare size={13} />
+            <span>{activeThreadId ? (threads.find((t) => t.id === activeThreadId)?.title ?? "Chat") : "New Chat"}</span>
+            <ChevronDown size={12} />
           </button>
+          {threadDropdownOpen && (
+            <div className="ai-panel__thread-dropdown">
+              <button
+                type="button"
+                className="ai-panel__thread-option ai-panel__thread-option--new"
+                onClick={() => { handleNewChat(); setThreadDropdownOpen(false); }}
+              >
+                <SquarePen size={13} />
+                New Chat
+              </button>
+              {recentThreads.length > 0 && <div className="ai-panel__thread-sep" />}
+              {recentThreads.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`ai-panel__thread-option ${t.id === activeThreadId ? "ai-panel__thread-option--active" : ""}`}
+                  onClick={() => { setActiveThreadId(t.id); setThreadDropdownOpen(false); }}
+                >
+                  {t.title}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <button type="button" className="ai-panel__close" onClick={onClose}>
-          <X size={14} />
-        </button>
       </div>
 
       {/* Context bar */}

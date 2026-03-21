@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useEffect } from "react";
 
 interface Props {
   direction?: "horizontal" | "vertical";
@@ -6,38 +6,35 @@ interface Props {
 }
 
 export default function PanelResizer({ direction = "horizontal", onResize }: Props) {
-  const dragging = useRef(false);
-  const startPos = useRef(0);
+  const onResizeRef = useRef(onResize);
+  useEffect(() => { onResizeRef.current = onResize; });
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragging.current = true;
-      startPos.current = direction === "horizontal" ? e.clientX : e.clientY;
+  function handleMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    let startPos = direction === "horizontal" ? e.clientX : e.clientY;
+    const el = e.currentTarget as HTMLElement;
+    el.classList.add("panel-resizer--dragging");
+    document.body.style.cursor = direction === "horizontal" ? "col-resize" : "row-resize";
+    document.body.style.userSelect = "none";
 
-      const el = e.currentTarget as HTMLElement;
-      el.classList.add("panel-resizer--dragging");
+    function onMove(ev: MouseEvent) {
+      const current = direction === "horizontal" ? ev.clientX : ev.clientY;
+      const delta = current - startPos;
+      startPos = current;
+      onResizeRef.current(delta);
+    }
 
-      function onMove(ev: MouseEvent) {
-        if (!dragging.current) return;
-        const current = direction === "horizontal" ? ev.clientX : ev.clientY;
-        const delta = current - startPos.current;
-        startPos.current = current;
-        onResize(delta);
-      }
+    function onUp() {
+      el.classList.remove("panel-resizer--dragging");
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
 
-      function onUp() {
-        dragging.current = false;
-        el.classList.remove("panel-resizer--dragging");
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      }
-
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [direction, onResize],
-  );
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
 
   return (
     <div

@@ -16,49 +16,93 @@
     height: var(--tab-bar-h);
     border-bottom: 1px solid var(--c-border);
     flex-shrink: 0;
+    gap: 8px;
   }
 
-  &__header-left {
-    display: flex;
-    align-items: center;
-    gap: 4px;
+  &__thread-picker {
+    position: relative;
     flex: 1;
     min-width: 0;
   }
 
-  &__thread-select {
-    appearance: none;
+  &__thread-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 8px;
     border: none;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--c-fg);
     font-size: var(--font-size-sm);
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    @include truncate;
-    max-width: 200px;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
+    @include transition(background);
 
     &:hover { background: var(--c-surface-raised); }
-    &:focus { outline: none; }
-    option { background: var(--c-popover); color: var(--c-fg); }
+
+    span {
+      flex: 1;
+      @include truncate;
+      text-align: left;
+    }
+
+    svg {
+      flex-shrink: 0;
+      color: var(--c-muted-fg);
+    }
   }
 
-  &__icon-btn {
-    @include flex-center;
-    width: 24px;
-    height: 24px;
-    border-radius: var(--radius-sm);
+  &__thread-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 4px;
+    z-index: 200;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__thread-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 10px;
     border: none;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--c-muted-fg);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
     cursor: pointer;
-    @include transition(color, background);
-    &:hover { color: var(--c-fg); background: var(--c-surface-raised); }
+    @include truncate;
+    @include transition(background);
+
+    &:hover { background: var(--c-surface-raised); }
+    &--active { background: var(--c-surface-raised); }
+    &--new {
+      color: var(--c-accent);
+      font-weight: 500;
+      svg { width: 13px; height: 13px; }
+    }
   }
 
-  &__close { @extend .ai-panel__icon-btn; }
+  &__thread-sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--c-border);
+  }
 
   // ── Context bar ──
 
