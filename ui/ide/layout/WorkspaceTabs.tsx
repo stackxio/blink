@@ -39,7 +39,9 @@ export default function WorkspaceTabs() {
     useAppStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [recentFilter, setRecentFilter] = useState("");
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const addBtnRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Track opens in recent history
@@ -120,16 +122,23 @@ export default function WorkspaceTabs() {
 
       <div className="workspace-tabs__dropdown-wrapper">
         <button
+          ref={addBtnRef}
           type="button"
           className="workspace-tabs__add"
-          onClick={() => setDropdownOpen((v) => !v)}
+          onClick={() => {
+            if (!dropdownOpen && addBtnRef.current) {
+              const rect = addBtnRef.current.getBoundingClientRect();
+              setDropdownPos({ top: rect.bottom + 4, left: rect.left });
+            }
+            setDropdownOpen((v) => !v);
+          }}
           title="Open Workspace"
         >
           <Plus />
         </button>
 
         {dropdownOpen && (
-          <div ref={dropdownRef} className="workspace-tabs__dropdown">
+          <div ref={dropdownRef} className="workspace-tabs__dropdown" style={{ top: dropdownPos.top, left: dropdownPos.left }}>
             <div className="menu__search">
               <input
                 ref={inputRef}

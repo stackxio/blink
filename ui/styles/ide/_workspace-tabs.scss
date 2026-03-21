@@ -71,9 +71,7 @@
   }
 
   &__dropdown {
-    position: absolute;
-    left: 0;
-    top: 100%;
+    position: fixed;
     margin-top: 4px;
     width: 320px;
     max-height: 400px;
