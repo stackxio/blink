@@ -69,6 +69,16 @@
     background: var(--c-border);
   }
 
+  &__search {
+    padding: 6px 8px;
+
+    .input {
+      background: var(--c-input);
+      border-color: var(--c-border);
+      color: var(--c-fg);
+    }
+  }
+
   &__sub-trigger {
     @extend .menu__item;
     justify-content: space-between;

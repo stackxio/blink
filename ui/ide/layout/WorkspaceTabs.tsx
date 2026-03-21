@@ -118,7 +118,7 @@ export default function WorkspaceTabs() {
         </button>
       ))}
 
-      <div style={{ position: "relative" }}>
+      <div className="workspace-tabs__dropdown-wrapper">
         <button
           type="button"
           className="workspace-tabs__add"
@@ -129,8 +129,8 @@ export default function WorkspaceTabs() {
         </button>
 
         {dropdownOpen && (
-          <div ref={dropdownRef} className="menu" style={{ position: "absolute", left: 0, top: "100%", marginTop: 4, width: 320, maxHeight: 400 }}>
-            <div style={{ padding: "6px 8px" }}>
+          <div ref={dropdownRef} className="workspace-tabs__dropdown menu">
+            <div className="menu__search">
               <input
                 ref={inputRef}
                 type="text"
@@ -138,7 +138,6 @@ export default function WorkspaceTabs() {
                 placeholder="Search projects…"
                 value={recentFilter}
                 onChange={(e) => setRecentFilter(e.target.value)}
-                style={{ width: "100%" }}
               />
             </div>
 
@@ -154,27 +153,24 @@ export default function WorkspaceTabs() {
                   <Clock size={10} style={{ display: "inline", marginRight: 4 }} />
                   Recent
                 </div>
-                <div style={{ maxHeight: 250, overflowY: "auto" }}>
+                <div className="workspace-tabs__recent-list">
                   {recent.map((r) => (
-                    <div key={r.path} className="menu__item" style={{ justifyContent: "space-between" }}>
-                      <button
-                        type="button"
-                        style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, border: "none", background: "none", color: "inherit", font: "inherit", padding: 0, cursor: "pointer", textAlign: "left" }}
-                        onClick={() => handleSelectRecent(r.path, r.name)}
-                      >
-                        <span style={{ fontWeight: 500 }}>{r.name}</span>
-                        <span style={{ fontSize: 11, opacity: 0.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                          {r.path.replace(/\/[^/]+$/, "")}
-                        </span>
-                      </button>
+                    <button
+                      key={r.path}
+                      type="button"
+                      className="menu__item workspace-tabs__recent-item"
+                      onClick={() => handleSelectRecent(r.path, r.name)}
+                    >
+                      <span className="workspace-tabs__recent-name">{r.name}</span>
+                      <span className="workspace-tabs__recent-path">{r.path.replace(/\/[^/]+$/, "")}</span>
                       <span
-                        style={{ cursor: "pointer", opacity: 0.4, flexShrink: 0, padding: "0 2px" }}
+                        className="workspace-tabs__recent-remove"
                         onClick={(e) => { e.stopPropagation(); removeFromRecent(r.path); setDropdownOpen(false); setTimeout(() => setDropdownOpen(true), 0); }}
                         title="Remove from recent"
                       >
                         <X size={12} />
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </>

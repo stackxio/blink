@@ -66,6 +66,55 @@
     }
   }
 
+  &__dropdown-wrapper {
+    position: relative;
+  }
+
+  &__dropdown {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    margin-top: 4px;
+    width: 320px;
+    max-height: 400px;
+  }
+
+  &__recent-list {
+    max-height: 250px;
+    overflow-y: auto;
+  }
+
+  &__recent-item {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  &__recent-name {
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__recent-path {
+    font-size: var(--font-size-xs);
+    opacity: 0.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__recent-remove {
+    flex-shrink: 0;
+    opacity: 0.3;
+    cursor: pointer;
+    padding: 0 2px;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
   &__add {
     @include flex-center;
     width: 22px;
