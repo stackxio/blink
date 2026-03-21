@@ -2,7 +2,8 @@ import { useEffect, useRef, useCallback } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, indentOnInput } from "@codemirror/language";
+import { bracketMatching, indentOnInput, indentUnit } from "@codemirror/language";
+import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
@@ -116,6 +117,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         highlightSelectionMatches(),
         darkSyntaxHighlighting,
         autocompletion(), // CM's built-in — no LSP override
+        indentationMarkers(),
         lintGutter(),
         ...(Array.isArray(lang) ? lang : [lang]),
         keymap.of([
