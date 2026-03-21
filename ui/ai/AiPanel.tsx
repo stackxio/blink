@@ -1,121 +1,253 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { X, ArrowUp, Square, Sparkles, FileCode } from "lucide-react";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { X, ArrowUp, Square, Plus, ChevronDown, FileCode, SquarePen } from "lucide-react";
+import MessageBubble, { type Message, type Activity } from "./MessageBubble";
 import { useAppStore } from "@/store";
 
-interface Message {
+interface DbMessage {
   id: string;
+  thread_id: string;
   role: "user" | "assistant";
   content: string;
-  isStreaming?: boolean;
+  created_at: string;
 }
+
+interface DbThread {
+  id: string;
+  folder_id: string | null;
+  title: string;
+  created_at: string;
+  updated_at: string;
+  message_count: number;
+}
+
+interface AiThread {
+  id: string;
+  title: string;
+  createdAt: Date;
+}
+
+type ReasoningEffort = "xhigh" | "high" | "medium" | "low";
+const REASONING_LABELS: Record<ReasoningEffort, string> = {
+  xhigh: "Extra High", high: "High", medium: "Medium", low: "Low",
+};
+
+interface ModelOption { slug: string; label: string }
+const GPT_MODELS: ModelOption[] = [
+  { slug: "gpt-5.4", label: "GPT-5.4" },
+  { slug: "gpt-5.3-codex", label: "GPT-5.3 Codex" },
+  { slug: "gpt-5.2-codex", label: "GPT-5.2 Codex" },
+];
+const CLAUDE_MODELS: ModelOption[] = [
+  { slug: "sonnet", label: "Sonnet" },
+  { slug: "opus", label: "Opus" },
+  { slug: "haiku", label: "Haiku" },
+];
 
 interface Props {
   onClose: () => void;
 }
 
 export default function AiPanel({ onClose }: Props) {
+  const [threads, setThreads] = useState<AiThread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [queue, setQueue] = useState<string[]>([]);
+  const [activeProvider, setActiveProvider] = useState("codex");
+  const [gptModel, setGptModel] = useState("gpt-5.4");
+  const [claudeModel, setClaudeModel] = useState("sonnet");
+  const [ollamaModel, setOllamaModel] = useState("llama3");
+  const [ollamaModels, setOllamaModels] = useState<{ name: string }[]>([]);
+  const [composerReasoning, setComposerReasoning] = useState<ReasoningEffort>("high");
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const streamingThreadIdRef = useRef<string | null>(null);
 
   const ws = useAppStore((s) => s.activeWorkspace());
   const activeFile = ws && ws.activeFileIdx >= 0 ? ws.openFiles[ws.activeFileIdx] : null;
 
-  // Auto-scroll to bottom
+  // Load settings
+  useEffect(() => {
+    invoke<Record<string, unknown>>("get_settings").then((s) => {
+      if (s.active_provider) setActiveProvider(s.active_provider as string);
+      const ollama = s.ollama as Record<string, unknown> | undefined;
+      if (ollama?.model) setOllamaModel(ollama.model as string);
+      const codex = s.codex as Record<string, unknown> | undefined;
+      if (codex?.model) setGptModel(codex.model as string);
+    }).catch(() => {});
+  }, []);
+
+  // Load Ollama models when provider is ollama
+  useEffect(() => {
+    if (activeProvider !== "ollama") return;
+    invoke<{ name: string }[]>("list_ollama_models").then((models) => {
+      setOllamaModels(models);
+      if (models.length > 0) {
+        setOllamaModel((prev) => models.some((m) => m.name === prev) ? prev : models[0].name);
+      }
+    }).catch(() => {});
+  }, [activeProvider]);
+
+  // Load threads
+  useEffect(() => {
+    invoke<DbThread[]>("list_threads").then((dbThreads) => {
+      setThreads(dbThreads.map((t) => ({ id: t.id, title: t.title, createdAt: new Date(t.created_at) })));
+    }).catch(() => {});
+  }, []);
+
+  // Load messages when thread changes
+  useEffect(() => {
+    if (!activeThreadId) { setMessages([]); return; }
+    if (streamingThreadIdRef.current === activeThreadId) return;
+    invoke<DbMessage[]>("list_messages", { threadId: activeThreadId }).then((dbMsgs) => {
+      setMessages(dbMsgs.map((m) => ({
+        id: m.id, role: m.role, content: m.content, timestamp: new Date(m.created_at),
+      })));
+    }).catch(() => setMessages([]));
+  }, [activeThreadId]);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input on mount
+  // Draft auto-save
   useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
+    const key = `caret:ai-draft:${activeThreadId ?? "new"}`;
+    if (input) localStorage.setItem(key, input);
+    else localStorage.removeItem(key);
+  }, [input, activeThreadId]);
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text || isLoading) return;
+  // Restore draft on thread switch
+  useEffect(() => {
+    const saved = localStorage.getItem(`caret:ai-draft:${activeThreadId ?? "new"}`);
+    setInput(saved ?? "");
+  }, [activeThreadId]);
 
-    setInput("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
+  async function createThread(): Promise<string> {
+    const dbThread = await invoke<DbThread>("create_thread", {
+      folderId: null, title: "New chat", scopeModeOverride: null, rootPathOverride: null,
+    });
+    const thread: AiThread = { id: dbThread.id, title: dbThread.title, createdAt: new Date(dbThread.created_at) };
+    setThreads((prev) => [thread, ...prev]);
+    setActiveThreadId(thread.id);
+    return thread.id;
+  }
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text };
+  async function sendMessage(text: string, tid: string) {
+    streamingThreadIdRef.current = tid;
+
+    // Auto-title on first message
+    if (messages.length === 0) {
+      const title = text.length > 40 ? text.slice(0, 40) + "..." : text;
+      setThreads((prev) => prev.map((t) => t.id === tid ? { ...t, title } : t));
+      invoke("update_thread_title", { id: tid, title }).catch(() => {});
+    }
+
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: text, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setIsLoading(true);
 
+    // Save to DB
+    invoke("send_message", { threadId: tid, role: "user", content: text }).catch(() => {});
+
     const assistantId = crypto.randomUUID();
-    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", isStreaming: true }]);
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "", timestamp: new Date(), isStreaming: true }]);
 
-    const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (event) => {
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, content: m.content + event.payload.chunk } : m),
-      );
+    const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (e) => {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: m.content + e.payload.chunk } : m));
     });
 
-    const unlistenDone = await listen<{ full_text: string }>("chat:done", (event) => {
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, content: event.payload.full_text, isStreaming: false } : m),
-      );
+    const unlistenActivity = await listen<{ activity: Activity }>("chat:activity", (e) => {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, activities: [...(m.activities || []), e.payload.activity] } : m));
+    });
+
+    const unlistenDone = await listen<{ full_text: string }>("chat:done", async (e) => {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: e.payload.full_text, isStreaming: false } : m));
       setIsLoading(false);
       sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
+      cleanup();
+      invoke("send_message", { threadId: tid, role: "assistant", content: e.payload.full_text }).catch(() => {});
+      // Process queue
+      setQueue((prev) => {
+        if (prev.length === 0) return prev;
+        const [next, ...rest] = prev;
+        setTimeout(() => sendMessage(next, tid), 0);
+        return rest;
+      });
+    });
+
+    const unlistenError = await listen<{ error: string }>("chat:error", (e) => {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${e.payload.error}`, isStreaming: false } : m));
+      setIsLoading(false);
+      sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
     });
 
-    const unlistenError = await listen<{ error: string }>("chat:error", (event) => {
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${event.payload.error}`, isStreaming: false } : m),
-      );
+    const unlistenCancelled = await listen<{ partial_text: string }>("chat:cancelled", async (e) => {
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: e.payload.partial_text || "*(cancelled)*", isStreaming: false } : m));
       setIsLoading(false);
       sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
+      if (e.payload.partial_text) {
+        invoke("send_message", { threadId: tid, role: "assistant", content: e.payload.partial_text }).catch(() => {});
+      }
     });
 
-    const unlistenCancelled = await listen<{ partial_text: string }>("chat:cancelled", (event) => {
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, content: event.payload.partial_text || "*(cancelled)*", isStreaming: false } : m),
-      );
-      setIsLoading(false);
-      sessionIdRef.current = null;
-      cleanup();
-    });
-
-    function cleanup() {
-      unlistenChunk();
-      unlistenDone();
-      unlistenError();
-      unlistenCancelled();
-    }
+    function cleanup() { unlistenChunk(); unlistenActivity(); unlistenDone(); unlistenError(); unlistenCancelled(); }
 
     try {
       const sid = await invoke<string>("chat_stream", {
-        input: {
-          prompt: text,
-          threadId: null,
-          runtimeMode: "full-access",
-        },
+        input: { prompt: text, threadId: tid, runtimeMode: "full-access" },
       });
       sessionIdRef.current = sid;
     } catch (err: unknown) {
-      const errorText = err instanceof Error ? err.message : String(err);
-      setMessages((prev) =>
-        prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${errorText}`, isStreaming: false } : m),
-      );
+      setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${err instanceof Error ? err.message : String(err)}`, isStreaming: false } : m));
       setIsLoading(false);
+      sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
     }
   }
 
+  async function handleSend() {
+    const text = input.trim();
+    if (!text) return;
+    setInput("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    localStorage.removeItem(`caret:ai-draft:${activeThreadId ?? "new"}`);
+
+    if (isLoading && activeThreadId) {
+      setQueue((prev) => [...prev, text]);
+      return;
+    }
+
+    let tid = activeThreadId;
+    if (!tid) {
+      tid = await createThread();
+    }
+    await sendMessage(text, tid);
+  }
+
   async function handleCancel() {
     if (!sessionIdRef.current) return;
-    try {
-      await invoke("cancel_stream", { sessionId: sessionIdRef.current });
-    } catch {}
+    setQueue([]);
+    invoke("cancel_stream", { sessionId: sessionIdRef.current }).catch(() => {});
+  }
+
+  function handleNewChat() {
+    setActiveThreadId(null);
+    setMessages([]);
+    setInput("");
+    setQueue([]);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -125,26 +257,36 @@ export default function AiPanel({ onClose }: Props) {
     }
   }
 
-  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setInput(e.target.value);
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
-  }
+  const recentThreads = threads.slice(0, 20);
 
   return (
     <div className="ai-panel">
+      {/* Header with thread selector */}
       <div className="ai-panel__header">
-        <span className="ai-panel__title">AI Assistant</span>
+        <div className="ai-panel__header-left">
+          <select
+            className="ai-panel__thread-select"
+            value={activeThreadId ?? ""}
+            onChange={(e) => setActiveThreadId(e.target.value || null)}
+          >
+            <option value="">New Chat</option>
+            {recentThreads.map((t) => (
+              <option key={t.id} value={t.id}>{t.title}</option>
+            ))}
+          </select>
+          <button type="button" className="ai-panel__icon-btn" onClick={handleNewChat} title="New Chat">
+            <SquarePen size={14} />
+          </button>
+        </div>
         <button type="button" className="ai-panel__close" onClick={onClose}>
           <X size={14} />
         </button>
       </div>
 
-      {/* Context bar — shows active file */}
+      {/* Context bar */}
       {activeFile && (
         <div className="ai-panel__context-bar">
-          <FileCode />
+          <FileCode size={12} />
           <span>{activeFile.name}</span>
         </div>
       )}
@@ -153,39 +295,37 @@ export default function AiPanel({ onClose }: Props) {
       <div className="ai-panel__messages">
         {messages.length === 0 ? (
           <div className="ai-panel__empty">
-            <Sparkles size={32} style={{ opacity: 0.3 }} />
-            <p>Ask anything about your code or project.</p>
-            <p style={{ fontSize: 11, opacity: 0.6 }}>The AI can see your active file and workspace context.</p>
+            <p>Start a conversation with AI.</p>
+            <p>It can see your active file and workspace.</p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`chat-msg chat-msg--${msg.role}`}>
-              <div className="chat-msg__label">{msg.role === "user" ? "You" : "Assistant"}</div>
-              <div className="chat-msg__content">
-                {msg.role === "assistant" ? (
-                  <>
-                    <Markdown remarkPlugins={[remarkGfm]}>{msg.content}</Markdown>
-                    {msg.isStreaming && <span className="chat-msg__streaming" />}
-                  </>
-                ) : (
-                  msg.content
-                )}
-              </div>
-            </div>
-          ))
+          messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
         )}
+        {/* Queued messages */}
+        {queue.map((text, i) => (
+          <div key={`q-${i}`} className="chat-msg__queued">
+            <span>{text}</span>
+            <button type="button" onClick={() => setQueue((prev) => prev.filter((_, j) => j !== i))}>
+              <X size={12} />
+            </button>
+          </div>
+        ))}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
+      {/* Input area */}
       <div className="ai-panel__input-area">
         <div className="ai-panel__input-wrapper">
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => {
+              setInput(e.target.value);
+              e.target.style.height = "auto";
+              e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+            }}
             onKeyDown={handleKeyDown}
-            placeholder={isLoading ? "Waiting for response…" : "Ask about your code…"}
+            placeholder={isLoading ? "Type to queue follow-up…" : "Ask about your code…"}
             rows={1}
             className="ai-panel__textarea"
           />
@@ -198,6 +338,35 @@ export default function AiPanel({ onClose }: Props) {
               <ArrowUp size={14} />
             </button>
           )}
+        </div>
+        {/* Model selector — single clean row */}
+        <div className="ai-panel__model-bar">
+          <select
+            className="ai-panel__model-select"
+            value={`${activeProvider}:${activeProvider === "codex" ? gptModel : activeProvider === "claude_code" ? claudeModel : activeProvider === "ollama" ? ollamaModel : "default"}`}
+            onChange={(e) => {
+              const [provider, model] = e.target.value.split(":");
+              setActiveProvider(provider);
+              if (provider === "codex") setGptModel(model);
+              else if (provider === "claude_code") setClaudeModel(model);
+              else if (provider === "ollama") setOllamaModel(model);
+            }}
+          >
+            <optgroup label="GPT">
+              {GPT_MODELS.map((m) => <option key={m.slug} value={`codex:${m.slug}`}>{m.label}</option>)}
+            </optgroup>
+            <optgroup label="Claude">
+              {CLAUDE_MODELS.map((m) => <option key={m.slug} value={`claude_code:${m.slug}`}>{m.label}</option>)}
+            </optgroup>
+            {ollamaModels.length > 0 && (
+              <optgroup label="Ollama">
+                {ollamaModels.map((m) => <option key={m.name} value={`ollama:${m.name}`}>{m.name}</option>)}
+              </optgroup>
+            )}
+            <optgroup label="Other">
+              <option value="custom:default">Custom API</option>
+            </optgroup>
+          </select>
         </div>
       </div>
     </div>
