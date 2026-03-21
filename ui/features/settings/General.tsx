@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Button } from "@/components/ui/button";
+import {
+  BINDINGS,
+  loadBindings,
+  saveBindings,
+  effectiveKey,
+  formatKey,
+  keyFromEvent,
+  type BindingMap,
+} from "@/lib/key-bindings";
 
 interface Settings {
   active_provider: string;
@@ -15,6 +24,29 @@ interface Settings {
 export default function SettingsGeneral() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [requireCmdEnterForLong, setRequireCmdEnterForLong] = useState(false);
+  const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
+  const [recording, setRecording] = useState<string | null>(null);
+  const recordingRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!recording) return;
+    recordingRef.current = recording;
+    function onKey(e: KeyboardEvent) {
+      e.preventDefault();
+      if (e.key === "Escape") {
+        setRecording(null);
+        return;
+      }
+      const combo = keyFromEvent(e);
+      if (!combo) return;
+      const updated = { ...bindingMap, [recordingRef.current!]: combo };
+      setBindingMap(updated);
+      saveBindings(updated);
+      setRecording(null);
+    }
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [recording, bindingMap]);
 
   useEffect(() => {
     invoke<Settings>("get_settings").then(setSettings).catch(() => {});
@@ -190,6 +222,34 @@ export default function SettingsGeneral() {
             <div className="h-4 w-4 translate-x-4 rounded-full bg-white transition-transform" />
           </div>
         </div>
+      </div>
+
+      <h2 className="mb-3 mt-8 text-sm font-semibold text-foreground">Keyboard shortcuts</h2>
+      <div className="space-y-1 rounded-lg border border-border bg-surface">
+        {BINDINGS.map((b, i) => {
+          const isLast = i === BINDINGS.length - 1;
+          const isRecording = recording === b.id;
+          const key = effectiveKey(b.id, bindingMap);
+          return (
+            <div
+              key={b.id}
+              className={`flex items-center justify-between px-4 py-3 ${!isLast ? "border-b border-border" : ""}`}
+            >
+              <p className="text-sm text-foreground">{b.label}</p>
+              <button
+                type="button"
+                onClick={() => setRecording(isRecording ? null : b.id)}
+                className={`rounded-md px-2.5 py-1 font-mono text-xs transition-colors ${
+                  isRecording
+                    ? "border border-accent bg-accent/10 text-accent"
+                    : "bg-input text-foreground hover:bg-surface-raised"
+                }`}
+              >
+                {isRecording ? "Press keys…" : formatKey(key)}
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

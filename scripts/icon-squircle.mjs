@@ -19,9 +19,9 @@ const ROOT = join(__dirname, "..");
 const ICON_1024 = join(ROOT, "core/icons/icon.iconset/icon_1024x1024.png");
 const OUT = join(ROOT, "core/app-icon.png");
 
-// macOS app icon squircle: corner radius ~185px for 1024pt (Apple HIG)
+// macOS app icon squircle: corner radius ~230px for 1024pt (~22.5% per Apple HIG)
 const SIZE = 1024;
-const RADIUS = 185;
+const RADIUS = 230;
 
 const squircleSvg = `<svg width="${SIZE}" height="${SIZE}" xmlns="http://www.w3.org/2000/svg">
   <rect x="0" y="0" width="${SIZE}" height="${SIZE}" rx="${RADIUS}" ry="${RADIUS}" fill="white"/>

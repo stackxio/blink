@@ -41,8 +41,6 @@ function parseThinking(raw: string): { thinking: string | null; text: string; is
 
 function sanitizeAssistantContent(content: string): string {
   return content
-    .replace(/cite[^]+/g, "")
-    .replace(/\w+[^]+/g, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
@@ -168,7 +166,7 @@ export default function MessageBubble({ message, showActionsInChat = true }: Mes
           <ThinkingBlock content={thinking} isOpen={isThinkingOpen} isStreaming={message.isStreaming} />
         )}
         {isUser ? (
-          <p>{renderedContent}</p>
+          <p className="message-selectable">{renderedContent}</p>
         ) : (
           <div className="prose-caret">
             {renderedContent && <Markdown remarkPlugins={[remarkGfm]}>{renderedContent}</Markdown>}

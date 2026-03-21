@@ -155,9 +155,11 @@ export default function Sidebar({
 
   return (
     <div className="relative flex h-full min-h-0 w-[260px] shrink-0 flex-col overflow-hidden border-r border-border bg-sidebar text-[13px] text-foreground">
+      {/* Drag strip — sits above content, covers traffic light height */}
+      <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-8" />
       <aside className="flex h-full min-h-0 flex-1 flex-col">
-        {/* Top nav items */}
-        <nav className="flex flex-col gap-0.5 px-2 pb-2 pt-2">
+        {/* Top nav items — pt-8 clears macOS traffic light buttons */}
+        <nav className="flex flex-col gap-0.5 px-2 pb-2 pt-8">
           <Button
             variant="ghost"
             size="sm"
@@ -243,18 +245,16 @@ export default function Sidebar({
                     placeholder="Project name…"
                     className="h-8 px-2 py-1.5 text-xs"
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={handlePickDirectory}
-                    className="w-full justify-start gap-2 border-border/60 bg-background/40 px-3 py-1.5 text-xs hover:bg-surface-raised"
+                    className="flex w-full items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-xs text-muted-foreground transition-colors hover:border-border/80 hover:bg-surface-raised hover:text-foreground"
                   >
-                    <FolderOpen size={14} className="shrink-0 text-muted-foreground" />
-                    <span className="min-w-0 flex-1 truncate">
+                    <FolderOpen size={14} className="shrink-0" />
+                    <span className="min-w-0 flex-1 truncate text-left">
                       {newProjectRoot ? newProjectRoot : "Choose directory…"}
                     </span>
-                  </Button>
+                  </button>
                   {newProjectRoot && (
                     <Button
                       type="button"
@@ -602,7 +602,7 @@ function ThreadItem({
       </button>
       <div className="flex shrink-0 items-center gap-0.5">
         <span className="text-[11px] text-muted-foreground/60 transition-opacity group-hover:opacity-0">
-          {relativeTime(thread.createdAt)}
+          {relativeTime(thread.updatedAt)}
         </span>
         <div className="absolute right-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           <Button

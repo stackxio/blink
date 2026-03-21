@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, type FormEvent } from 
 import { useOutletContext, useParams } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ChevronUp, ChevronDown, MessageCircle, Lock, LockOpen, Paperclip, FolderOpen, FileText, Search, Sparkles, Plus, ArrowUp, Square, Zap } from "lucide-react";
+import { ChevronUp, ChevronDown, MessageCircle, Lock, LockOpen, Paperclip, FolderOpen, FileText, Search, Sparkles, Plus, ArrowUp, Square, Zap, X } from "lucide-react";
 import MessageBubble from "@/components/MessageBubble";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,7 @@ interface ChatContext {
   pendingProjectIdRef: React.MutableRefObject<string | null>;
   activeThreadId: string | null;
   threads: ChatThread[];
+  onUpdateThreadActivity: (threadId: string) => void;
   setHeaderExtra: (node: React.ReactNode) => void;
 }
 
@@ -89,7 +90,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatArea() {
-  const { onLoadingChange, onRenameThread, createThread, pendingProjectIdRef, threads, setHeaderExtra } =
+  const { onLoadingChange, onRenameThread, createThread, pendingProjectIdRef, threads, onUpdateThreadActivity, setHeaderExtra } =
     useOutletContext<ChatContext>();
   const { threadId } = useParams();
   const currentThread = threads?.find((t) => t.id === threadId);
@@ -114,6 +115,8 @@ export default function ChatArea() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   // Track active stream session for cancellation
   const sessionIdRef = useRef<string | null>(null);
+  // Suppress DB load when we're already streaming for a freshly-created thread
+  const streamingThreadIdRef = useRef<string | null>(null);
   const [queue, setQueue] = useState<string[]>([]);
   const [effectiveScope, setEffectiveScope] = useState<{ mode: string; root_path: string | null; display_label: string } | null>(null);
 
@@ -165,6 +168,29 @@ export default function ChatArea() {
     });
   }, [messages]);
 
+  // Restore draft when thread changes, clear queue
+  useEffect(() => {
+    setQueue([]);
+    const saved = localStorage.getItem(`caret:draft:${threadId ?? "new"}`);
+    setInput(saved ?? "");
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+      if (saved) {
+        requestAnimationFrame(() => {
+          if (inputRef.current)
+            inputRef.current.style.height = `${Math.min(inputRef.current.scrollHeight, 200)}px`;
+        });
+      }
+    }
+  }, [threadId]);
+
+  // Persist draft as user types
+  useEffect(() => {
+    const key = `caret:draft:${threadId ?? "new"}`;
+    if (input) localStorage.setItem(key, input);
+    else localStorage.removeItem(key);
+  }, [input, threadId]);
+
   // Load messages from db when thread changes
   useEffect(() => {
     inputRef.current?.focus();
@@ -173,6 +199,9 @@ export default function ChatArea() {
       queueMicrotask(() => setMessages([]));
       return;
     }
+
+    // Don't wipe optimistic state when we just created this thread and are streaming into it
+    if (streamingThreadIdRef.current === threadId) return;
 
     let cancelled = false;
 
@@ -234,6 +263,7 @@ export default function ChatArea() {
   );
 
   async function sendMessage(text: string, tid: string) {
+    streamingThreadIdRef.current = tid;
     // Only rename thread on the very first message
     if (messages.length === 0) {
       const title = text.length > 40 ? text.slice(0, 40) + "..." : text;
@@ -249,6 +279,7 @@ export default function ChatArea() {
 
     setMessages((prev) => [...prev, userMessage]);
     updateLoading(true);
+    onUpdateThreadActivity(tid);
 
     // Save user message to db
     try {
@@ -295,6 +326,7 @@ export default function ChatArea() {
       );
       updateLoading(false);
       sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
 
       try {
@@ -334,6 +366,7 @@ export default function ChatArea() {
       );
       updateLoading(false);
       sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
 
       setQueue((prev) => {
@@ -411,6 +444,7 @@ export default function ChatArea() {
       );
       updateLoading(false);
       sessionIdRef.current = null;
+      streamingThreadIdRef.current = null;
       cleanup();
 
       setQueue((prev) => {
@@ -424,6 +458,7 @@ export default function ChatArea() {
 
   async function handleCancel() {
     if (!sessionIdRef.current) return;
+    setQueue([]);
     try {
       await invoke("cancel_stream", { sessionId: sessionIdRef.current });
     } catch {
@@ -815,6 +850,14 @@ export default function ChatArea() {
                   >
                     Steer
                   </Button>
+                  <button
+                    type="button"
+                    onClick={() => setQueue((prev) => prev.filter((_, j) => j !== i))}
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
+                    aria-label="Remove"
+                  >
+                    <X size={12} />
+                  </button>
                 </div>
               ))}
             </div>

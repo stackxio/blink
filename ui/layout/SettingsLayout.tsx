@@ -21,7 +21,7 @@ export default function SettingsLayout() {
     <div className="flex h-full text-foreground">
       {/* Settings sidebar */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-sidebar">
-        <div className="h-3 shrink-0" />
+        <div className="h-8 shrink-0 titlebar-drag" data-tauri-drag-region />
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -54,7 +54,8 @@ export default function SettingsLayout() {
       </aside>
 
       {/* Settings content */}
-      <main className="flex-1 overflow-y-auto bg-background px-6 pb-6 pt-6">
+      <main className="relative flex-1 overflow-y-auto bg-background px-6 pb-6 pt-6">
+        <div data-tauri-drag-region className="absolute inset-x-0 top-0 h-8" />
         <div className="mx-auto max-w-2xl">
           <Outlet />
         </div>

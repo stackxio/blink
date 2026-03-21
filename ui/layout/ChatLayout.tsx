@@ -4,12 +4,15 @@ import { invoke } from "@tauri-apps/api/core";
 import { PanelLeftOpen, PanelLeftClose } from "lucide-react";
 import Sidebar from "@/components/Sidebar";
 import StatusBar from "@/components/StatusBar";
+import UpdateBanner from "@/components/UpdateBanner";
+import { loadBindings, matchesKey, effectiveKey } from "@/lib/key-bindings";
 
 export interface ChatThread {
   id: string;
   title: string;
   projectId: string | null;
   createdAt: Date;
+  updatedAt: Date;
   messageCount: number;
 }
 
@@ -65,6 +68,7 @@ function dbThreadToThread(db: DbThread): ChatThread {
     title: db.title,
     projectId: db.folder_id,
     createdAt: new Date(db.created_at),
+    updatedAt: new Date(db.updated_at ?? db.created_at),
     messageCount: db.message_count ?? 0,
   };
 }
@@ -80,17 +84,24 @@ export default function ChatLayout() {
   const activeThreadId = params.threadId ?? null;
   const pendingProjectIdRef = useRef<string | null>(null);
 
-  // Cmd+B to toggle sidebar
+  // Global keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+      const map = loadBindings();
+      if (matchesKey(e, effectiveKey("toggle_sidebar", map))) {
         e.preventDefault();
         setSidebarOpen((prev) => !prev);
+      } else if (matchesKey(e, effectiveKey("new_thread", map))) {
+        e.preventDefault();
+        handleNewThread(null);
+      } else if (matchesKey(e, effectiveKey("open_settings", map))) {
+        e.preventDefault();
+        navigate("/settings");
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [navigate]);
 
   // Load projects and threads from db on mount
   useEffect(() => {
@@ -203,6 +214,12 @@ export default function ChatLayout() {
     }
   }
 
+  function handleUpdateThreadActivity(threadId: string) {
+    setThreads((prev) =>
+      prev.map((t) => (t.id === threadId ? { ...t, updatedAt: new Date() } : t)),
+    );
+  }
+
   async function handleRenameThread(threadId: string, title: string) {
     setThreads((prev) => prev.map((t) => (t.id === threadId ? { ...t, title } : t)));
 
@@ -291,23 +308,24 @@ export default function ChatLayout() {
       </div>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background transition-[margin] duration-200 ease-out">
         {/* Single compact header: drag region, centered target, sidebar toggle */}
-        <header className="titlebar-drag grid h-7 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border bg-surface/50 px-2">
-          <div className="flex items-center">
+        <header data-tauri-drag-region className="grid h-8 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 border-b border-border bg-surface/50 px-2">
+          <div className={`flex items-center transition-[padding] duration-200 ${!sidebarOpen ? "pl-[120px]" : ""}`}>
             <button
               onClick={() => setSidebarOpen((v) => !v)}
               title="Toggle sidebar (Cmd+B)"
-              className="titlebar-no-drag flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-surface-raised hover:text-foreground"
             >
               {sidebarOpen ? <PanelLeftClose size={15} /> : <PanelLeftOpen size={15} />}
             </button>
           </div>
           {headerExtra && (
-            <div className="titlebar-no-drag text-center text-[11px] text-muted-foreground">
+            <div className="text-center text-[11px] text-muted-foreground">
               {headerExtra}
             </div>
           )}
           <div className="min-w-0" />
         </header>
+        <UpdateBanner />
         <div className="flex min-h-0 flex-1 flex-col">
           <Outlet
             context={{
@@ -321,6 +339,7 @@ export default function ChatLayout() {
               threads,
               onSelectThread: (id: string) => navigate(`/chat/${id}`),
               onUpdateProjectAppearance: handleUpdateProjectAppearance,
+              onUpdateThreadActivity: handleUpdateThreadActivity,
               setHeaderExtra,
             }}
           />

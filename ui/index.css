@@ -12,7 +12,7 @@
   --color-surface-raised: color-mix(in srgb, white 4%, transparent);
   --color-accent: oklch(0.588 0.217 264);
   --color-accent-foreground: var(--color-white);
-  --color-sidebar: color-mix(in srgb, var(--color-neutral-950) 92%, white);
+  --color-sidebar: transparent;
 
   /* shadcn/ui variable aliases */
   --background: var(--color-background);
@@ -59,7 +59,7 @@ html.light {
   --color-input: var(--color-neutral-100);
   --color-surface: var(--color-neutral-50);
   --color-surface-raised: var(--color-neutral-200);
-  --color-sidebar: var(--color-neutral-100);
+  --color-sidebar: transparent;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: var(--color-white);
 }
@@ -81,6 +81,8 @@ body,
   height: 100%;
   margin: 0;
   padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 body {
@@ -95,13 +97,16 @@ body {
   background: var(--color-background);
 }
 
-/* macOS titlebar drag region */
-.titlebar-drag {
-  -webkit-app-region: drag;
-}
-
+/* macOS titlebar — interactive children of drag regions need this */
 .titlebar-no-drag {
   -webkit-app-region: no-drag;
+}
+
+/* Re-enable selection for chat message content */
+.prose-caret,
+.message-selectable {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 /* Markdown prose styling for assistant messages */

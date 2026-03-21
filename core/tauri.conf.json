@@ -17,11 +17,26 @@
         "height": 680,
         "resizable": true,
         "fullscreen": false,
-        "decorations": true
+        "decorations": true,
+        "titleBarStyle": "overlay",
+        "effects": {
+          "effects": ["sidebar"],
+          "state": "followsWindowActiveState"
+        }
       }
     ],
     "security": {
       "csp": null
+    },
+    "macOSPrivateApi": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/voxire/caret/releases/latest/download/latest.json"
+      ],
+      "dialog": false,
+      "pubkey": ""
     }
   },
   "bundle": {
