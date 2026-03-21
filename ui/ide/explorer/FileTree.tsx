@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { ChevronRight, File, Folder, FolderOpen, FolderPlus } from "lucide-react";
 
@@ -39,19 +39,54 @@ function saveExpandedDirs(rootPath: string, dirs: Set<string>) {
   localStorage.setItem(`caret:expanded:${rootPath}`, JSON.stringify([...dirs]));
 }
 
-export default function FileTree({ rootPath, onOpenFolder, onFileSelect, activeFilePath }: Props) {
+export interface FileTreeHandle {
+  collapseAll: () => void;
+}
+
+const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath, onOpenFolder, onFileSelect, activeFilePath }, ref) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ path: string; name: string } | null>(null);
   const [creating, setCreating] = useState<{ parentPath: string; type: "file" | "dir" } | null>(null);
+  const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const bgMenuRef = useRef<HTMLDivElement>(null);
   const expandedRef = useRef<Set<string>>(new Set());
+
+  useImperativeHandle(ref, () => ({
+    collapseAll: () => {
+      expandedRef.current.clear();
+      if (rootPath) {
+        saveExpandedDirs(rootPath, expandedRef.current);
+        loadDir(rootPath).then(setTree).catch(() => setTree([]));
+      }
+    },
+  }));
 
   useEffect(() => {
     if (!rootPath) { setTree([]); return; }
     expandedRef.current = loadExpandedDirs(rootPath);
     loadDirRecursive(rootPath, expandedRef.current).then(setTree).catch(() => setTree([]));
   }, [rootPath]);
+
+  // Close background menu
+  useEffect(() => {
+    if (!bgMenu) return;
+    function onClick(e: MouseEvent) {
+      if (bgMenuRef.current && !bgMenuRef.current.contains(e.target as Node)) setBgMenu(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setBgMenu(null);
+    }
+    setTimeout(() => {
+      document.addEventListener("mousedown", onClick);
+      document.addEventListener("keydown", onKey);
+    }, 0);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [bgMenu]);
 
   // Close context menu on click outside
   useEffect(() => {
@@ -225,8 +260,39 @@ export default function FileTree({ rootPath, onOpenFolder, onFileSelect, activeF
     );
   }
 
+  function handleBgContextMenu(e: React.MouseEvent) {
+    // Only trigger if clicking the tree background, not a file item
+    if ((e.target as HTMLElement).closest(".file-tree__item")) return;
+    e.preventDefault();
+    setBgMenu({ x: e.clientX, y: e.clientY });
+  }
+
+  function handleBgNewFile() {
+    if (!rootPath) return;
+    setCreating({ parentPath: rootPath, type: "file" });
+    setBgMenu(null);
+  }
+
+  function handleBgNewFolder() {
+    if (!rootPath) return;
+    setCreating({ parentPath: rootPath, type: "dir" });
+    setBgMenu(null);
+  }
+
+  async function handleBgRevealInFinder() {
+    if (!rootPath) return;
+    await invoke("reveal_in_finder", { path: rootPath }).catch(() => {});
+    setBgMenu(null);
+  }
+
+  async function handleBgCopyPath() {
+    if (!rootPath) return;
+    await navigator.clipboard.writeText(rootPath).catch(() => {});
+    setBgMenu(null);
+  }
+
   return (
-    <div className="file-tree">
+    <div className="file-tree" onContextMenu={handleBgContextMenu}>
       <TreeItems
         nodes={tree}
         depth={0}
@@ -256,9 +322,22 @@ export default function FileTree({ rootPath, onOpenFolder, onFileSelect, activeF
           <button type="button" className="menu__item menu__item--danger" onClick={handleDelete}>Delete</button>
         </div>
       )}
+
+      {/* Background context menu (right-click empty space) */}
+      {bgMenu && (
+        <div ref={bgMenuRef} className="menu" style={{ position: "fixed", left: bgMenu.x, top: bgMenu.y, zIndex: 200 }}>
+          <button type="button" className="menu__item" onClick={handleBgNewFile}>New File</button>
+          <button type="button" className="menu__item" onClick={handleBgNewFolder}>New Folder</button>
+          <div className="menu__separator" />
+          <button type="button" className="menu__item" onClick={handleBgRevealInFinder}>Reveal in Finder</button>
+          <button type="button" className="menu__item" onClick={handleBgCopyPath}>Copy Path</button>
+        </div>
+      )}
     </div>
   );
-}
+});
+
+export default FileTree;
 
 function TreeItems({
   nodes, depth, parentPath, onToggle, onFileSelect, activeFilePath, onContextMenu, renaming, onRenameSubmit, creating, onCreateSubmit,

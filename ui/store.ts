@@ -268,7 +268,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setActiveFile: (idx) => set((s) => updateWs(s, () => ({ activeFileIdx: idx }))),
 
   markModified: (path, modified) => set((s) => updateWs(s, (ws) => ({
-    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, modified } : f)),
+    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, modified, ...(modified ? { preview: false } : {}) } : f)),
   }))),
 
   updateFileState: (path, fileState) => set((s) => updateWs(s, (ws) => ({

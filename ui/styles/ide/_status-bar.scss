@@ -5,8 +5,9 @@
   align-items: center;
   height: var(--status-bar-h);
   padding: 0 8px;
-  background: var(--c-accent);
-  color: var(--c-accent-fg);
+  background: var(--c-bg);
+  color: var(--c-muted-fg);
+  border-top: 1px solid var(--c-border);
   font-size: var(--font-size-xs);
   @include no-select;
   gap: 2px;
@@ -41,7 +42,8 @@
     @include truncate;
 
     &:hover {
-      background: rgba(255, 255, 255, 0.12);
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
     }
 
     svg {

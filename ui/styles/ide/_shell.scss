@@ -71,6 +71,15 @@
     }
   }
 
+  // ── AI panel (right side, overlays main area) ──
+  &__ai-panel {
+    grid-row: 2;
+    grid-column: 3;
+    display: flex;
+    overflow: hidden;
+    justify-self: end;
+  }
+
   // ── Status bar ──
   &__status-bar {
     grid-row: 3;

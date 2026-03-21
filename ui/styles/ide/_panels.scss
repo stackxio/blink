@@ -32,6 +32,28 @@
     display: flex;
     gap: 2px;
   }
+
+  &__action-btn {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
 }
 
 // Resizer handle between panels

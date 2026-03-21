@@ -70,6 +70,12 @@
       border-left-color: var(--c-accent);
     }
 
+    // Indent guides
+    .cm-indent-markers {
+      --indent-marker-bg-color: color-mix(in srgb, var(--c-fg) 6%, transparent);
+      --indent-marker-active-bg-color: color-mix(in srgb, var(--c-fg) 12%, transparent);
+    }
+
     .cm-matchingBracket {
       background: color-mix(in srgb, var(--c-accent) 20%, transparent);
       outline: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);

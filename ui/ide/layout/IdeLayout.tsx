@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, lazy, Suspense } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "@/store";
@@ -9,10 +9,12 @@ import TabBar from "./TabBar";
 import PanelResizer from "./PanelResizer";
 import IdeStatusBar from "./IdeStatusBar";
 import WorkspaceTabs from "./WorkspaceTabs";
-import FileTree from "@/ide/explorer/FileTree";
+import FileTree, { type FileTreeHandle } from "@/ide/explorer/FileTree";
+import { ChevronsDownUp } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
+import AiPanel from "@/ai/AiPanel";
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -20,6 +22,10 @@ export default function IdeLayout() {
 
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const toggleSidePanel = useAppStore((s) => s.toggleSidePanel);
+  const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
+  const aiPanelWidth = useAppStore((s) => s.aiPanelWidth);
+  const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
+  const setAiPanelWidth = useAppStore((s) => s.setAiPanelWidth);
   const addWorkspace = useAppStore((s) => s.addWorkspace);
   const openFile = useAppStore((s) => s.openFile);
   const closeFile = useAppStore((s) => s.closeFile);
@@ -43,6 +49,7 @@ export default function IdeLayout() {
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
 
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const fileTreeRef = useRef<FileTreeHandle>(null);
 
   // Load saved workspaces on mount
   useEffect(() => {
@@ -58,6 +65,12 @@ export default function IdeLayout() {
       if (e.ctrlKey && e.key === "`") {
         e.preventDefault();
         toggleBottomPanel();
+        return;
+      }
+      // Cmd+L — toggle AI panel
+      if ((e.metaKey || e.ctrlKey) && e.key === "l") {
+        e.preventDefault();
+        toggleAiPanel();
         return;
       }
       // Cmd+P — file search
@@ -114,6 +127,11 @@ export default function IdeLayout() {
   const handleSideResize = useCallback(
     (delta: number) => setSidePanelWidth(Math.max(180, Math.min(480, sidePanelWidth + delta))),
     [sidePanelWidth, setSidePanelWidth],
+  );
+
+  const handleAiResize = useCallback(
+    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(800, aiPanelWidth - delta))),
+    [aiPanelWidth, setAiPanelWidth],
   );
 
   const handleBottomResize = useCallback(
@@ -175,9 +193,20 @@ export default function IdeLayout() {
           <div className="side-panel">
             <div className="side-panel__header">
               <span className="side-panel__title">Explorer</span>
+              <div className="side-panel__actions">
+                <button
+                  type="button"
+                  className="side-panel__action-btn"
+                  onClick={() => fileTreeRef.current?.collapseAll()}
+                  title="Collapse All"
+                >
+                  <ChevronsDownUp size={14} />
+                </button>
+              </div>
             </div>
             <div className="side-panel__body">
               <FileTree
+                ref={fileTreeRef}
                 rootPath={workspacePath}
                 onOpenFolder={handleOpenFolder}
                 onFileSelect={handleFileSelect}
@@ -227,6 +256,14 @@ export default function IdeLayout() {
           </>
         )}
       </div>
+
+      {/* AI panel (right side) */}
+      {aiPanelOpen && (
+        <div className="ide__ai-panel" style={{ width: aiPanelWidth }}>
+          <PanelResizer onResize={handleAiResize} />
+          <AiPanel onClose={toggleAiPanel} />
+        </div>
+      )}
 
       {/* File search overlay (Cmd+P) */}
       {fileSearchOpen && workspacePath && (
