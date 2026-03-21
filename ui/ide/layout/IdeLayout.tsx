@@ -1,17 +1,18 @@
 import { useCallback, useState, useEffect, lazy, Suspense } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
-import { useAppStore } from "@/stores/app";
+import { useAppStore } from "@/store";
 import { loadBindings, matchesKey, effectiveKey } from "@/lib/key-bindings";
 import Titlebar from "./Titlebar";
 import ActivityBar from "./ActivityBar";
-import FileTree from "./FileTree";
 import TabBar from "./TabBar";
 import PanelResizer from "./PanelResizer";
 import IdeStatusBar from "./IdeStatusBar";
-import Editor from "./Editor";
-import TerminalPanel from "./TerminalPanel";
-import FileSearch from "./FileSearch";
+import WorkspaceTabs from "./WorkspaceTabs";
+import FileTree from "@/ide/explorer/FileTree";
+import FileSearch from "@/ide/explorer/FileSearch";
+import Editor from "@/ide/editor/Editor";
+import TerminalPanel from "@/ide/terminal/TerminalPanel";
 
 export default function IdeLayout() {
   const navigate = useNavigate();

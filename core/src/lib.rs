@@ -2,7 +2,6 @@
 
 use tauri::Manager;
 
-mod agent;
 mod commands;
 mod connectors;
 mod db;
@@ -11,7 +10,6 @@ pub mod providers;
 pub mod services;
 mod scope;
 mod settings;
-mod tools;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

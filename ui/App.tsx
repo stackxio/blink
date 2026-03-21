@@ -1,9 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { useTheme } from "@/lib/theme";
-import IdeLayout from "@/ide/IdeLayout";
-import Welcome from "@/ide/Welcome";
-import SettingsOverlay from "@/ide/SettingsOverlay";
-import ExtensionsOverlay from "@/ide/ExtensionsOverlay";
+import IdeLayout from "@/ide/layout/IdeLayout";
+import Welcome from "@/ide/layout/Welcome";
+import SettingsOverlay from "@/overlays/SettingsOverlay";
+import ExtensionsOverlay from "@/overlays/ExtensionsOverlay";
 import SettingsGeneral from "@/features/settings/General";
 import SettingsProviders from "@/features/settings/Providers";
 import SettingsMcp from "@/features/settings/Mcp";

@@ -1,6 +1,6 @@
 import { X, Plus } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { useAppStore, type Workspace } from "@/stores/app";
+import { useAppStore, type Workspace } from "@/store";
 
 /** Show parent dir when multiple workspaces share the same folder name */
 function getDisplayName(ws: Workspace, all: Workspace[]): string {

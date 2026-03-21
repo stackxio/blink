@@ -1,5 +1,5 @@
 import { Files, MessageSquare, Search, GitBranch } from "lucide-react";
-import { useAppStore, type SidePanelView } from "@/stores/app";
+import { useAppStore, type SidePanelView } from "@/store";
 
 const ITEMS: { id: SidePanelView; icon: typeof Files; label: string }[] = [
   { id: "explorer", icon: Files, label: "Explorer" },

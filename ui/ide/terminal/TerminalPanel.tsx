@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Plus, X, Trash2 } from "lucide-react";
-import { useAppStore } from "@/stores/app";
+import { useAppStore } from "@/store";
 import "@xterm/xterm/css/xterm.css";
 
 let termCounter = 0;

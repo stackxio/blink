@@ -9,7 +9,7 @@ import { lintGutter } from "@codemirror/lint";
 import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
 import { lspDiagnosticsListener } from "./cm-lsp-extension";
-import { useAppStore } from "@/stores/app";
+import { useAppStore } from "@/store";
 
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";

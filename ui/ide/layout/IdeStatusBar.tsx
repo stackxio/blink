@@ -1,5 +1,5 @@
 import { GitBranch, Terminal } from "lucide-react";
-import { useAppStore } from "@/stores/app";
+import { useAppStore } from "@/store";
 
 interface Props {
   branch?: string | null;

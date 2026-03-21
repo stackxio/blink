@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { OpenFile } from "@/stores/app";
+import type { OpenFile } from "@/store";
 
 interface Props {
   files: OpenFile[];

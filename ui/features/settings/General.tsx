@@ -9,7 +9,7 @@ import {
   keyFromEvent,
   type BindingMap,
 } from "@/lib/key-bindings";
-import { useAppStore } from "@/stores/app";
+import { useAppStore } from "@/store";
 
 interface Settings {
   active_provider: string;
