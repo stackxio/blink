@@ -52,11 +52,15 @@ interface Props {
   content: string;
   filename: string;
   filePath: string;
+  initialCursorLine?: number;
+  initialCursorCol?: number;
+  initialScrollTop?: number;
   onSave: (content: string) => void;
   onChange: (modified: boolean) => void;
+  onCursorChange?: (line: number, col: number, scrollTop: number) => void;
 }
 
-export default function Editor({ content, filename, filePath, onSave, onChange }: Props) {
+export default function Editor({ content, filename, filePath, initialCursorLine, initialCursorCol, initialScrollTop, onSave, onChange, onCursorChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedContentRef = useRef(content);
@@ -133,12 +137,33 @@ export default function Editor({ content, filename, filePath, onSave, onChange }
             }, 500);
           }
         }),
+        // Track cursor position changes
+        EditorView.updateListener.of((update) => {
+          if (update.selectionSet || update.geometryChanged) {
+            const pos = update.state.selection.main.head;
+            const line = update.state.doc.lineAt(pos);
+            const scrollTop = update.view.scrollDOM.scrollTop;
+            onCursorChange?.(line.number, pos - line.from + 1, scrollTop);
+          }
+        }),
         EditorView.theme({ "&": { height: "100%" } }),
       ],
     });
 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
+
+    // Restore cursor position and scroll
+    if (initialCursorLine && initialCursorLine > 0) {
+      try {
+        const line = view.state.doc.line(Math.min(initialCursorLine, view.state.doc.lines));
+        const pos = line.from + Math.min((initialCursorCol || 1) - 1, line.length);
+        view.dispatch({ selection: { anchor: pos } });
+        if (initialScrollTop) {
+          requestAnimationFrame(() => { view.scrollDOM.scrollTop = initialScrollTop; });
+        }
+      } catch {}
+    }
 
     return () => {
       if (changeTimer) clearTimeout(changeTimer);

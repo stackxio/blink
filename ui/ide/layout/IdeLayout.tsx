@@ -25,6 +25,8 @@ export default function IdeLayout() {
   const closeFile = useAppStore((s) => s.closeFile);
   const setActiveFile = useAppStore((s) => s.setActiveFile);
   const markModified = useAppStore((s) => s.markModified);
+  const updateFileState = useAppStore((s) => s.updateFileState);
+  const markFileDeleted = useAppStore((s) => s.markFileDeleted);
   const setSidePanelWidth = useAppStore((s) => s.setSidePanelWidth);
   const setBottomPanelHeight = useAppStore((s) => s.setBottomPanelHeight);
   const loadSavedWorkspaces = useAppStore((s) => s.loadSavedWorkspaces);
@@ -100,7 +102,12 @@ export default function IdeLayout() {
     let cancelled = false;
     invoke<string>("read_file_content", { path: activeFile.path })
       .then((content) => { if (!cancelled) setFileContent(content); })
-      .catch(() => { if (!cancelled) setFileContent("// Failed to load file"); });
+      .catch(() => {
+        if (!cancelled) {
+          setFileContent("");
+          markFileDeleted(activeFile.path);
+        }
+      });
     return () => { cancelled = true; };
   }, [activeFile?.path]);
 
@@ -198,8 +205,12 @@ export default function IdeLayout() {
                 content={fileContent}
                 filename={activeFile.name}
                 filePath={activeFile.path}
+                initialCursorLine={activeFile.cursorLine}
+                initialCursorCol={activeFile.cursorCol}
+                initialScrollTop={activeFile.scrollTop}
                 onSave={handleFileSave}
                 onChange={(mod) => markModified(activeFile.path, mod)}
+                onCursorChange={(line, col, scroll) => updateFileState(activeFile.path, { cursorLine: line, cursorCol: col, scrollTop: scroll })}
               />
             ) : (
               <Outlet />
@@ -236,6 +247,8 @@ export default function IdeLayout() {
         <IdeStatusBar
           branch="main"
           language={activeFile ? getLanguage(activeFile.name) : undefined}
+          line={activeFile?.cursorLine || undefined}
+          col={activeFile?.cursorCol || undefined}
           workspaceName={workspaceName}
         />
       </div>

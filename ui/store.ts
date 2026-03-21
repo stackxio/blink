@@ -9,6 +9,10 @@ export interface OpenFile {
   name: string;
   modified: boolean;
   preview: boolean;
+  cursorLine: number;
+  cursorCol: number;
+  scrollTop: number;
+  deleted: boolean;
 }
 
 export interface Workspace {
@@ -81,6 +85,8 @@ interface AppState {
   closeFile: (idx: number) => void;
   setActiveFile: (idx: number) => void;
   markModified: (path: string, modified: boolean) => void;
+  updateFileState: (path: string, state: { cursorLine?: number; cursorCol?: number; scrollTop?: number }) => void;
+  markFileDeleted: (path: string) => void;
 
   // Per-workspace terminal tracking
   addTerminalId: (termId: string) => void;
@@ -165,7 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const workspaces: Workspace[] = saved.map((s) => {
         const ws = createWorkspace(s.id, s.path, s.name);
         ws.openFiles = s.open_files.map((f) => ({
-          path: f.path, name: f.name, modified: false, preview: f.is_preview,
+          path: f.path, name: f.name, modified: false, preview: f.is_preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false,
         }));
         const activeIdx = s.open_files.findIndex((f) => f.is_active);
         ws.activeFileIdx = activeIdx >= 0 ? activeIdx : s.open_files.length > 0 ? 0 : -1;
@@ -224,7 +230,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (s.workspaces.length === 0) {
         const id = `ws-${Date.now()}`;
         const ws = createWorkspace(id, "", "Untitled");
-        const newFile: OpenFile = { path, name, modified: false, preview };
+        const newFile: OpenFile = { path, name, modified: false, preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false };
         ws.openFiles = [newFile];
         ws.activeFileIdx = 0;
         return { workspaces: [ws], activeWorkspaceId: id };
@@ -242,11 +248,11 @@ export const useAppStore = create<AppState>((set, get) => ({
           const previewIdx = openFiles.findIndex((f) => f.preview);
           if (previewIdx !== -1) {
             const updated = [...openFiles];
-            updated[previewIdx] = { path, name, modified: false, preview: true };
+            updated[previewIdx] = { path, name, modified: false, preview: true, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false };
             return { openFiles: updated, activeFileIdx: previewIdx };
           }
         }
-        return { openFiles: [...openFiles, { path, name, modified: false, preview }], activeFileIdx: openFiles.length };
+        return { openFiles: [...openFiles, { path, name, modified: false, preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false }], activeFileIdx: openFiles.length };
       });
     });
   },
@@ -263,6 +269,14 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   markModified: (path, modified) => set((s) => updateWs(s, (ws) => ({
     openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, modified } : f)),
+  }))),
+
+  updateFileState: (path, fileState) => set((s) => updateWs(s, (ws) => ({
+    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, ...fileState } : f)),
+  }))),
+
+  markFileDeleted: (path) => set((s) => updateWs(s, (ws) => ({
+    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, deleted: true } : f)),
   }))),
 
   // ── Per-workspace terminals ──

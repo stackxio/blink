@@ -33,7 +33,13 @@ export default function TabBar({ files, activeIdx, onSelect, onClose }: Props) {
               if (e.button === 1) onClose(i);
             }}
           >
-            <span className="tab__name" style={file.preview ? { fontStyle: "italic" } : undefined}>
+            <span
+              className="tab__name"
+              style={{
+                ...(file.preview ? { fontStyle: "italic" } : {}),
+                ...(file.deleted ? { textDecoration: "line-through", opacity: 0.5 } : {}),
+              }}
+            >
               {file.name}
             </span>
             {file.modified && <span className="tab__modified" />}

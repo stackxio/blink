@@ -3,6 +3,7 @@ mod folders;
 mod messages;
 mod project_memories;
 mod threads;
+pub mod workspaces;
 
 pub use attachments::*;
 pub use folders::*;
