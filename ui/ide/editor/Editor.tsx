@@ -62,18 +62,39 @@ function createSearchPanel(view: EditorView): Panel {
   dom.innerHTML = `
     <div class="caret-search__row">
       <input type="text" class="caret-search__input" placeholder="Find" spellcheck="false" autocorrect="off" />
-      <button class="caret-search__btn" data-action="prev">‹</button>
-      <button class="caret-search__btn" data-action="next">›</button>
+      <div class="caret-search__toggles">
+        <button class="caret-search__toggle" data-opt="case" title="Match Case">Aa</button>
+        <button class="caret-search__toggle" data-opt="word" title="Whole Word">ab</button>
+        <button class="caret-search__toggle" data-opt="regex" title="Regex">.*</button>
+      </div>
+      <button class="caret-search__btn" data-action="prev" title="Previous (Shift+Enter)">‹</button>
+      <button class="caret-search__btn" data-action="next" title="Next (Enter)">›</button>
       <button class="caret-search__btn caret-search__btn--text" data-action="close">✕</button>
     </div>
   `;
 
   const input = dom.querySelector("input") as HTMLInputElement;
+  let caseSensitive = false;
+  let wholeWord = false;
+  let regexp = false;
 
-  input.addEventListener("input", () => {
-    const query = new SearchQuery({ search: input.value, caseSensitive: false });
+  function updateQuery() {
+    const query = new SearchQuery({ search: input.value, caseSensitive, regexp, wholeWord });
     view.dispatch({ effects: setSearchQuery.of(query) });
+  }
+
+  dom.querySelectorAll(".caret-search__toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const opt = (btn as HTMLElement).dataset.opt;
+      if (opt === "case") { caseSensitive = !caseSensitive; }
+      if (opt === "word") { wholeWord = !wholeWord; }
+      if (opt === "regex") { regexp = !regexp; }
+      btn.classList.toggle("caret-search__toggle--on");
+      updateQuery();
+    });
   });
+
+  input.addEventListener("input", updateQuery);
 
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
