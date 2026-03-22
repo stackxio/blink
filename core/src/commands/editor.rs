@@ -340,7 +340,7 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
     Ok(files)
 }
 
-/// Install the `caret` CLI command to /usr/local/bin
+/// Install the `caret` CLI command to /usr/local/bin using admin privileges
 #[tauri::command]
 pub async fn install_cli() -> Result<String, String> {
     let script = r#"#!/bin/bash
@@ -353,20 +353,26 @@ fi
 TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")" || echo "$1")
 open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
 "#;
-    let path = "/usr/local/bin/caret";
-    fs::write(path, script).map_err(|e| {
-        if e.kind() == std::io::ErrorKind::PermissionDenied {
-            "Permission denied. Try running: sudo caret install-cli".to_string()
-        } else {
-            format!("Failed to write {}: {}", path, e)
-        }
-    })?;
-    // Make executable
-    std::process::Command::new("chmod")
-        .args(["+x", path])
+    // Write to a temp file first, then use osascript to move with admin privileges
+    let tmp = "/tmp/caret-cli-install";
+    fs::write(tmp, script).map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    let output = std::process::Command::new("osascript")
+        .args([
+            "-e",
+            "do shell script \"cp /tmp/caret-cli-install /usr/local/bin/caret && chmod +x /usr/local/bin/caret\" with administrator privileges",
+        ])
         .output()
-        .map_err(|e| format!("Failed to chmod: {}", e))?;
-    Ok(format!("CLI installed to {}", path))
+        .map_err(|e| format!("Failed to run osascript: {}", e))?;
+
+    let _ = fs::remove_file(tmp);
+
+    if output.status.success() {
+        Ok("CLI installed to /usr/local/bin/caret".to_string())
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        Err(format!("Installation cancelled or failed: {}", stderr.trim()))
+    }
 }
 
 /// Open a native file picker dialog and return the selected path(s).
