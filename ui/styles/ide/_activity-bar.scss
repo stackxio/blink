@@ -25,9 +25,9 @@
 
   &__item {
     @include flex-center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--radius);
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-lg);
     border: none;
     background: transparent;
     color: var(--c-muted-fg);

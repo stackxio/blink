@@ -19,9 +19,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 100%;
+  height: 28px;
   padding: 0 12px;
-  border-right: 1px solid var(--c-border);
+  margin: 4px 1px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--c-muted-fg);
   font-size: var(--font-size-sm);
@@ -32,7 +33,6 @@
   min-width: 0;
   max-width: 200px;
   border: none;
-  border-right: 1px solid var(--c-border);
 
   &:hover {
     color: var(--c-fg);
@@ -41,9 +41,7 @@
 
   &--active {
     color: var(--c-fg);
-    background: var(--c-surface);
-    border-bottom: 1px solid var(--c-surface); // cover the bar's bottom border
-    margin-bottom: -1px;
+    background: var(--c-surface-raised);
   }
 
   &__name {
