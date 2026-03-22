@@ -2,14 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      version:
-        description: "Release version (e.g. 0.2.0 or v0.2.0)"
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -19,13 +13,14 @@ jobs:
     name: Preflight
     runs-on: ubuntu-24.04
     outputs:
-      version: ${{ steps.meta.outputs.version }}
-      tag: ${{ steps.meta.outputs.tag }}
-      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
-      make_latest: ${{ steps.meta.outputs.make_latest }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      should_release: ${{ steps.version.outputs.should_release }}
       ref: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -45,36 +40,41 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - id: meta
-        name: Resolve release version
+      - id: version
+        name: Auto-increment version from git tags
         shell: bash
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            raw="${{ github.event.inputs.version }}"
-          else
-            raw="${GITHUB_REF_NAME}"
+          # Get the latest tag, default to v0.0.0 if none exists
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+
+          # Remove 'v' prefix and split version
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          # Increment patch: 0.0.1 → 0.0.2 → ... → 0.0.99 → 0.1.0
+          PATCH=$((PATCH + 1))
+          if [ $PATCH -gt 99 ]; then
+            PATCH=0
+            MINOR=$((MINOR + 1))
+            if [ $MINOR -gt 99 ]; then
+              MINOR=0
+              MAJOR=$((MAJOR + 1))
+            fi
           fi
 
-          version="${raw#v}"
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid version: $raw" >&2
-            exit 1
-          fi
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          NEW_TAG="v${NEW_VERSION}"
 
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
-
-          if [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
-            echo "make_latest=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
-            echo "make_latest=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "New version: $NEW_VERSION ($NEW_TAG)"
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+          echo "should_release=true" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.label }}
     needs: preflight
+    if: needs.preflight.outputs.should_release == 'true'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -117,15 +117,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_DIR: core
-          # Updater signing — generates .app.tar.gz.sig files for auto-update
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          # macOS code signing (uncomment when Apple Developer account is set up):
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           includeRelease: false
           includeUpdaterJson: false
@@ -147,13 +140,21 @@ jobs:
           if-no-files-found: error
 
   release:
-    name: Publish GitHub Release
+    name: Publish Release
     needs: [preflight, build]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.preflight.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Create tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag ${{ needs.preflight.outputs.tag }}
+          git push origin ${{ needs.preflight.outputs.tag }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -184,11 +185,11 @@ jobs:
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
-          name: Caret v${{ needs.preflight.outputs.version }}
+          name: Caret ${{ needs.preflight.outputs.tag }}
           generate_release_notes: true
-          draft: true
-          prerelease: ${{ needs.preflight.outputs.is_prerelease }}
-          make_latest: ${{ needs.preflight.outputs.make_latest }}
+          draft: false
+          prerelease: false
+          make_latest: true
           files: |
             release-assets/*.dmg
             release-assets/*.app.tar.gz
@@ -212,11 +213,9 @@ jobs:
         run: |
           node -e "
             const fs = require('fs');
-
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.version = process.env.VERSION;
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-
             const conf = JSON.parse(fs.readFileSync('core/tauri.conf.json', 'utf8'));
             conf.version = process.env.VERSION;
             fs.writeFileSync('core/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
@@ -228,12 +227,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           if git diff --quiet -- package.json core/tauri.conf.json; then
-            echo "Versions already up to date, nothing to commit."
+            echo "Versions already up to date."
             exit 0
           fi
-
           git add package.json core/tauri.conf.json
           git commit -m "chore(release): bump versions to $RELEASE_TAG"
           git push origin HEAD:main
