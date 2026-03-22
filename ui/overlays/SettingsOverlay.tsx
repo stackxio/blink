@@ -18,6 +18,8 @@ export default function SettingsOverlay() {
 
   return (
     <div className="settings-overlay">
+      {/* Drag region for window dragging */}
+      <div className="settings-overlay__drag-region" data-tauri-drag-region />
       {/* Sidebar nav */}
       <div className="settings-overlay__sidebar">
         <button

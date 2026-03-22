@@ -106,12 +106,15 @@ pub fn run() {
                 let window = app_handle.get_webview_window("main");
                 if let Some(window) = window {
                     let _ = match event.id().0.as_str() {
-                        "settings" => window.eval("window.location.hash = ''; window.location.pathname = '/settings';"),
-                        "extensions" => window.eval("window.location.pathname = '/extensions';"),
+                        "settings" => window.eval("document.dispatchEvent(new CustomEvent('caret:navigate', {detail: '/settings'}))"),
+                        "extensions" => window.eval("document.dispatchEvent(new CustomEvent('caret:navigate', {detail: '/extensions'}))"),
                         "command_palette" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'p', metaKey: true, shiftKey: true}))"),
                         "toggle_sidebar" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'b', metaKey: true}))"),
                         "toggle_terminal" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: '`', ctrlKey: true}))"),
                         "toggle_ai" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'l', metaKey: true}))"),
+                        "search" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'f', metaKey: true, shiftKey: true}))"),
+                        "explorer" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'explorer'}))"),
+                        "source_control" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'git'}))"),
                         "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
                         "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('caret:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),

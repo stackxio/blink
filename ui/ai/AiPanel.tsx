@@ -107,10 +107,18 @@ export default function AiPanel() {
     }).catch(() => {});
   }, []);
 
-  // Reset on workspace switch
+  // Reset on workspace switch — cancel active stream and clear all state
   useEffect(() => {
+    if (sessionIdRef.current) {
+      invoke("cancel_stream", { sessionId: sessionIdRef.current }).catch(() => {});
+    }
     setActiveThreadId(null);
     setMessages([]);
+    setIsLoading(false);
+    setQueue([]);
+    setContextFiles([]);
+    sessionIdRef.current = null;
+    streamingThreadIdRef.current = null;
   }, [ws?.path]);
 
   // Load threads filtered by workspace
@@ -345,6 +353,22 @@ export default function AiPanel() {
       setAtResults([]);
       return;
     }
+    const q = atQuery.toLowerCase();
+
+    // Handle @active / @current — auto-select the active file
+    if (q === "active" || q === "current") {
+      if (activeFile) {
+        const relPath = activeFile.path.startsWith(ws.path + "/")
+          ? activeFile.path.slice(ws.path.length + 1)
+          : activeFile.name;
+        setAtResults([relPath]);
+        setAtSelectedIdx(0);
+      } else {
+        setAtResults([]);
+      }
+      return;
+    }
+
     const timer = setTimeout(() => {
       // Get both files and top-level folders
       Promise.all([
@@ -357,11 +381,22 @@ export default function AiPanel() {
           .map((e) => e.name + "/");
 
         const all = [...folders, ...files];
-        const q = atQuery.toLowerCase();
-        const filtered = q
-          ? all.filter((f) => f.toLowerCase().includes(q)).slice(0, 12)
-          : all.slice(0, 12); // show first 12 when no query
-        setAtResults(filtered);
+
+        // Get relative paths of open files for prioritization
+        const openRelPaths = (ws.openFiles || []).map((f) =>
+          f.path.startsWith(ws.path + "/") ? f.path.slice(ws.path!.length + 1) : f.name,
+        );
+
+        if (q) {
+          const filtered = all.filter((f) => f.toLowerCase().includes(q)).slice(0, 12);
+          setAtResults(filtered);
+        } else {
+          // No query: show open files first, then workspace files
+          const openSet = new Set(openRelPaths);
+          const rest = all.filter((f) => !openSet.has(f));
+          const combined = [...openRelPaths, ...rest].slice(0, 12);
+          setAtResults(combined);
+        }
         setAtSelectedIdx(0);
       }).catch(() => setAtResults([]));
     }, atQuery ? 150 : 0); // instant for empty query, debounced for typing

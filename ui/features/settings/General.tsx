@@ -13,9 +13,6 @@ import { useAppStore } from "@/store";
 
 interface Settings {
   active_provider: string;
-  prompt_mode: string;
-  follow_up_behavior?: string;
-  show_actions_in_chat?: boolean;
   codex: { model: string };
   ollama: { endpoint: string; model: string };
   custom: { endpoint: string; model: string; api_key: string };
@@ -23,12 +20,18 @@ interface Settings {
 
 export default function SettingsGeneral() {
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [requireCmdEnterForLong, setRequireCmdEnterForLong] = useState(false);
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
   const [recording, setRecording] = useState<string | null>(null);
   const recordingRef = useRef<string | null>(null);
+
+  // IDE settings (stored in localStorage for now)
+  const [autoSave, setAutoSave] = useState(() => localStorage.getItem("caret:autoSave") !== "false");
+  const [tabSize, setTabSize] = useState(() => parseInt(localStorage.getItem("caret:tabSize") || "2", 10));
+  const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem("caret:fontSize") || "13", 10));
+  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("caret:wordWrap") === "true");
+  const [minimap, setMinimap] = useState(() => localStorage.getItem("caret:minimap") !== "false");
 
   useEffect(() => {
     if (!recording) return;
@@ -51,63 +54,68 @@ export default function SettingsGeneral() {
     invoke<Settings>("get_settings").then(setSettings).catch(() => {});
   }, []);
 
-  async function save(updated: Settings) {
-    setSettings(updated);
-    try { await invoke("save_settings", { settings: updated }); } catch {}
+  function toggleAutoSave() {
+    const next = !autoSave;
+    setAutoSave(next);
+    localStorage.setItem("caret:autoSave", String(next));
   }
 
-  const modes = [
-    { value: "full", label: "Full" },
-    { value: "minimal", label: "Minimal" },
-    { value: "none", label: "None" },
-  ];
+  function changeTabSize(v: number) {
+    setTabSize(v);
+    localStorage.setItem("caret:tabSize", String(v));
+  }
+
+  function changeFontSize(v: number) {
+    setFontSize(v);
+    localStorage.setItem("caret:fontSize", String(v));
+  }
+
+  function toggleWordWrap() {
+    const next = !wordWrap;
+    setWordWrap(next);
+    localStorage.setItem("caret:wordWrap", String(next));
+  }
+
+  function toggleMinimap() {
+    const next = !minimap;
+    setMinimap(next);
+    localStorage.setItem("caret:minimap", String(next));
+  }
 
   return (
     <div className="settings-section">
       <h1 className="settings-section__title">General</h1>
 
+      <h2 className="settings-section__subtitle">Editor</h2>
       <div className="settings-card">
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Default provider</div>
-            <div className="settings-row__hint">Choose the AI provider for new chats</div>
+            <div className="settings-row__label">Auto-save</div>
+            <div className="settings-row__hint">Automatically save files after editing.</div>
           </div>
-          <span className="settings-row__value">{settings?.active_provider || "Codex"}</span>
+          <button
+            type="button"
+            className={`toggle ${autoSave ? "toggle--on" : ""}`}
+            onClick={toggleAutoSave}
+          >
+            <span className="toggle__thumb" />
+          </button>
         </div>
 
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Prompt mode</div>
-            <div className="settings-row__hint">Controls how much system prompt is sent</div>
+            <div className="settings-row__label">Tab size</div>
+            <div className="settings-row__hint">Number of spaces per indentation level.</div>
           </div>
           <div className="segment-control">
-            {modes.map((m) => (
-              <button
-                key={m.value}
-                type="button"
-                className={`segment-control__item ${settings?.prompt_mode === m.value ? "segment-control__item--active" : ""}`}
-                onClick={() => settings && save({ ...settings, prompt_mode: m.value })}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-row__info">
-            <div className="settings-row__label">Follow-up behavior</div>
-            <div className="settings-row__hint">Queue follow-ups or steer the current run. ⇧⌘Enter for opposite.</div>
-          </div>
-          <div className="segment-control">
-            {["queue", "steer"].map((v) => (
+            {[2, 4, 8].map((v) => (
               <button
                 key={v}
                 type="button"
-                className={`segment-control__item ${(settings?.follow_up_behavior ?? "queue") === v ? "segment-control__item--active" : ""}`}
-                onClick={() => settings && save({ ...settings, follow_up_behavior: v })}
+                className={`segment-control__item ${tabSize === v ? "segment-control__item--active" : ""}`}
+                onClick={() => changeTabSize(v)}
               >
-                {v.charAt(0).toUpperCase() + v.slice(1)}
+                {v}
               </button>
             ))}
           </div>
@@ -115,13 +123,29 @@ export default function SettingsGeneral() {
 
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Show actions in chat</div>
-            <div className="settings-row__hint">Show explored files, ran commands, and other actions inline.</div>
+            <div className="settings-row__label">Font size</div>
+            <div className="settings-row__hint">Editor font size in pixels.</div>
+          </div>
+          <select
+            className="input input--sm"
+            value={fontSize}
+            onChange={(e) => changeFontSize(parseInt(e.target.value, 10))}
+          >
+            {[11, 12, 13, 14, 15, 16, 18, 20].map((v) => (
+              <option key={v} value={v}>{v}px</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Word wrap</div>
+            <div className="settings-row__hint">Wrap long lines instead of horizontal scrolling.</div>
           </div>
           <button
             type="button"
-            className={`toggle ${settings?.show_actions_in_chat !== false ? "toggle--on" : ""}`}
-            onClick={() => settings && save({ ...settings, show_actions_in_chat: settings.show_actions_in_chat === false })}
+            className={`toggle ${wordWrap ? "toggle--on" : ""}`}
+            onClick={toggleWordWrap}
           >
             <span className="toggle__thumb" />
           </button>
@@ -129,24 +153,14 @@ export default function SettingsGeneral() {
 
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Require ⌘+Enter for long prompts</div>
-            <div className="settings-row__hint">Multiline prompts require ⌘+Enter to send.</div>
+            <div className="settings-row__label">Minimap</div>
+            <div className="settings-row__hint">Show a minimap overview on the right side of the editor.</div>
           </div>
           <button
             type="button"
-            className={`toggle ${requireCmdEnterForLong ? "toggle--on" : ""}`}
-            onClick={() => setRequireCmdEnterForLong((v) => !v)}
+            className={`toggle ${minimap ? "toggle--on" : ""}`}
+            onClick={toggleMinimap}
           >
-            <span className="toggle__thumb" />
-          </button>
-        </div>
-
-        <div className="settings-row">
-          <div className="settings-row__info">
-            <div className="settings-row__label">Send with Enter</div>
-            <div className="settings-row__hint">Press Enter to send. Shift+Enter for new line.</div>
-          </div>
-          <button type="button" className="toggle toggle--on" disabled>
             <span className="toggle__thumb" />
           </button>
         </div>
@@ -184,7 +198,7 @@ export default function SettingsGeneral() {
                 onClick={() => setRecording(isRecording ? null : b.id)}
                 style={isRecording ? { borderColor: "var(--c-accent)", color: "var(--c-accent)", background: "color-mix(in srgb, var(--c-accent) 10%, transparent)" } : { cursor: "pointer" }}
               >
-                {isRecording ? "Press keys…" : formatKey(key)}
+                {isRecording ? "Press keys..." : formatKey(key)}
               </button>
             </div>
           );

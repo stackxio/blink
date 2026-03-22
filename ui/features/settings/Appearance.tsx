@@ -1,12 +1,30 @@
 import { useState } from "react";
 import { type Theme, getStoredTheme, changeTheme } from "@/lib/theme";
 
+const FONT_FAMILIES = [
+  { value: "default", label: "System Default" },
+  { value: "'SF Mono', 'Menlo', 'Monaco', monospace", label: "SF Mono" },
+  { value: "'JetBrains Mono', monospace", label: "JetBrains Mono" },
+  { value: "'Fira Code', monospace", label: "Fira Code" },
+  { value: "'Source Code Pro', monospace", label: "Source Code Pro" },
+  { value: "'Cascadia Code', monospace", label: "Cascadia Code" },
+  { value: "'IBM Plex Mono', monospace", label: "IBM Plex Mono" },
+];
+
 export default function SettingsAppearance() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
+  const [fontFamily, setFontFamily] = useState(
+    () => localStorage.getItem("caret:fontFamily") || "default",
+  );
 
   function handleThemeChange(t: Theme) {
     setTheme(t);
     changeTheme(t);
+  }
+
+  function handleFontChange(value: string) {
+    setFontFamily(value);
+    localStorage.setItem("caret:fontFamily", value);
   }
 
   return (
@@ -31,12 +49,21 @@ export default function SettingsAppearance() {
             ))}
           </div>
         </div>
+
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Font size</div>
-            <div className="settings-row__hint">Adjust the UI font size</div>
+            <div className="settings-row__label">Editor font family</div>
+            <div className="settings-row__hint">Font used in the code editor</div>
           </div>
-          <span className="settings-row__value">13px</span>
+          <select
+            className="input input--sm"
+            value={fontFamily}
+            onChange={(e) => handleFontChange(e.target.value)}
+          >
+            {FONT_FAMILIES.map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </select>
         </div>
       </div>
     </div>

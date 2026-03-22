@@ -63,6 +63,7 @@ export default function ExtensionsOverlay() {
 
   return (
     <div className="settings-overlay">
+      <div className="settings-overlay__drag-region" data-tauri-drag-region />
       <div className="settings-overlay__sidebar">
         <button type="button" className="settings-overlay__back" onClick={() => navigate("/")}>
           <ChevronLeft size={14} />

@@ -69,6 +69,16 @@ export default function IdeLayout() {
     loadSavedWorkspaces();
   }, []);
 
+  // Listen for native menu navigation events (settings, extensions)
+  useEffect(() => {
+    function onNavigate(e: Event) {
+      const path = (e as CustomEvent<string>).detail;
+      if (path) navigate(path);
+    }
+    document.addEventListener("caret:navigate", onNavigate);
+    return () => document.removeEventListener("caret:navigate", onNavigate);
+  }, [navigate]);
+
   // Fetch git branch for status bar
   useEffect(() => {
     if (!workspacePath) {
@@ -131,6 +141,15 @@ export default function IdeLayout() {
             ? (ws.activeFileIdx - 1 + count) % count
             : (ws.activeFileIdx + 1) % count;
           setActiveFile(nextIdx);
+        }
+        return;
+      }
+      // Cmd+W — close active tab
+      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
+        e.preventDefault();
+        const ws = useAppStore.getState().activeWorkspace();
+        if (ws && ws.activeFileIdx >= 0) {
+          closeFile(ws.activeFileIdx);
         }
         return;
       }
