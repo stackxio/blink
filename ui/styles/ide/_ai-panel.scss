@@ -96,6 +96,39 @@
       font-weight: 500;
       svg { width: 13px; height: 13px; }
     }
+
+    &-label {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      padding: 0;
+      @include truncate;
+    }
+
+    &-actions {
+      display: none;
+      gap: 2px;
+      flex-shrink: 0;
+
+      button {
+        @include flex-center;
+        width: 18px;
+        height: 18px;
+        border: none;
+        border-radius: 2px;
+        background: transparent;
+        color: var(--c-muted-fg);
+        cursor: pointer;
+        &:hover { color: var(--c-fg); background: var(--c-surface-raised); }
+      }
+    }
+
+    &:hover &-actions { display: flex; }
   }
 
   &__thread-sep {

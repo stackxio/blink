@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { ArrowUp, Square, ChevronDown, FileCode, SquarePen, X, MessageSquare } from "lucide-react";
+import { ArrowUp, Square, ChevronDown, FileCode, Folder, SquarePen, X, MessageSquare, Pencil, Archive, Trash2 } from "lucide-react";
 import MessageBubble, { type Message, type Activity } from "./MessageBubble";
 import { useAppStore } from "@/store";
 
@@ -238,17 +238,23 @@ export default function AiPanel() {
       if (ws?.path) {
         contextParts.push(`[Workspace: ${ws.path}]`);
       }
-      // Read all @-attached files
+      // Read all @-attached files/folders
       for (const filePath of contextFiles) {
         try {
           const fileContent = await invoke<string>("read_file_content", { path: filePath });
-          const name = filePath.split("/").pop() || filePath;
           if (fileContent.length < 10000) {
             contextParts.push(`[File: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\``);
           } else {
             contextParts.push(`[File: ${filePath} (truncated)]\n\`\`\`\n${fileContent.slice(0, 8000)}\n...(truncated)\n\`\`\``);
           }
-        } catch {}
+        } catch {
+          // Might be a folder — list its contents
+          try {
+            const entries = await invoke<{ name: string; is_dir: boolean }[]>("read_dir", { path: filePath });
+            const listing = entries.map((e) => `${e.is_dir ? "📁" : "📄"} ${e.name}`).join("\n");
+            contextParts.push(`[Folder: ${filePath}]\n${listing}`);
+          } catch {}
+        }
       }
       const enrichedPrompt = contextParts.length > 0
         ? `${contextParts.join("\n\n")}\n\n${text}`
@@ -303,26 +309,62 @@ export default function AiPanel() {
     setMessages([]);
     setInput("");
     setQueue([]);
+    setContextFiles([]);
   }
 
-  // @ mention file search
+  async function handleArchiveThread(id: string) {
+    try {
+      await invoke("archive_thread", { id });
+      setThreads((prev) => prev.filter((t) => t.id !== id));
+      if (activeThreadId === id) handleNewChat();
+    } catch {}
+  }
+
+  async function handleDeleteThread(id: string) {
+    try {
+      await invoke("delete_thread", { id });
+      setThreads((prev) => prev.filter((t) => t.id !== id));
+      if (activeThreadId === id) handleNewChat();
+    } catch {}
+  }
+
+  async function handleRenameThread(id: string) {
+    const thread = threads.find((t) => t.id === id);
+    if (!thread) return;
+    const newTitle = prompt("Rename chat:", thread.title);
+    if (!newTitle || !newTitle.trim()) return;
+    try {
+      await invoke("update_thread_title", { id, title: newTitle.trim() });
+      setThreads((prev) => prev.map((t) => t.id === id ? { ...t, title: newTitle.trim() } : t));
+    } catch {}
+  }
+
+  // @ mention file/folder search
   useEffect(() => {
-    if (!atMenuOpen || !atQuery || !ws?.path) {
+    if (!atMenuOpen || !ws?.path) {
       setAtResults([]);
       return;
     }
     const timer = setTimeout(() => {
-      invoke<string[]>("list_all_files", { root: ws.path, maxFiles: 5000 })
-        .then((files) => {
-          const q = atQuery.toLowerCase();
-          const filtered = files
-            .filter((f) => f.toLowerCase().includes(q))
-            .slice(0, 10);
-          setAtResults(filtered);
-          setAtSelectedIdx(0);
-        })
-        .catch(() => setAtResults([]));
-    }, 150);
+      // Get both files and top-level folders
+      Promise.all([
+        invoke<string[]>("list_all_files", { root: ws.path, maxFiles: 5000 }),
+        invoke<{ name: string; path: string; is_dir: boolean }[]>("read_dir", { path: ws.path }),
+      ]).then(([files, dirEntries]) => {
+        // Add folders (prefixed with / to distinguish)
+        const folders = dirEntries
+          .filter((e) => e.is_dir)
+          .map((e) => e.name + "/");
+
+        const all = [...folders, ...files];
+        const q = atQuery.toLowerCase();
+        const filtered = q
+          ? all.filter((f) => f.toLowerCase().includes(q)).slice(0, 12)
+          : all.slice(0, 12); // show first 12 when no query
+        setAtResults(filtered);
+        setAtSelectedIdx(0);
+      }).catch(() => setAtResults([]));
+    }, atQuery ? 150 : 0); // instant for empty query, debounced for typing
     return () => clearTimeout(timer);
   }, [atQuery, atMenuOpen, ws?.path]);
 
@@ -337,7 +379,8 @@ export default function AiPanel() {
   }, [atMenuOpen]);
 
   function handleAtSelect(filePath: string) {
-    const fullPath = `${ws?.path}/${filePath}`;
+    const isFolder = filePath.endsWith("/");
+    const fullPath = `${ws?.path}/${isFolder ? filePath.slice(0, -1) : filePath}`;
     if (!contextFiles.includes(fullPath)) {
       setContextFiles((prev) => [...prev, fullPath]);
     }
@@ -412,14 +455,26 @@ export default function AiPanel() {
               </button>
               {recentThreads.length > 0 && <div className="ai-panel__thread-sep" />}
               {recentThreads.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={`ai-panel__thread-option ${t.id === activeThreadId ? "ai-panel__thread-option--active" : ""}`}
-                  onClick={() => { setActiveThreadId(t.id); setThreadDropdownOpen(false); }}
-                >
-                  {t.title}
-                </button>
+                <div key={t.id} className={`ai-panel__thread-option ${t.id === activeThreadId ? "ai-panel__thread-option--active" : ""}`}>
+                  <button
+                    type="button"
+                    className="ai-panel__thread-option-label"
+                    onClick={() => { setActiveThreadId(t.id); setThreadDropdownOpen(false); }}
+                  >
+                    {t.title}
+                  </button>
+                  <div className="ai-panel__thread-option-actions">
+                    <button type="button" title="Rename" onClick={(e) => { e.stopPropagation(); setThreadDropdownOpen(false); handleRenameThread(t.id); }}>
+                      <Pencil size={11} />
+                    </button>
+                    <button type="button" title="Archive" onClick={(e) => { e.stopPropagation(); handleArchiveThread(t.id); }}>
+                      <Archive size={11} />
+                    </button>
+                    <button type="button" title="Delete" onClick={(e) => { e.stopPropagation(); handleDeleteThread(t.id); }}>
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -476,9 +531,9 @@ export default function AiPanel() {
                   onClick={() => handleAtSelect(file)}
                   onMouseMove={() => setAtSelectedIdx(i)}
                 >
-                  <FileCode size={13} />
-                  <span className="ai-panel__at-name">{file.split("/").pop()}</span>
-                  <span className="ai-panel__at-path">{file}</span>
+                  {file.endsWith("/") ? <Folder size={13} /> : <FileCode size={13} />}
+                  <span className="ai-panel__at-name">{file.endsWith("/") ? file.slice(0, -1) : file.split("/").pop()}</span>
+                  {!file.endsWith("/") && <span className="ai-panel__at-path">{file}</span>}
                 </button>
               ))}
             </div>

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use tauri::Manager;
+use tauri::menu::{MenuBuilder, SubmenuBuilder};
 
 mod commands;
 mod connectors;
@@ -30,6 +31,95 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // Native macOS menu bar
+            let app_menu = SubmenuBuilder::new(app, "Caret")
+                .about(None)
+                .separator()
+                .text("settings", "Settings...")
+                .text("extensions", "Extensions...")
+                .text("check_updates", "Check for Updates...")
+                .separator()
+                .services()
+                .separator()
+                .hide()
+                .hide_others()
+                .show_all()
+                .separator()
+                .quit()
+                .build()?;
+
+            let file_menu = SubmenuBuilder::new(app, "File")
+                .text("new_file", "New File")
+                .text("open_file", "Open...")
+                .text("open_folder", "Open Folder...")
+                .separator()
+                .text("save", "Save")
+                .separator()
+                .text("close_editor", "Close Editor")
+                .build()?;
+
+            let edit_menu = SubmenuBuilder::new(app, "Edit")
+                .undo()
+                .redo()
+                .separator()
+                .cut()
+                .copy()
+                .paste()
+                .select_all()
+                .build()?;
+
+            let view_menu = SubmenuBuilder::new(app, "View")
+                .text("command_palette", "Command Palette...")
+                .text("toggle_sidebar", "Toggle Sidebar")
+                .text("toggle_terminal", "Toggle Terminal")
+                .text("toggle_ai", "Toggle AI Panel")
+                .separator()
+                .text("explorer", "Explorer")
+                .text("search", "Search")
+                .text("source_control", "Source Control")
+                .build()?;
+
+            let window_menu = SubmenuBuilder::new(app, "Window")
+                .minimize()
+                .maximize()
+                .separator()
+                .close_window()
+                .build()?;
+
+            let help_menu = SubmenuBuilder::new(app, "Help")
+                .text("about", "About Caret")
+                .build()?;
+
+            let menu = MenuBuilder::new(app)
+                .item(&app_menu)
+                .item(&file_menu)
+                .item(&edit_menu)
+                .item(&view_menu)
+                .item(&window_menu)
+                .item(&help_menu)
+                .build()?;
+
+            app.set_menu(menu)?;
+
+            // Handle menu events
+            app.on_menu_event(|app_handle, event| {
+                let window = app_handle.get_webview_window("main");
+                if let Some(window) = window {
+                    let _ = match event.id().0.as_str() {
+                        "settings" => window.eval("window.location.hash = ''; window.location.pathname = '/settings';"),
+                        "extensions" => window.eval("window.location.pathname = '/extensions';"),
+                        "command_palette" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'p', metaKey: true, shiftKey: true}))"),
+                        "toggle_sidebar" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'b', metaKey: true}))"),
+                        "toggle_terminal" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: '`', ctrlKey: true}))"),
+                        "toggle_ai" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'l', metaKey: true}))"),
+                        "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
+                        "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('caret:open-folder'))"),
+                        "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),
+                        _ => Ok(()),
+                    };
+                }
+            });
+
             let conn = db::init::init_db().expect("Failed to initialize database");
             app.manage(std::sync::Mutex::new(conn));
             app.manage(commands::ai::create_stream_sessions());
