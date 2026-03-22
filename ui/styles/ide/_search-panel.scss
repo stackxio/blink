@@ -1,0 +1,190 @@
+@use "../mixins" as *;
+
+.search-panel {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+
+  &__inputs {
+    @include flex-col;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__toggle {
+    @include flex-center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(color, transform);
+
+    &--active {
+      transform: rotate(90deg);
+      color: var(--c-fg);
+    }
+
+    &:hover {
+      color: var(--c-fg);
+    }
+  }
+
+  &__toggle-spacer {
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  &__field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    @include transition(border-color);
+
+    &:focus-within {
+      border-color: var(--c-accent);
+    }
+  }
+
+  &__icon {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+  }
+
+  &__input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    outline: none;
+
+    &::placeholder {
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__results {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__status {
+    padding: 8px 12px;
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+  }
+
+  &__file-group {
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  &__file-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    @include no-select;
+
+    svg {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__file-name {
+    @include truncate;
+    flex-shrink: 0;
+  }
+
+  &__file-path {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-weight: 400;
+  }
+
+  &__file-count {
+    flex-shrink: 0;
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--c-surface-raised);
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    line-height: 1.6;
+  }
+
+  &__result {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    width: 100%;
+    padding: 2px 8px 2px 28px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__line-num {
+    flex-shrink: 0;
+    width: 32px;
+    text-align: right;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    @include mono;
+  }
+
+  &__line-text {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+    @include mono;
+    font-size: var(--font-size-xs);
+    line-height: 1.6;
+  }
+
+  &__match {
+    background: color-mix(in srgb, var(--c-accent) 30%, transparent);
+    color: var(--c-accent);
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+}

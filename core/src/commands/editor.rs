@@ -1,6 +1,121 @@
 use serde::Serialize;
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+
+#[derive(Debug, Serialize)]
+pub struct SearchMatch {
+    pub path: String,
+    pub line_number: usize,
+    pub line_text: String,
+    pub column: usize,
+}
+
+/// Search for a query string in all files under a directory.
+/// Skips binary files, hidden dirs, node_modules, .git, target, etc.
+#[tauri::command]
+pub async fn search_in_files(
+    root: String,
+    query: String,
+    max_results: Option<usize>,
+) -> Result<Vec<SearchMatch>, String> {
+    let max = max_results.unwrap_or(100);
+    let root_path = PathBuf::from(&root);
+    let mut results = Vec::new();
+    let mut stack = vec![root_path.clone()];
+
+    let skip_dirs: &[&str] = &[
+        "node_modules",
+        ".git",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".cache",
+    ];
+
+    let query_lower = query.to_lowercase();
+
+    while let Some(dir) = stack.pop() {
+        if results.len() >= max {
+            break;
+        }
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries {
+            if results.len() >= max {
+                break;
+            }
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') {
+                continue;
+            }
+            let path = entry.path();
+            let meta = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
+            if meta.is_dir() {
+                if !skip_dirs.contains(&name.as_str()) {
+                    stack.push(path);
+                }
+            } else {
+                // Skip large files (> 1MB) and likely binary files
+                if meta.len() > 1_048_576 {
+                    continue;
+                }
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let binary_exts = [
+                    "png", "jpg", "jpeg", "gif", "bmp", "ico", "svg", "woff", "woff2", "ttf",
+                    "eot", "otf", "mp3", "mp4", "wav", "avi", "mov", "zip", "tar", "gz", "rar",
+                    "7z", "pdf", "exe", "dll", "so", "dylib", "o", "a", "wasm", "lock",
+                ];
+                if binary_exts.contains(&ext.as_str()) {
+                    continue;
+                }
+
+                let file = match fs::File::open(&path) {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+                let reader = BufReader::new(file);
+                for (line_idx, line_result) in reader.lines().enumerate() {
+                    if results.len() >= max {
+                        break;
+                    }
+                    let line = match line_result {
+                        Ok(l) => l,
+                        Err(_) => break, // likely binary
+                    };
+                    let line_lower = line.to_lowercase();
+                    if let Some(col) = line_lower.find(&query_lower) {
+                        results.push(SearchMatch {
+                            path: path.to_string_lossy().to_string(),
+                            line_number: line_idx + 1,
+                            line_text: line.chars().take(500).collect(),
+                            column: col + 1,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(results)
+}
 
 #[derive(Debug, Serialize)]
 pub struct DirEntry {

@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, indentOnInput } from "@codemirror/language";
+import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
@@ -109,6 +109,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         lineNumbers(),
         highlightActiveLine(),
         highlightActiveLineGutter(),
+        foldGutter(),
         history(),
         bracketMatching(),
         closeBrackets(),
@@ -123,6 +124,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
           ...defaultKeymap,
           ...historyKeymap,
           ...searchKeymap,
+          ...foldKeymap,
           indentWithTab,
           { key: "Mod-s", run: () => { handleSave(); return true; } },
         ]),

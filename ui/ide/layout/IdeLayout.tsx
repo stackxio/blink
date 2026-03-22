@@ -16,6 +16,7 @@ import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import AiPanel from "@/ai/AiPanel";
 import GitPanel from "@/ide/git/GitPanel";
+import SearchPanel from "@/ide/search/SearchPanel";
 import CommandPalette from "./CommandPalette";
 
 export default function IdeLayout() {
@@ -35,6 +36,8 @@ export default function IdeLayout() {
   const markModified = useAppStore((s) => s.markModified);
   const updateFileState = useAppStore((s) => s.updateFileState);
   const markFileDeleted = useAppStore((s) => s.markFileDeleted);
+  const closeAllFiles = useAppStore((s) => s.closeAllFiles);
+  const closeOtherFiles = useAppStore((s) => s.closeOtherFiles);
   const setSidePanelWidth = useAppStore((s) => s.setSidePanelWidth);
   const setBottomPanelHeight = useAppStore((s) => s.setBottomPanelHeight);
   const loadSavedWorkspaces = useAppStore((s) => s.loadSavedWorkspaces);
@@ -232,6 +235,18 @@ export default function IdeLayout() {
                   />
                 </div>
               </>
+            ) : sidePanelView === "search" ? (
+              <>
+                <div className="side-panel__header">
+                  <span className="side-panel__title">Search</span>
+                </div>
+                <div className="side-panel__body">
+                  <SearchPanel
+                    workspacePath={workspacePath}
+                    onOpenFile={(path, name) => handleFileSelect(path, name, false)}
+                  />
+                </div>
+              </>
             ) : (
               <>
                 <div className="side-panel__header">
@@ -269,8 +284,11 @@ export default function IdeLayout() {
           <TabBar
             files={openFiles}
             activeIdx={activeFileIdx}
+            workspacePath={workspacePath}
             onSelect={setActiveFile}
             onClose={closeFile}
+            onCloseAll={closeAllFiles}
+            onCloseOthers={closeOtherFiles}
           />
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {isEditorActive ? (

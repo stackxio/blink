@@ -83,6 +83,8 @@ interface AppState {
   // Per-workspace editor actions
   openFile: (path: string, name: string, preview?: boolean) => void;
   closeFile: (idx: number) => void;
+  closeAllFiles: () => void;
+  closeOtherFiles: (idx: number) => void;
   setActiveFile: (idx: number) => void;
   markModified: (path: string, modified: boolean) => void;
   updateFileState: (path: string, state: { cursorLine?: number; cursorCol?: number; scrollTop?: number }) => void;
@@ -263,6 +265,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (idx === ws.activeFileIdx) newActive = Math.min(idx, updated.length - 1);
     else if (idx < ws.activeFileIdx) newActive = ws.activeFileIdx - 1;
     return { openFiles: updated, activeFileIdx: newActive };
+  })),
+
+  closeAllFiles: () => set((s) => updateWs(s, () => ({
+    openFiles: [],
+    activeFileIdx: -1,
+  }))),
+
+  closeOtherFiles: (idx) => set((s) => updateWs(s, (ws) => {
+    const kept = ws.openFiles[idx];
+    if (!kept) return { openFiles: [], activeFileIdx: -1 };
+    return { openFiles: [kept], activeFileIdx: 0 };
   })),
 
   setActiveFile: (idx) => set((s) => updateWs(s, () => ({ activeFileIdx: idx }))),
