@@ -18,8 +18,14 @@ pub async fn search_in_files(
     root: String,
     query: String,
     max_results: Option<usize>,
+    case_sensitive: Option<bool>,
+    whole_word: Option<bool>,
+    is_regex: Option<bool>,
 ) -> Result<Vec<SearchMatch>, String> {
     let max = max_results.unwrap_or(100);
+    let case_sensitive = case_sensitive.unwrap_or(false);
+    let whole_word = whole_word.unwrap_or(false);
+    let is_regex = is_regex.unwrap_or(false);
     let root_path = PathBuf::from(&root);
     let mut results = Vec::new();
     let mut stack = vec![root_path.clone()];
@@ -36,6 +42,21 @@ pub async fn search_in_files(
         "venv",
         ".cache",
     ];
+
+    // Compile regex if needed
+    let regex_pattern = if is_regex && !case_sensitive {
+        format!("(?i){}", query)
+    } else {
+        query.clone()
+    };
+    let regex = if is_regex {
+        match regex::Regex::new(&regex_pattern) {
+            Ok(r) => Some(r),
+            Err(e) => return Err(format!("Invalid regex: {}", e)),
+        }
+    } else {
+        None
+    };
 
     let query_lower = query.to_lowercase();
 
@@ -100,8 +121,29 @@ pub async fn search_in_files(
                         Ok(l) => l,
                         Err(_) => break, // likely binary
                     };
-                    let line_lower = line.to_lowercase();
-                    if let Some(col) = line_lower.find(&query_lower) {
+                    let matched_col = if let Some(ref re) = regex {
+                        re.find(&line).map(|m| m.start())
+                    } else if case_sensitive {
+                        line.find(&query)
+                    } else {
+                        line.to_lowercase().find(&query_lower)
+                    };
+
+                    if let Some(col) = matched_col {
+                        // Whole word check
+                        if whole_word && !is_regex {
+                            let before = if col > 0 { line.as_bytes().get(col - 1).copied() } else { None };
+                            let after = line.as_bytes().get(col + query.len()).copied();
+                            let is_word_boundary = |b: Option<u8>| -> bool {
+                                match b {
+                                    None => true,
+                                    Some(c) => !c.is_ascii_alphanumeric() && c != b'_',
+                                }
+                            };
+                            if !is_word_boundary(before) || !is_word_boundary(after) {
+                                continue;
+                            }
+                        }
                         results.push(SearchMatch {
                             path: path.to_string_lossy().to_string(),
                             line_number: line_idx + 1,

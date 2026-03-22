@@ -18,6 +18,9 @@ export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
   const [query, setQuery] = useState("");
   const [showReplace, setShowReplace] = useState(false);
   const [replaceValue, setReplaceValue] = useState("");
+  const [caseSensitive, setCaseSensitive] = useState(false);
+  const [wholeWord, setWholeWord] = useState(false);
+  const [useRegex, setUseRegex] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -41,6 +44,9 @@ export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
         root: workspacePath,
         query: q,
         maxResults: 200,
+        caseSensitive,
+        wholeWord,
+        isRegex: useRegex,
       })
         .then((res) => {
           setResults(res);
@@ -52,7 +58,7 @@ export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
         })
         .finally(() => setSearching(false));
     },
-    [workspacePath],
+    [workspacePath, caseSensitive, wholeWord, useRegex],
   );
 
   function handleQueryChange(value: string) {
@@ -124,6 +130,32 @@ export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
               onKeyDown={handleKeyDown}
               spellCheck={false}
             />
+            <div className="search-panel__filters">
+              <button
+                type="button"
+                className={`search-panel__filter ${caseSensitive ? "search-panel__filter--active" : ""}`}
+                onClick={() => { setCaseSensitive((v) => !v); if (query) doSearch(query); }}
+                title="Match Case"
+              >
+                Aa
+              </button>
+              <button
+                type="button"
+                className={`search-panel__filter ${wholeWord ? "search-panel__filter--active" : ""}`}
+                onClick={() => { setWholeWord((v) => !v); if (query) doSearch(query); }}
+                title="Match Whole Word"
+              >
+                <span style={{ textDecoration: "underline" }}>ab</span>
+              </button>
+              <button
+                type="button"
+                className={`search-panel__filter ${useRegex ? "search-panel__filter--active" : ""}`}
+                onClick={() => { setUseRegex((v) => !v); if (query) doSearch(query); }}
+                title="Use Regular Expression"
+              >
+                .*
+              </button>
+            </div>
           </div>
         </div>
         {showReplace && (

@@ -4,9 +4,12 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 8px;
+  padding: 0 4px;
   height: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  flex: 1;
   @include scrollbar(3px);
   @include no-select;
 

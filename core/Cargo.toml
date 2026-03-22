@@ -32,5 +32,6 @@ dirs = "6"
 rusqlite = { version = "0.32", features = ["bundled"] }
 libc = "0.2"
 chrono = "0.4"
+regex = "1"
 pdf-extract = "0.10"
 portable-pty = "0.8"
