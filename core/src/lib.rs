@@ -110,6 +110,15 @@ pub fn run() {
             commands::lsp::lsp_list_installed,
             commands::lsp::lsp_list_all_servers,
             commands::lsp::lsp_install_server,
+            commands::git::git_status,
+            commands::git::git_diff,
+            commands::git::git_branch,
+            commands::git::git_branches,
+            commands::git::git_log,
+            commands::git::git_stage,
+            commands::git::git_unstage,
+            commands::git::git_commit,
+            commands::git::git_checkout_branch,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

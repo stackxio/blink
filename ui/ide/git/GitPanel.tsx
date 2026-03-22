@@ -1,0 +1,487 @@
+import { useState, useEffect, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import {
+  RefreshCw,
+  Plus,
+  Minus,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  FilePlus,
+  FileX,
+  FileQuestion,
+  ArrowRightLeft,
+  GitBranch,
+} from "lucide-react";
+
+interface GitFileStatus {
+  path: string;
+  status: string;
+  staged: boolean;
+}
+
+interface GitCommitInfo {
+  hash: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+interface Props {
+  workspacePath: string | null;
+  onFileSelect?: (path: string, name: string) => void;
+}
+
+function statusIcon(status: string) {
+  switch (status) {
+    case "modified":
+      return <FileText />;
+    case "added":
+      return <FilePlus />;
+    case "deleted":
+      return <FileX />;
+    case "untracked":
+      return <FileQuestion />;
+    case "renamed":
+      return <ArrowRightLeft />;
+    default:
+      return <FileText />;
+  }
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "modified":
+      return "M";
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "untracked":
+      return "?";
+    case "renamed":
+      return "R";
+    default:
+      return "?";
+  }
+}
+
+export default function GitPanel({ workspacePath, onFileSelect }: Props) {
+  const [files, setFiles] = useState<GitFileStatus[]>([]);
+  const [branch, setBranch] = useState<string>("");
+  const [branches, setBranches] = useState<string[]>([]);
+  const [commits, setCommits] = useState<GitCommitInfo[]>([]);
+  const [commitMsg, setCommitMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [diffText, setDiffText] = useState<string | null>(null);
+  const [diffFile, setDiffFile] = useState<string | null>(null);
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [stagedOpen, setStagedOpen] = useState(true);
+  const [unstagedOpen, setUnstagedOpen] = useState(true);
+  const [commitsOpen, setCommitsOpen] = useState(false);
+
+  const staged = files.filter((f) => f.staged);
+  const unstaged = files.filter((f) => !f.staged);
+
+  const refresh = useCallback(async () => {
+    if (!workspacePath) return;
+    setLoading(true);
+    try {
+      const [statusResult, branchResult, branchesResult, logResult] =
+        await Promise.all([
+          invoke<GitFileStatus[]>("git_status", { path: workspacePath }),
+          invoke<string>("git_branch", { path: workspacePath }),
+          invoke<string[]>("git_branches", { path: workspacePath }),
+          invoke<GitCommitInfo[]>("git_log", {
+            path: workspacePath,
+            limit: 20,
+          }),
+        ]);
+      setFiles(statusResult);
+      setBranch(branchResult);
+      setBranches(branchesResult);
+      setCommits(logResult);
+    } catch {
+      // Not a git repo or git not available
+      setFiles([]);
+      setBranch("");
+      setBranches([]);
+      setCommits([]);
+    }
+    setLoading(false);
+  }, [workspacePath]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Poll for changes every 3s
+  useEffect(() => {
+    if (!workspacePath) return;
+    const interval = setInterval(refresh, 3000);
+    return () => clearInterval(interval);
+  }, [workspacePath, refresh]);
+
+  async function handleStage(filePath: string) {
+    if (!workspacePath) return;
+    try {
+      await invoke("git_stage", { path: workspacePath, filePath });
+      refresh();
+    } catch {}
+  }
+
+  async function handleUnstage(filePath: string) {
+    if (!workspacePath) return;
+    try {
+      await invoke("git_unstage", { path: workspacePath, filePath });
+      refresh();
+    } catch {}
+  }
+
+  async function handleStageAll() {
+    if (!workspacePath) return;
+    for (const f of unstaged) {
+      try {
+        await invoke("git_stage", { path: workspacePath, filePath: f.path });
+      } catch {}
+    }
+    refresh();
+  }
+
+  async function handleUnstageAll() {
+    if (!workspacePath) return;
+    for (const f of staged) {
+      try {
+        await invoke("git_unstage", { path: workspacePath, filePath: f.path });
+      } catch {}
+    }
+    refresh();
+  }
+
+  async function handleCommit() {
+    if (!workspacePath || !commitMsg.trim() || staged.length === 0) return;
+    try {
+      await invoke("git_commit", { path: workspacePath, message: commitMsg });
+      setCommitMsg("");
+      refresh();
+    } catch {}
+  }
+
+  async function handleShowDiff(filePath: string) {
+    if (!workspacePath) return;
+    if (diffFile === filePath) {
+      setDiffText(null);
+      setDiffFile(null);
+      return;
+    }
+    try {
+      const diff = await invoke<string>("git_diff", {
+        path: workspacePath,
+        filePath,
+      });
+      setDiffText(diff);
+      setDiffFile(filePath);
+    } catch {
+      setDiffText("Failed to load diff");
+      setDiffFile(filePath);
+    }
+  }
+
+  async function handleCheckoutBranch(branchName: string) {
+    if (!workspacePath) return;
+    try {
+      await invoke("git_checkout_branch", {
+        path: workspacePath,
+        branch: branchName,
+      });
+      setBranchDropdownOpen(false);
+      refresh();
+    } catch {}
+  }
+
+  function handleFileClick(filePath: string) {
+    if (onFileSelect && workspacePath) {
+      const fullPath = `${workspacePath}/${filePath}`;
+      const name = filePath.split("/").pop() || filePath;
+      onFileSelect(fullPath, name);
+    }
+  }
+
+  if (!workspacePath) {
+    return (
+      <div className="git-panel__empty">No workspace open</div>
+    );
+  }
+
+  if (!branch && !loading) {
+    return (
+      <div className="git-panel__empty">Not a git repository</div>
+    );
+  }
+
+  return (
+    <div className="git-panel">
+      {/* Branch selector */}
+      <div className="git-panel__branch">
+        <button
+          type="button"
+          className="git-panel__branch-btn"
+          onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
+        >
+          <GitBranch size={14} />
+          <span>{branch}</span>
+          <ChevronDown size={12} />
+        </button>
+        <button
+          type="button"
+          className="git-panel__refresh-btn"
+          onClick={refresh}
+          title="Refresh"
+        >
+          <RefreshCw size={14} className={loading ? "git-panel__spin" : ""} />
+        </button>
+      </div>
+
+      {branchDropdownOpen && (
+        <div className="git-panel__branch-dropdown">
+          {branches.map((b) => (
+            <button
+              key={b}
+              type="button"
+              className={`git-panel__branch-option ${b === branch ? "git-panel__branch-option--active" : ""}`}
+              onClick={() => handleCheckoutBranch(b)}
+            >
+              {b === branch && <Check size={12} />}
+              <span>{b}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Commit box */}
+      <div className="git-panel__commit">
+        <textarea
+          className="git-panel__commit-input"
+          placeholder="Commit message..."
+          value={commitMsg}
+          onChange={(e) => setCommitMsg(e.target.value)}
+          rows={2}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+              e.preventDefault();
+              handleCommit();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="git-panel__commit-btn"
+          onClick={handleCommit}
+          disabled={!commitMsg.trim() || staged.length === 0}
+          title="Commit staged changes"
+        >
+          <Check size={14} />
+          <span>Commit</span>
+        </button>
+      </div>
+
+      {/* Staged changes */}
+      <div className="git-panel__section">
+        <button
+          type="button"
+          className="git-panel__section-header"
+          onClick={() => setStagedOpen(!stagedOpen)}
+        >
+          {stagedOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span>Staged Changes</span>
+          <span className="git-panel__count">{staged.length}</span>
+          {staged.length > 0 && (
+            <button
+              type="button"
+              className="git-panel__section-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUnstageAll();
+              }}
+              title="Unstage All"
+            >
+              <Minus size={14} />
+            </button>
+          )}
+        </button>
+        {stagedOpen && (
+          <div className="git-panel__file-list">
+            {staged.map((f) => (
+              <div key={`staged-${f.path}`} className="git-panel__file">
+                <button
+                  type="button"
+                  className="git-panel__file-info"
+                  onClick={() => handleShowDiff(f.path)}
+                  onDoubleClick={() => handleFileClick(f.path)}
+                  title={f.path}
+                >
+                  <span className={`git-panel__file-icon git-panel__file-icon--${f.status}`}>
+                    {statusIcon(f.status)}
+                  </span>
+                  <span className="git-panel__file-name">
+                    {f.path.split("/").pop()}
+                  </span>
+                  <span className="git-panel__file-dir">
+                    {f.path.includes("/")
+                      ? f.path.substring(0, f.path.lastIndexOf("/"))
+                      : ""}
+                  </span>
+                  <span className={`git-panel__file-badge git-panel__file-badge--${f.status}`}>
+                    {statusLabel(f.status)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="git-panel__file-action"
+                  onClick={() => handleUnstage(f.path)}
+                  title="Unstage"
+                >
+                  <Minus size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Unstaged changes */}
+      <div className="git-panel__section">
+        <button
+          type="button"
+          className="git-panel__section-header"
+          onClick={() => setUnstagedOpen(!unstagedOpen)}
+        >
+          {unstagedOpen ? (
+            <ChevronDown size={14} />
+          ) : (
+            <ChevronRight size={14} />
+          )}
+          <span>Changes</span>
+          <span className="git-panel__count">{unstaged.length}</span>
+          {unstaged.length > 0 && (
+            <button
+              type="button"
+              className="git-panel__section-action"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleStageAll();
+              }}
+              title="Stage All"
+            >
+              <Plus size={14} />
+            </button>
+          )}
+        </button>
+        {unstagedOpen && (
+          <div className="git-panel__file-list">
+            {unstaged.map((f) => (
+              <div key={`unstaged-${f.path}`} className="git-panel__file">
+                <button
+                  type="button"
+                  className="git-panel__file-info"
+                  onClick={() => handleShowDiff(f.path)}
+                  onDoubleClick={() => handleFileClick(f.path)}
+                  title={f.path}
+                >
+                  <span className={`git-panel__file-icon git-panel__file-icon--${f.status}`}>
+                    {statusIcon(f.status)}
+                  </span>
+                  <span className="git-panel__file-name">
+                    {f.path.split("/").pop()}
+                  </span>
+                  <span className="git-panel__file-dir">
+                    {f.path.includes("/")
+                      ? f.path.substring(0, f.path.lastIndexOf("/"))
+                      : ""}
+                  </span>
+                  <span className={`git-panel__file-badge git-panel__file-badge--${f.status}`}>
+                    {statusLabel(f.status)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="git-panel__file-action"
+                  onClick={() => handleStage(f.path)}
+                  title="Stage"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Inline diff viewer */}
+      {diffText && diffFile && (
+        <div className="git-panel__diff">
+          <div className="git-panel__diff-header">
+            <span>{diffFile}</span>
+            <button
+              type="button"
+              className="git-panel__diff-close"
+              onClick={() => {
+                setDiffText(null);
+                setDiffFile(null);
+              }}
+            >
+              ×
+            </button>
+          </div>
+          <pre className="git-panel__diff-content">
+            {diffText.split("\n").map((line, i) => {
+              let cls = "";
+              if (line.startsWith("+") && !line.startsWith("+++"))
+                cls = "git-panel__diff-line--add";
+              else if (line.startsWith("-") && !line.startsWith("---"))
+                cls = "git-panel__diff-line--del";
+              else if (line.startsWith("@@"))
+                cls = "git-panel__diff-line--hunk";
+              return (
+                <div key={i} className={`git-panel__diff-line ${cls}`}>
+                  {line}
+                </div>
+              );
+            })}
+          </pre>
+        </div>
+      )}
+
+      {/* Recent commits */}
+      <div className="git-panel__section">
+        <button
+          type="button"
+          className="git-panel__section-header"
+          onClick={() => setCommitsOpen(!commitsOpen)}
+        >
+          {commitsOpen ? (
+            <ChevronDown size={14} />
+          ) : (
+            <ChevronRight size={14} />
+          )}
+          <span>Recent Commits</span>
+          <span className="git-panel__count">{commits.length}</span>
+        </button>
+        {commitsOpen && (
+          <div className="git-panel__commits">
+            {commits.map((c) => (
+              <div key={c.hash} className="git-panel__commit-item">
+                <span className="git-panel__commit-hash">
+                  {c.hash.substring(0, 7)}
+                </span>
+                <span className="git-panel__commit-msg">{c.message}</span>
+                <span className="git-panel__commit-author">{c.author}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

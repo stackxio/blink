@@ -1,0 +1,474 @@
+@use "../mixins" as *;
+
+.git-panel {
+  @include flex-col;
+  @include full-height;
+  overflow-y: auto;
+  @include scrollbar;
+  font-size: var(--font-size-sm);
+
+  &__empty {
+    @include flex-center;
+    height: 100%;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-sm);
+  }
+
+  // ─── Branch selector ───
+
+  &__branch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  &__branch-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(border-color, background);
+
+    &:hover {
+      border-color: var(--c-muted);
+      background: var(--c-surface-raised);
+    }
+
+    span {
+      @include truncate;
+    }
+
+    svg:last-child {
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+  }
+
+  &__refresh-btn {
+    @include flex-center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__spin {
+    animation: git-spin 1s linear infinite;
+  }
+
+  &__branch-dropdown {
+    @include flex-col;
+    margin: 0 8px 4px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    max-height: 200px;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__branch-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-accent);
+    }
+  }
+
+  // ─── Commit box ───
+
+  &__commit {
+    padding: 8px;
+    border-bottom: 1px solid var(--c-border);
+    @include flex-col;
+    gap: 6px;
+  }
+
+  &__commit-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    resize: vertical;
+    min-height: 32px;
+    line-height: 1.4;
+    @include transition(border-color);
+
+    &::placeholder {
+      color: var(--c-muted-fg);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--c-accent);
+    }
+  }
+
+  &__commit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--c-accent);
+    color: var(--c-bg);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(opacity);
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  // ─── Sections ───
+
+  &__section {
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    @include no-select;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+
+    svg {
+      flex-shrink: 0;
+      width: 14px;
+      height: 14px;
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__count {
+    margin-left: 4px;
+    padding: 0 6px;
+    border-radius: 8px;
+    background: var(--c-surface-raised);
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    line-height: 1.6;
+  }
+
+  &__section-action {
+    @include flex-center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    margin-left: auto;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  // ─── File list ───
+
+  &__file-list {
+    @include flex-col;
+  }
+
+  &__file {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: 4px;
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__file-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    padding: 3px 8px 3px 20px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  &__file-icon {
+    flex-shrink: 0;
+    @include flex-center;
+    width: 16px;
+    height: 16px;
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    &--modified {
+      color: var(--c-warning, #e2b93d);
+    }
+
+    &--added {
+      color: var(--c-success, #73c991);
+    }
+
+    &--deleted {
+      color: var(--c-error, #f14c4c);
+    }
+
+    &--untracked {
+      color: var(--c-success, #73c991);
+    }
+
+    &--renamed {
+      color: var(--c-info, #6796e6);
+    }
+  }
+
+  &__file-name {
+    @include truncate;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  &__file-dir {
+    @include truncate;
+    flex-shrink: 2;
+    min-width: 0;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    margin-left: auto;
+  }
+
+  &__file-badge {
+    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    width: 16px;
+    text-align: center;
+
+    &--modified {
+      color: var(--c-warning, #e2b93d);
+    }
+
+    &--added,
+    &--untracked {
+      color: var(--c-success, #73c991);
+    }
+
+    &--deleted {
+      color: var(--c-error, #f14c4c);
+    }
+
+    &--renamed {
+      color: var(--c-info, #6796e6);
+    }
+  }
+
+  &__file-action {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(color, background);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface);
+    }
+  }
+
+  // ─── Diff viewer ───
+
+  &__diff {
+    border-bottom: 1px solid var(--c-border);
+    max-height: 300px;
+    @include flex-col;
+  }
+
+  &__diff-header {
+    @include flex-between;
+    padding: 4px 8px;
+    background: var(--c-surface);
+    border-bottom: 1px solid var(--c-border);
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    flex-shrink: 0;
+  }
+
+  &__diff-close {
+    @include flex-center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__diff-content {
+    overflow: auto;
+    @include scrollbar;
+    margin: 0;
+    padding: 4px 0;
+    font-size: var(--font-size-xs);
+    @include mono;
+    line-height: 1.5;
+    background: var(--c-bg);
+  }
+
+  &__diff-line {
+    padding: 0 8px;
+    white-space: pre;
+
+    &--add {
+      background: rgba(115, 201, 145, 0.15);
+      color: var(--c-success, #73c991);
+    }
+
+    &--del {
+      background: rgba(241, 76, 76, 0.15);
+      color: var(--c-error, #f14c4c);
+    }
+
+    &--hunk {
+      color: var(--c-info, #6796e6);
+      background: rgba(103, 150, 230, 0.1);
+    }
+  }
+
+  // ─── Commits ───
+
+  &__commits {
+    @include flex-col;
+  }
+
+  &__commit-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px 4px 20px;
+    font-size: var(--font-size-xs);
+    color: var(--c-fg);
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__commit-hash {
+    flex-shrink: 0;
+    @include mono;
+    color: var(--c-accent);
+    font-size: var(--font-size-xs);
+  }
+
+  &__commit-msg {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__commit-author {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+  }
+}
+
+@keyframes git-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

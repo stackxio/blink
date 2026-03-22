@@ -15,6 +15,7 @@ import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import AiPanel from "@/ai/AiPanel";
+import GitPanel from "@/ide/git/GitPanel";
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -48,13 +49,33 @@ export default function IdeLayout() {
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
 
+  const sidePanelView = ws?.sidePanelView ?? "explorer";
+
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [gitBranch, setGitBranch] = useState<string | null>(null);
   const fileTreeRef = useRef<FileTreeHandle>(null);
 
   // Load saved workspaces on mount
   useEffect(() => {
     loadSavedWorkspaces();
   }, []);
+
+  // Fetch git branch for status bar
+  useEffect(() => {
+    if (!workspacePath) {
+      setGitBranch(null);
+      return;
+    }
+    let cancelled = false;
+    const fetchBranch = () => {
+      invoke<string>("git_branch", { path: workspacePath })
+        .then((b) => { if (!cancelled) setGitBranch(b); })
+        .catch(() => { if (!cancelled) setGitBranch(null); });
+    };
+    fetchBranch();
+    const interval = setInterval(fetchBranch, 5000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [workspacePath]);
 
   // Active file
   const activeFile = activeFileIdx >= 0 && activeFileIdx < openFiles.length ? openFiles[activeFileIdx] : null;
@@ -191,28 +212,44 @@ export default function IdeLayout() {
       {sidePanelOpen && (
         <div className="ide__side-panel" style={{ width: sidePanelWidth }}>
           <div className="side-panel">
-            <div className="side-panel__header">
-              <span className="side-panel__title">Explorer</span>
-              <div className="side-panel__actions">
-                <button
-                  type="button"
-                  className="side-panel__action-btn"
-                  onClick={() => fileTreeRef.current?.collapseAll()}
-                  title="Collapse All"
-                >
-                  <ChevronsDownUp size={14} />
-                </button>
-              </div>
-            </div>
-            <div className="side-panel__body">
-              <FileTree
-                ref={fileTreeRef}
-                rootPath={workspacePath}
-                onOpenFolder={handleOpenFolder}
-                onFileSelect={handleFileSelect}
-                activeFilePath={activeFile?.path ?? null}
-              />
-            </div>
+            {sidePanelView === "git" ? (
+              <>
+                <div className="side-panel__header">
+                  <span className="side-panel__title">Source Control</span>
+                </div>
+                <div className="side-panel__body">
+                  <GitPanel
+                    workspacePath={workspacePath}
+                    onFileSelect={(path, name) => handleFileSelect(path, name, false)}
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="side-panel__header">
+                  <span className="side-panel__title">Explorer</span>
+                  <div className="side-panel__actions">
+                    <button
+                      type="button"
+                      className="side-panel__action-btn"
+                      onClick={() => fileTreeRef.current?.collapseAll()}
+                      title="Collapse All"
+                    >
+                      <ChevronsDownUp size={14} />
+                    </button>
+                  </div>
+                </div>
+                <div className="side-panel__body">
+                  <FileTree
+                    ref={fileTreeRef}
+                    rootPath={workspacePath}
+                    onOpenFolder={handleOpenFolder}
+                    onFileSelect={handleFileSelect}
+                    activeFilePath={activeFile?.path ?? null}
+                  />
+                </div>
+              </>
+            )}
           </div>
           <PanelResizer onResize={handleSideResize} />
         </div>
@@ -282,7 +319,7 @@ export default function IdeLayout() {
       {/* Status bar */}
       <div className="ide__status-bar">
         <IdeStatusBar
-          branch="main"
+          branch={gitBranch}
           language={activeFile ? getLanguage(activeFile.name) : undefined}
           line={activeFile?.cursorLine || undefined}
           col={activeFile?.cursorCol || undefined}

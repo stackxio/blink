@@ -2,6 +2,7 @@ pub mod ai;
 pub mod attachments;
 pub mod editor;
 pub mod files;
+pub mod git;
 pub mod lsp;
 pub mod memory;
 pub mod settings;
