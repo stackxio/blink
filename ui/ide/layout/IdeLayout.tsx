@@ -206,7 +206,7 @@ export default function IdeLayout() {
   const isEditorActive = activeFile && !location.pathname.startsWith("/settings");
 
   return (
-    <div className="ide">
+    <div className={`ide ${aiPanelOpen ? "ide--ai-open" : ""}`}>
       {/* Titlebar with workspace tabs */}
       <div className="ide__titlebar">
         <Titlebar />
