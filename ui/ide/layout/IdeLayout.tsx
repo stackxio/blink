@@ -99,16 +99,14 @@ export default function IdeLayout() {
         toggleAiPanel();
         return;
       }
-      // Cmd+Shift+P — command palette
-      if ((e.metaKey || e.ctrlKey) && e.key === "p" && e.shiftKey) {
+      // Cmd+Shift+P — command palette / Cmd+P — file search
+      if ((e.metaKey || e.ctrlKey) && (e.key === "p" || e.key === "P")) {
         e.preventDefault();
-        setCommandPaletteOpen((v) => !v);
-        return;
-      }
-      // Cmd+P — file search
-      if ((e.metaKey || e.ctrlKey) && e.key === "p" && !e.shiftKey) {
-        e.preventDefault();
-        if (workspacePath) setFileSearchOpen((v) => !v);
+        if (e.shiftKey) {
+          setCommandPaletteOpen((v) => !v);
+        } else if (workspacePath) {
+          setFileSearchOpen((v) => !v);
+        }
         return;
       }
       // Cmd+O — open file

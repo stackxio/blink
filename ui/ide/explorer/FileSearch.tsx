@@ -83,18 +83,24 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
           {filtered.length === 0 && query && (
             <div className="file-search__empty">No files found</div>
           )}
-          {filtered.map((file, i) => (
-            <button
-              key={file}
-              type="button"
-              className={`file-search__item ${i === selectedIdx ? "file-search__item--active" : ""}`}
-              onClick={() => { onSelect(file); onClose(); }}
-              onMouseEnter={() => setSelectedIdx(i)}
-            >
-              <File size={14} />
-              <span className="file-search__name">{highlightMatch(file, query)}</span>
-            </button>
-          ))}
+          {filtered.map((file, i) => {
+            const parts = file.split("/");
+            const name = parts.pop() || file;
+            const dir = parts.join("/");
+            return (
+              <button
+                key={file}
+                type="button"
+                className={`file-search__item ${i === selectedIdx ? "file-search__item--active" : ""}`}
+                onClick={() => { onSelect(file); onClose(); }}
+                onMouseEnter={() => setSelectedIdx(i)}
+              >
+                <File size={14} />
+                <span className="file-search__item-name">{name}</span>
+                {dir && <span className="file-search__item-path">{dir}/</span>}
+              </button>
+            );
+          })}
         </div>
       </div>
     </div>
