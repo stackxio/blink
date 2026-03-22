@@ -2,7 +2,7 @@
 
 **Vision:** AI-first IDE with multi-workspace support, built on Tauri + Rust.
 
-**Status:** Phase 0 complete. Ready for Phase 1 (file tree + editor).
+**Status:** Phases 0-7 complete. Polish in progress.
 
 ---
 
