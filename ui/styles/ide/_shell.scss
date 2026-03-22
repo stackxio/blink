@@ -1,40 +1,43 @@
 @use "../mixins" as *;
 
+$panel-gap: 3px;
+$panel-radius: var(--radius-lg);
+
 .ide {
   display: grid;
   grid-template-columns: var(--activity-bar-w) auto 1fr;
   grid-template-rows: var(--titlebar-h) 1fr var(--status-bar-h);
   height: 100%;
   overflow: hidden;
+  background: var(--c-border); // gap color — visible between panels
 
   // ── Titlebar ──
   &__titlebar {
     grid-row: 1;
     grid-column: 1 / -1;
     z-index: 10;
+    background: var(--c-bg);
   }
 
-  // ── Activity bar — full height ──
+  // ── Activity bar ──
   &__activity-bar {
-    grid-row: 1 / -1;
+    grid-row: 2;
     grid-column: 1;
-    padding-top: var(--titlebar-h);
     z-index: 5;
     background: var(--c-bg);
-    border-right: 1px solid var(--c-border);
+    border-radius: 0 $panel-radius $panel-radius 0;
+    margin: $panel-gap 0 $panel-gap 0;
   }
 
-  // ── Side panel ──
+  // ── Side panel — floating card ──
   &__side-panel {
-    grid-row: 1 / -1;
+    grid-row: 2;
     grid-column: 2;
-    padding-top: var(--titlebar-h);
-    padding-bottom: var(--status-bar-h);
     display: flex;
     overflow: hidden;
-    border-right: 1px solid var(--c-border);
     background: var(--c-bg);
-    z-index: 5;
+    margin: $panel-gap 0 $panel-gap $panel-gap;
+    border-radius: $panel-radius;
 
     .side-panel {
       flex: 1;
@@ -44,7 +47,7 @@
     }
   }
 
-  // ── Main area ──
+  // ── Main area — floating card ──
   &__main {
     grid-row: 2;
     grid-column: 3;
@@ -52,6 +55,8 @@
     @include full-height;
     overflow: hidden;
     background: var(--c-bg);
+    margin: $panel-gap $panel-gap $panel-gap $panel-gap;
+    border-radius: $panel-radius;
   }
 
   &__editor-area {
@@ -59,27 +64,31 @@
     @include flex-col;
     @include full-height;
     overflow: hidden;
+    border-radius: $panel-radius $panel-radius 0 0;
   }
 
   &__bottom-panel {
     border-top: 1px solid var(--c-border);
     background: var(--c-bg);
     overflow: hidden;
+    border-radius: 0 0 $panel-radius $panel-radius;
 
     &--collapsed {
       display: none;
     }
   }
 
-  // ── AI panel (right side, overlays main area) ──
+  // ── AI panel — floating card (fixed, right side) ──
   &__ai-panel {
     position: fixed;
-    top: var(--titlebar-h);
-    right: 0;
-    bottom: var(--status-bar-h);
+    top: calc(var(--titlebar-h) + #{$panel-gap});
+    right: $panel-gap;
+    bottom: calc(var(--status-bar-h) + #{$panel-gap});
     z-index: 8;
     display: flex;
     overflow: hidden;
+    border-radius: $panel-radius;
+    box-shadow: -4px 0 16px rgba(0, 0, 0, 0.15);
   }
 
   // ── Status bar ──
@@ -87,5 +96,6 @@
     grid-row: 3;
     grid-column: 1 / -1;
     z-index: 6;
+    background: var(--c-bg);
   }
 }
