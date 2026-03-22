@@ -53,8 +53,12 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
     setSelectedIdx(0);
   }, [filtered]);
 
-  // Scroll selected item into view
+  const scrollOnKey = useRef(false);
+
+  // Scroll selected item into view only on keyboard nav
   useEffect(() => {
+    if (!scrollOnKey.current) return;
+    scrollOnKey.current = false;
     const container = resultsRef.current;
     if (!container) return;
     const item = container.children[selectedIdx] as HTMLElement | undefined;
@@ -64,9 +68,11 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      scrollOnKey.current = true;
       setSelectedIdx((i) => Math.min(i + 1, filtered.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      scrollOnKey.current = true;
       setSelectedIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
@@ -103,7 +109,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
                 type="button"
                 className={`file-search__item ${i === selectedIdx ? "file-search__item--active" : ""}`}
                 onClick={() => { onSelect(file); onClose(); }}
-                onMouseEnter={() => setSelectedIdx(i)}
+                onMouseMove={() => { if (selectedIdx !== i) setSelectedIdx(i); }}
               >
                 <File size={14} />
                 <span className="file-search__item-name">{name}</span>
