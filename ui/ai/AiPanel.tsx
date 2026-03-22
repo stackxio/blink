@@ -17,6 +17,7 @@ interface DbThread {
   id: string;
   folder_id: string | null;
   title: string;
+  root_path_override: string | null;
   created_at: string;
   updated_at: string;
   message_count: number;
@@ -101,12 +102,22 @@ export default function AiPanel() {
     }).catch(() => {});
   }, [activeProvider]);
 
-  // Load threads
+  // Reset on workspace switch
+  useEffect(() => {
+    setActiveThreadId(null);
+    setMessages([]);
+  }, [ws?.path]);
+
+  // Load threads filtered by workspace
   useEffect(() => {
     invoke<DbThread[]>("list_threads").then((dbThreads) => {
-      setThreads(dbThreads.map((t) => ({ id: t.id, title: t.title, createdAt: new Date(t.created_at) })));
+      const wsPath = ws?.path ?? null;
+      const filtered = wsPath
+        ? dbThreads.filter((t) => t.root_path_override === wsPath || t.root_path_override === null)
+        : dbThreads;
+      setThreads(filtered.map((t) => ({ id: t.id, title: t.title, createdAt: new Date(t.created_at) })));
     }).catch(() => {});
-  }, []);
+  }, [ws?.path]);
 
   // Load messages when thread changes
   useEffect(() => {
@@ -139,7 +150,7 @@ export default function AiPanel() {
 
   async function createThread(): Promise<string> {
     const dbThread = await invoke<DbThread>("create_thread", {
-      folderId: null, title: "New chat", scopeModeOverride: null, rootPathOverride: null,
+      folderId: null, title: "New chat", scopeModeOverride: null, rootPathOverride: ws?.path ?? null,
     });
     const thread: AiThread = { id: dbThread.id, title: dbThread.title, createdAt: new Date(dbThread.created_at) };
     setThreads((prev) => [thread, ...prev]);
@@ -368,12 +379,22 @@ export default function AiPanel() {
           <select
             className="ai-panel__model-select"
             value={`${activeProvider}:${activeProvider === "codex" ? gptModel : activeProvider === "claude_code" ? claudeModel : activeProvider === "ollama" ? ollamaModel : "default"}`}
-            onChange={(e) => {
-              const [provider, model] = e.target.value.split(":");
+            onChange={async (e) => {
+              const [provider, ...modelParts] = e.target.value.split(":");
+              const model = modelParts.join(":"); // handle model names with colons like "qwen3:0.6b"
               setActiveProvider(provider);
               if (provider === "codex") setGptModel(model);
               else if (provider === "claude_code") setClaudeModel(model);
               else if (provider === "ollama") setOllamaModel(model);
+              // Save to settings so backend uses the new provider/model
+              try {
+                const s = await invoke<Record<string, unknown>>("get_settings");
+                const updated: Record<string, unknown> = { ...s, active_provider: provider };
+                if (provider === "codex") updated.codex = { ...(s.codex as Record<string, unknown> ?? {}), model };
+                if (provider === "claude_code") updated.claude_code = { ...(s.claude_code as Record<string, unknown> ?? {}), model };
+                if (provider === "ollama") updated.ollama = { ...(s.ollama as Record<string, unknown> ?? {}), model };
+                await invoke("save_settings", { settings: updated });
+              } catch {}
             }}
           >
             <optgroup label="GPT">
