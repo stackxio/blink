@@ -22,8 +22,12 @@ pub struct ChatInput {
     pub thread_id: Option<String>,
     pub reasoning_effort: Option<String>,
     pub fast_mode: Option<bool>,
-    /// "full-access" | "approval-required". When approval-required, Codex gets approvalPolicy: "always" and stricter sandbox.
+    /// "full-access" | "approval-required"
     pub runtime_mode: Option<String>,
+    /// Override active_provider from settings
+    pub provider: Option<String>,
+    /// Override model from settings
+    pub model: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -134,13 +138,32 @@ pub async fn chat_stream(
     );
 
     let store = SettingsStore::new();
-    let settings = store.load().map_err(|e| {
+    let mut settings = store.load().map_err(|e| {
         log::error!("chat_stream: failed to load settings: {}", e);
         e.to_string()
     })?;
 
-    let provider = settings.active_provider.clone();
-    log::info!("chat_stream: provider={}", provider);
+    // Use explicit provider/model from input if provided, otherwise fall back to settings
+    let provider = input.provider.clone().unwrap_or_else(|| settings.active_provider.clone());
+    if let Some(ref model) = input.model {
+        match provider.as_str() {
+            "codex" => settings.codex.model = model.clone(),
+            "ollama" => settings.ollama.model = model.clone(),
+            "claude_code" => settings.claude_code.model = model.clone(),
+            "custom" => settings.custom.model = model.clone(),
+            _ => {}
+        }
+        settings.active_provider = provider.clone();
+    }
+    log::info!("chat_stream: provider={}, model={}", provider,
+        match provider.as_str() {
+            "codex" => &settings.codex.model,
+            "ollama" => &settings.ollama.model,
+            "claude_code" => &settings.claude_code.model,
+            "custom" => &settings.custom.model,
+            _ => "unknown",
+        }
+    );
 
     let session_id = generate_session_id();
     let cancelled = Arc::new(AtomicBool::new(false));

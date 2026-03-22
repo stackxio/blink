@@ -356,7 +356,7 @@ Preview:\n{preview}"
             system: Some(
                 "You rename local files. Respond with only a safe filename stem in lowercase kebab-case.".to_string(),
             ),
-            context: vec![],
+            messages: vec![],
         })
         .await
         .map_err(|e| e.to_string())?;

@@ -2,10 +2,16 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChatMessage {
+    pub role: String,    // "system", "user", "assistant"
+    pub content: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequest {
     pub prompt: String,
     pub system: Option<String>,
-    pub context: Vec<String>,
+    pub messages: Vec<ChatMessage>, // full conversation history
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

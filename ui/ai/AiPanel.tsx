@@ -224,8 +224,17 @@ export default function AiPanel() {
     function cleanup() { unlistenChunk(); unlistenActivity(); unlistenDone(); unlistenError(); unlistenCancelled(); }
 
     try {
+      const currentModel = activeProvider === "codex" ? gptModel
+        : activeProvider === "claude_code" ? claudeModel
+        : activeProvider === "ollama" ? ollamaModel : "default";
       const sid = await invoke<string>("chat_stream", {
-        input: { prompt: text, threadId: tid, runtimeMode: "full-access" },
+        input: {
+          prompt: text,
+          threadId: tid,
+          runtimeMode: "full-access",
+          provider: activeProvider,
+          model: currentModel,
+        },
       });
       sessionIdRef.current = sid;
     } catch (err: unknown) {

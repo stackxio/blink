@@ -24,6 +24,7 @@ impl OllamaProvider {
     fn build_messages(&self, req: &ChatRequest) -> Vec<OllamaMessage> {
         let mut messages = Vec::new();
 
+        // System prompt
         if let Some(system) = &req.system {
             messages.push(OllamaMessage {
                 role: "system".to_string(),
@@ -31,13 +32,15 @@ impl OllamaProvider {
             });
         }
 
-        for ctx in &req.context {
+        // Conversation history (proper user/assistant alternation)
+        for msg in &req.messages {
             messages.push(OllamaMessage {
-                role: "user".to_string(),
-                content: ctx.clone(),
+                role: msg.role.clone(),
+                content: msg.content.clone(),
             });
         }
 
+        // Current user message
         messages.push(OllamaMessage {
             role: "user".to_string(),
             content: req.prompt.clone(),

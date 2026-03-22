@@ -31,8 +31,8 @@ impl ClaudeCodeProvider {
     fn build_prompt(&self, req: &ChatRequest) -> String {
         let mut parts = Vec::new();
 
-        for ctx in &req.context {
-            parts.push(ctx.clone());
+        for msg in &req.messages {
+            parts.push(format!("{}: {}", msg.role, msg.content));
         }
 
         parts.push(req.prompt.clone());

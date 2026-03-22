@@ -37,13 +37,15 @@ impl ApiProvider {
             });
         }
 
-        for ctx in &req.context {
+        // Conversation history
+        for msg in &req.messages {
             messages.push(OpenAIMessage {
-                role: "user".to_string(),
-                content: ctx.clone(),
+                role: msg.role.clone(),
+                content: msg.content.clone(),
             });
         }
 
+        // Current user message
         messages.push(OpenAIMessage {
             role: "user".to_string(),
             content: req.prompt.clone(),
