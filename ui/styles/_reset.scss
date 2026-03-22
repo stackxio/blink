@@ -26,6 +26,17 @@ body {
   color: var(--c-fg);
 }
 
+// Disable autocorrect/autocomplete globally — this is a code editor
+input, textarea {
+  autocorrect: off;
+  autocapitalize: off;
+  spellcheck: false;
+}
+
+[contenteditable] {
+  -webkit-text-size-adjust: none;
+}
+
 #root {
   background: var(--c-bg);
 }

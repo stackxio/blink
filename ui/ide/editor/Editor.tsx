@@ -25,6 +25,10 @@ import { php } from "@codemirror/lang-php";
 import { xml } from "@codemirror/lang-xml";
 import { yaml } from "@codemirror/lang-yaml";
 import { sql } from "@codemirror/lang-sql";
+import { vue } from "@codemirror/lang-vue";
+import { sass } from "@codemirror/lang-sass";
+import { less } from "@codemirror/lang-less";
+import { wast } from "@codemirror/lang-wast";
 
 function getLanguageExtension(filename: string) {
   const ext = filename.split(".").pop()?.toLowerCase();
@@ -37,13 +41,17 @@ function getLanguageExtension(filename: string) {
     case "java": return java();
     case "c": case "cpp": case "cc": case "cxx": case "h": case "hpp": return cpp();
     case "php": return php();
-    case "html": case "htm": case "svelte": case "vue": return html();
-    case "css": case "scss": case "less": return css();
+    case "html": case "htm": case "svelte": return html();
+    case "vue": return vue();
+    case "css": return css();
+    case "scss": case "sass": return sass();
+    case "less": return less();
     case "json": case "jsonc": return json();
     case "md": case "mdx": return markdown();
     case "xml": case "svg": case "plist": return xml();
     case "yaml": case "yml": return yaml();
     case "sql": return sql();
+    case "wat": case "wast": return wast();
     default: return [];
   }
 }
