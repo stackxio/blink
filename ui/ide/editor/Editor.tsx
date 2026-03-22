@@ -4,7 +4,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
 import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
@@ -123,6 +123,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         closeBrackets(),
         indentOnInput(),
         highlightSelectionMatches(),
+        search({ top: true }),
         darkSyntaxHighlighting,
         autocompletion(), // CM's built-in — no LSP override
         lintGutter(),

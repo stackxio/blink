@@ -76,67 +76,86 @@
       --indent-marker-active-bg-color: color-mix(in srgb, var(--c-fg) 12%, transparent);
     }
 
-    // ── Search panel (Cmd+F) ──
-    .cm-search {
-      &.cm-panel {
-        background: var(--c-surface);
-        border-bottom: 1px solid var(--c-border);
-        padding: 6px 12px;
+    // ── Search panel (Cmd+F) — positioned at top ──
+    .cm-panels-top {
+      border-bottom: 1px solid var(--c-border);
+    }
+
+    .cm-panels-bottom {
+      border-top: 1px solid var(--c-border);
+    }
+
+    .cm-panel.cm-search {
+      background: var(--c-surface);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: var(--font-size-sm);
+      color: var(--c-fg);
+
+      input[type="text"],
+      input[main-field] {
+        background: var(--c-input);
+        color: var(--c-fg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        padding: 4px 8px;
+        font-size: var(--font-size-sm);
+        font-family: var(--font-mono);
+        outline: none;
+
+        &:focus { border-color: var(--c-accent); }
+      }
+
+      button,
+      .cm-button {
+        background: var(--c-surface-raised);
+        color: var(--c-fg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        padding: 4px 10px;
+        font-size: var(--font-size-xs);
+        font-family: inherit;
+        cursor: pointer;
+        text-transform: none;
+
+        &:hover { background: var(--c-muted); }
+      }
+
+      label {
         display: flex;
         align-items: center;
-        gap: 6px;
-        flex-wrap: wrap;
-        font-size: var(--font-size-sm);
-        color: var(--c-fg);
+        gap: 4px;
+        font-size: var(--font-size-xs);
+        color: var(--c-muted-fg);
+        cursor: pointer;
+        white-space: nowrap;
 
-        input {
-          background: var(--c-input);
-          color: var(--c-fg);
-          border: 1px solid var(--c-border);
-          border-radius: var(--radius-sm);
-          padding: 3px 8px;
-          font-size: var(--font-size-sm);
-          font-family: inherit;
-          outline: none;
-          min-width: 180px;
-
-          &:focus { border-color: var(--c-accent); }
-          &::placeholder { color: var(--c-muted-fg); }
+        input[type="checkbox"] {
+          width: 13px;
+          height: 13px;
+          accent-color: var(--c-accent);
+          margin: 0;
         }
-
-        button {
-          background: var(--c-surface-raised);
-          color: var(--c-fg);
-          border: 1px solid var(--c-border);
-          border-radius: var(--radius-sm);
-          padding: 3px 10px;
-          font-size: var(--font-size-xs);
-          font-family: inherit;
-          cursor: pointer;
-
-          &:hover { background: var(--c-muted); }
-        }
-
-        label {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-size: var(--font-size-xs);
-          color: var(--c-muted-fg);
-          cursor: pointer;
-
-          input[type="checkbox"] {
-            min-width: auto;
-            width: 14px;
-            height: 14px;
-            accent-color: var(--c-accent);
-          }
-        }
-
-        .cm-button { @extend button; }
-
-        br { display: none; }
       }
+
+      .cm-textfield {
+        background: var(--c-input);
+        color: var(--c-fg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        padding: 4px 8px;
+        font-size: var(--font-size-sm);
+        font-family: var(--font-mono);
+        outline: none;
+        vertical-align: middle;
+
+        &:focus { border-color: var(--c-accent); }
+      }
+
+      br { display: none; }
     }
 
     .cm-matchingBracket {
