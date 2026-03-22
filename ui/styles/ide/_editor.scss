@@ -76,81 +76,67 @@
       --indent-marker-active-bg-color: color-mix(in srgb, var(--c-fg) 12%, transparent);
     }
 
-    // ── Search panel (Cmd+F) ──
+    // ── Search panel container ──
     .cm-panels {
       background: var(--c-bg) !important;
       border-color: var(--c-border) !important;
     }
 
-    .cm-panel.cm-search {
-      background: var(--c-bg) !important;
-      padding: 8px 12px !important;
-      font-size: 13px !important;
-      color: var(--c-fg) !important;
-      display: flex !important;
-      align-items: center !important;
-      gap: 8px !important;
-      flex-wrap: nowrap !important;
+    // ── Custom search panel (Cmd+F) ──
+    .caret-search {
+      display: flex;
+      align-items: center;
+      padding: 6px 12px;
+      background: var(--c-bg);
+      border-bottom: 1px solid var(--c-border);
 
-      br { display: none !important; }
-
-      .cm-textfield {
-        background: var(--c-input) !important;
-        color: var(--c-fg) !important;
-        border: 1px solid var(--c-border) !important;
-        border-radius: var(--radius-sm) !important;
-        padding: 5px 10px !important;
-        font-size: 13px !important;
-        font-family: var(--font-mono) !important;
-        outline: none !important;
-
-        &:focus {
-          border-color: var(--c-accent) !important;
-        }
+      &__row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex: 1;
       }
 
-      button.cm-button {
-        background: var(--c-surface-raised) !important;
-        color: var(--c-fg) !important;
-        border: 1px solid var(--c-border) !important;
-        border-radius: var(--radius-sm) !important;
-        padding: 4px 10px !important;
-        font-size: 12px !important;
-        font-family: inherit !important;
-        cursor: pointer !important;
-        text-transform: none !important;
-        image-rendering: auto !important;
+      &__input {
+        flex: 1;
+        max-width: 320px;
+        height: 28px;
+        padding: 0 10px;
+        background: var(--c-input);
+        color: var(--c-fg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        font-size: 13px;
+        font-family: var(--font-mono);
+        outline: none;
+
+        &:focus { border-color: var(--c-accent); }
+        &::placeholder { color: var(--c-muted-fg); }
+      }
+
+      &__btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        border: none;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        color: var(--c-muted-fg);
+        font-size: 16px;
+        cursor: pointer;
 
         &:hover {
-          background: var(--c-surface) !important;
+          color: var(--c-fg);
+          background: var(--c-surface-raised);
         }
-      }
 
-      label {
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 3px !important;
-        font-size: 12px !important;
-        color: var(--c-muted-fg) !important;
-        white-space: nowrap !important;
-        cursor: pointer !important;
-
-        input[type="checkbox"] {
-          accent-color: var(--c-accent) !important;
-          margin: 0 !important;
+        &--text {
+          font-size: 13px;
+          width: auto;
+          padding: 0 6px;
         }
-      }
-
-      // Close button
-      button[name="close"] {
-        background: transparent !important;
-        border: none !important;
-        color: var(--c-muted-fg) !important;
-        font-size: 16px !important;
-        padding: 0 4px !important;
-        cursor: pointer !important;
-
-        &:hover { color: var(--c-fg) !important; }
       }
     }
 

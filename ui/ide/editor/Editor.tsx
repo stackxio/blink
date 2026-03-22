@@ -4,7 +4,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { search, searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { search, searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, closeSearchPanel } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
 import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
@@ -54,6 +54,52 @@ function getLanguageExtension(filename: string) {
     case "wat": case "wast": return wast();
     default: return [];
   }
+}
+
+function createSearchPanel(view: EditorView): Panel {
+  const dom = document.createElement("div");
+  dom.className = "caret-search";
+  dom.innerHTML = `
+    <div class="caret-search__row">
+      <input type="text" class="caret-search__input" placeholder="Find" spellcheck="false" autocorrect="off" />
+      <button class="caret-search__btn" data-action="prev">‹</button>
+      <button class="caret-search__btn" data-action="next">›</button>
+      <button class="caret-search__btn caret-search__btn--text" data-action="close">✕</button>
+    </div>
+  `;
+
+  const input = dom.querySelector("input") as HTMLInputElement;
+
+  input.addEventListener("input", () => {
+    const query = new SearchQuery({ search: input.value, caseSensitive: false });
+    view.dispatch({ effects: setSearchQuery.of(query) });
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) findPrevious(view);
+      else findNext(view);
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeSearchPanel(view);
+      view.focus();
+    }
+  });
+
+  dom.querySelector('[data-action="next"]')?.addEventListener("click", () => findNext(view));
+  dom.querySelector('[data-action="prev"]')?.addEventListener("click", () => findPrevious(view));
+  dom.querySelector('[data-action="close"]')?.addEventListener("click", () => {
+    closeSearchPanel(view);
+    view.focus();
+  });
+
+  return {
+    dom,
+    top: true,
+    mount() { setTimeout(() => input.focus(), 0); },
+  };
 }
 
 interface Props {
@@ -123,7 +169,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         closeBrackets(),
         indentOnInput(),
         highlightSelectionMatches(),
-        search({ top: true }),
+        search({ top: true, createPanel: createSearchPanel }),
         darkSyntaxHighlighting,
         autocompletion(), // CM's built-in — no LSP override
         lintGutter(),
