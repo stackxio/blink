@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { Search, Replace, ChevronRight, FileText } from "lucide-react";
 
@@ -14,7 +14,17 @@ interface Props {
   onOpenFile: (path: string, name: string, line: number) => void;
 }
 
-export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
+export interface SearchPanelHandle {
+  focusInput: () => void;
+}
+
+const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ workspacePath, onOpenFile }, ref) {
+  useImperativeHandle(ref, () => ({
+    focusInput: () => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    },
+  }));
   const [query, setQuery] = useState("");
   const [showReplace, setShowReplace] = useState(false);
   const [replaceValue, setReplaceValue] = useState("");
@@ -214,4 +224,6 @@ export default function SearchPanel({ workspacePath, onOpenFile }: Props) {
       </div>
     </div>
   );
-}
+});
+
+export default SearchPanel;

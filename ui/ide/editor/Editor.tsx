@@ -4,7 +4,7 @@ import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLi
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { search, searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, closeSearchPanel } from "@codemirror/search";
+import { search, searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, closeSearchPanel, gotoLine } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
 import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
@@ -203,6 +203,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
           ...foldKeymap,
           indentWithTab,
           { key: "Mod-s", run: () => { handleSave(); return true; } },
+          { key: "Mod-g", run: gotoLine },
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -223,6 +224,15 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
             const scrollTop = update.view.scrollDOM.scrollTop;
             onCursorChange?.(line.number, pos - line.from + 1, scrollTop);
           }
+        }),
+        // Auto-save on blur (focus loss)
+        EditorView.domEventHandlers({
+          blur: (_event, view) => {
+            const current = view.state.doc.toString();
+            if (current !== savedContentRef.current) {
+              handleSave();
+            }
+          },
         }),
         EditorView.theme({ "&": { height: "100%" } }),
       ],

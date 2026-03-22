@@ -1,0 +1,40 @@
+@use "../mixins" as *;
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  padding: 2px 12px;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-sans);
+  color: var(--c-muted-fg);
+  min-height: 22px;
+  flex-shrink: 0;
+  overflow: hidden;
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+  }
+
+  &__sep {
+    margin: 0 2px;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  &__segment {
+    opacity: 0.8;
+
+    &:hover {
+      color: var(--c-fg);
+      opacity: 1;
+    }
+  }
+
+  &__current {
+    color: var(--c-fg);
+  }
+}

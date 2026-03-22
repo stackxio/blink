@@ -16,8 +16,9 @@ import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import AiPanel from "@/ai/AiPanel";
 import GitPanel from "@/ide/git/GitPanel";
-import SearchPanel from "@/ide/search/SearchPanel";
+import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
 import CommandPalette from "./CommandPalette";
+import Breadcrumbs from "@/ide/editor/Breadcrumbs";
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -55,10 +56,13 @@ export default function IdeLayout() {
 
   const sidePanelView = ws?.sidePanelView ?? "explorer";
 
+  const setSidePanelView = useAppStore((s) => s.setSidePanelView);
+
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
   const fileTreeRef = useRef<FileTreeHandle>(null);
+  const searchPanelRef = useRef<SearchPanelHandle>(null);
 
   // Load saved workspaces on mount
   useEffect(() => {
@@ -106,6 +110,26 @@ export default function IdeLayout() {
           setCommandPaletteOpen((v) => !v);
         } else if (workspacePath) {
           setFileSearchOpen((v) => !v);
+        }
+        return;
+      }
+      // Cmd+Shift+F — focus sidebar search
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
+        e.preventDefault();
+        setSidePanelView("search");
+        setTimeout(() => searchPanelRef.current?.focusInput(), 50);
+        return;
+      }
+      // Cmd+Tab / Cmd+Shift+Tab — cycle through open files
+      if ((e.metaKey || e.ctrlKey) && e.key === "Tab") {
+        e.preventDefault();
+        const ws = useAppStore.getState().activeWorkspace();
+        if (ws && ws.openFiles.length > 1) {
+          const count = ws.openFiles.length;
+          const nextIdx = e.shiftKey
+            ? (ws.activeFileIdx - 1 + count) % count
+            : (ws.activeFileIdx + 1) % count;
+          setActiveFile(nextIdx);
         }
         return;
       }
@@ -240,6 +264,7 @@ export default function IdeLayout() {
                 </div>
                 <div className="side-panel__body">
                   <SearchPanel
+                    ref={searchPanelRef}
                     workspacePath={workspacePath}
                     onOpenFile={(path, name) => handleFileSelect(path, name, false)}
                   />
@@ -288,6 +313,9 @@ export default function IdeLayout() {
             onCloseAll={closeAllFiles}
             onCloseOthers={closeOtherFiles}
           />
+          {isEditorActive && activeFile && (
+            <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
+          )}
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {isEditorActive ? (
               <Editor

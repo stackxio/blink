@@ -108,6 +108,10 @@ pnpm db:reset       # Reset local database
 | **Ollama** | Local models (Llama, etc.) |
 | **Custom** | Any OpenAI-compatible API |
 
+## Windows Support
+
+Windows support is planned for a future release. Caret currently targets macOS as the primary platform. Windows builds will include native window chrome, proper path handling, and platform-specific shell detection for the integrated terminal. Track progress in the [roadmap](ROADMAP.md).
+
 ## License
 
 Proprietary — Voxire
