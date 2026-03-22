@@ -21,6 +21,7 @@
         "decorations": true,
         "titleBarStyle": "overlay",
         "hiddenTitle": true,
+        "devtools": true,
         "windowEffects": {
           "effects": ["sidebar"],
           "state": "followsWindowActiveState"

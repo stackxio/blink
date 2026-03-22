@@ -19,12 +19,13 @@ function getRecentWorkspaces(): RecentWorkspace[] {
 
 export default function Welcome() {
   const addWorkspace = useAppStore((s) => s.addWorkspace);
-  const openPaths = useAppStore((s) => new Set(s.workspaces.map((w) => w.path)));
+  const workspaces = useAppStore((s) => s.workspaces);
   const [recent, setRecent] = useState<RecentWorkspace[]>([]);
 
   useEffect(() => {
+    const openPaths = new Set(workspaces.map((w) => w.path));
     setRecent(getRecentWorkspaces().filter((r) => !openPaths.has(r.path)));
-  }, [openPaths]);
+  }, [workspaces]);
 
   async function handleOpenFolder() {
     try {
