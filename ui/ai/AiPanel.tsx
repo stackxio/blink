@@ -59,6 +59,12 @@ export default function AiPanel() {
   const [ollamaModel, setOllamaModel] = useState("llama3");
   const [ollamaModels, setOllamaModels] = useState<{ name: string }[]>([]);
   const [composerReasoning, setComposerReasoning] = useState<ReasoningEffort>("high");
+  const [contextFiles, setContextFiles] = useState<string[]>([]); // paths attached via @
+  const [atMenuOpen, setAtMenuOpen] = useState(false);
+  const [atQuery, setAtQuery] = useState("");
+  const [atResults, setAtResults] = useState<string[]>([]);
+  const [atSelectedIdx, setAtSelectedIdx] = useState(0);
+  const atMenuRef = useRef<HTMLDivElement>(null);
 
   const [threadDropdownOpen, setThreadDropdownOpen] = useState(false);
   const threadDropdownRef = useRef<HTMLDivElement>(null);
@@ -91,16 +97,15 @@ export default function AiPanel() {
     }).catch(() => {});
   }, []);
 
-  // Load Ollama models when provider is ollama
+  // Load Ollama models on mount (always, so they show in the dropdown)
   useEffect(() => {
-    if (activeProvider !== "ollama") return;
     invoke<{ name: string }[]>("list_ollama_models").then((models) => {
       setOllamaModels(models);
       if (models.length > 0) {
         setOllamaModel((prev) => models.some((m) => m.name === prev) ? prev : models[0].name);
       }
     }).catch(() => {});
-  }, [activeProvider]);
+  }, []);
 
   // Reset on workspace switch
   useEffect(() => {
@@ -227,9 +232,31 @@ export default function AiPanel() {
       const currentModel = activeProvider === "codex" ? gptModel
         : activeProvider === "claude_code" ? claudeModel
         : activeProvider === "ollama" ? ollamaModel : "default";
+
+      // Inject workspace context + @-mentioned files
+      let contextParts: string[] = [];
+      if (ws?.path) {
+        contextParts.push(`[Workspace: ${ws.path}]`);
+      }
+      // Read all @-attached files
+      for (const filePath of contextFiles) {
+        try {
+          const fileContent = await invoke<string>("read_file_content", { path: filePath });
+          const name = filePath.split("/").pop() || filePath;
+          if (fileContent.length < 10000) {
+            contextParts.push(`[File: ${filePath}]\n\`\`\`\n${fileContent}\n\`\`\``);
+          } else {
+            contextParts.push(`[File: ${filePath} (truncated)]\n\`\`\`\n${fileContent.slice(0, 8000)}\n...(truncated)\n\`\`\``);
+          }
+        } catch {}
+      }
+      const enrichedPrompt = contextParts.length > 0
+        ? `${contextParts.join("\n\n")}\n\n${text}`
+        : text;
+
       const sid = await invoke<string>("chat_stream", {
         input: {
-          prompt: text,
+          prompt: enrichedPrompt,
           threadId: tid,
           runtimeMode: "full-access",
           provider: activeProvider,
@@ -278,7 +305,79 @@ export default function AiPanel() {
     setQueue([]);
   }
 
+  // @ mention file search
+  useEffect(() => {
+    if (!atMenuOpen || !atQuery || !ws?.path) {
+      setAtResults([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      invoke<string[]>("list_all_files", { root: ws.path, maxFiles: 5000 })
+        .then((files) => {
+          const q = atQuery.toLowerCase();
+          const filtered = files
+            .filter((f) => f.toLowerCase().includes(q))
+            .slice(0, 10);
+          setAtResults(filtered);
+          setAtSelectedIdx(0);
+        })
+        .catch(() => setAtResults([]));
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [atQuery, atMenuOpen, ws?.path]);
+
+  // Close @ menu on outside click
+  useEffect(() => {
+    if (!atMenuOpen) return;
+    function onClick(e: MouseEvent) {
+      if (atMenuRef.current && !atMenuRef.current.contains(e.target as Node)) setAtMenuOpen(false);
+    }
+    setTimeout(() => document.addEventListener("mousedown", onClick), 0);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [atMenuOpen]);
+
+  function handleAtSelect(filePath: string) {
+    const fullPath = `${ws?.path}/${filePath}`;
+    if (!contextFiles.includes(fullPath)) {
+      setContextFiles((prev) => [...prev, fullPath]);
+    }
+    // Remove the @query from input
+    setInput((prev) => {
+      const atIdx = prev.lastIndexOf("@");
+      return atIdx >= 0 ? prev.slice(0, atIdx) : prev;
+    });
+    setAtMenuOpen(false);
+    setAtQuery("");
+    textareaRef.current?.focus();
+  }
+
+  function removeContextFile(path: string) {
+    setContextFiles((prev) => prev.filter((f) => f !== path));
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Handle @ menu navigation
+    if (atMenuOpen && atResults.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setAtSelectedIdx((i) => Math.min(i + 1, atResults.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setAtSelectedIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        handleAtSelect(atResults[atSelectedIdx]);
+        return;
+      }
+      if (e.key === "Escape") {
+        setAtMenuOpen(false);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -327,13 +426,6 @@ export default function AiPanel() {
         </div>
       </div>
 
-      {/* Context bar */}
-      {activeFile && (
-        <div className="ai-panel__context-bar">
-          <FileCode size={12} />
-          <span>{activeFile.name}</span>
-        </div>
-      )}
 
       {/* Messages */}
       <div className="ai-panel__messages">
@@ -359,14 +451,59 @@ export default function AiPanel() {
 
       {/* Input area */}
       <div className="ai-panel__input-area">
-        <div className="ai-panel__input-wrapper">
+        {/* Context files chips */}
+        {contextFiles.length > 0 && (
+          <div className="ai-panel__context-files">
+            {contextFiles.map((f) => (
+              <span key={f} className="ai-panel__context-chip">
+                {f.split("/").pop()}
+                <button type="button" onClick={() => removeContextFile(f)}>
+                  <X size={10} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="ai-panel__input-wrapper" style={{ position: "relative" }}>
+          {/* @ file picker */}
+          {atMenuOpen && atResults.length > 0 && (
+            <div ref={atMenuRef} className="ai-panel__at-menu">
+              {atResults.map((file, i) => (
+                <button
+                  key={file}
+                  type="button"
+                  className={`ai-panel__at-item ${i === atSelectedIdx ? "ai-panel__at-item--active" : ""}`}
+                  onClick={() => handleAtSelect(file)}
+                  onMouseMove={() => setAtSelectedIdx(i)}
+                >
+                  <FileCode size={13} />
+                  <span className="ai-panel__at-name">{file.split("/").pop()}</span>
+                  <span className="ai-panel__at-path">{file}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             value={input}
             onChange={(e) => {
-              setInput(e.target.value);
+              const val = e.target.value;
+              setInput(val);
               e.target.style.height = "auto";
               e.target.style.height = `${Math.min(e.target.scrollHeight, 150)}px`;
+              // Detect @ for file mention
+              const atIdx = val.lastIndexOf("@");
+              if (atIdx >= 0 && (atIdx === 0 || val[atIdx - 1] === " " || val[atIdx - 1] === "\n")) {
+                const query = val.slice(atIdx + 1);
+                if (!query.includes(" ") && !query.includes("\n")) {
+                  setAtMenuOpen(true);
+                  setAtQuery(query);
+                } else {
+                  setAtMenuOpen(false);
+                }
+              } else {
+                setAtMenuOpen(false);
+              }
             }}
             onKeyDown={handleKeyDown}
             placeholder={isLoading ? "Type to queue follow-up…" : "Ask about your code…"}

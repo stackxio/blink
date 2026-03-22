@@ -407,4 +407,89 @@
   }
 }
 
+.ai-panel {
+  // ── @ mention menu ──
+
+  &__at-menu {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    right: 0;
+    margin-bottom: 4px;
+    z-index: 200;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    max-height: 250px;
+    overflow-y: auto;
+  }
+
+  &__at-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover, &--active { background: var(--c-surface-raised); }
+    svg { flex-shrink: 0; color: var(--c-muted-fg); }
+  }
+
+  &__at-name {
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__at-path {
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  // ── Context file chips ──
+
+  &__context-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 0 6px;
+  }
+
+  &__context-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    font-size: var(--font-size-xs);
+    color: var(--c-fg);
+
+    button {
+      display: flex;
+      border: none;
+      background: transparent;
+      color: var(--c-muted-fg);
+      cursor: pointer;
+      padding: 0;
+      &:hover { color: var(--c-fg); }
+    }
+  }
+}
+
 @keyframes blink { 50% { opacity: 0; } }
