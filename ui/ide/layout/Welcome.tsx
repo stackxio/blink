@@ -56,11 +56,11 @@ export default function Welcome() {
 
       <button
         type="button"
-        className="btn btn--default"
+        className="btn btn--ghost btn--sm"
         onClick={handleOpenFolder}
         style={{ marginTop: 16, gap: 6 }}
       >
-        <FolderOpen size={16} />
+        <FolderOpen size={14} />
         Open Folder
       </button>
 
@@ -71,7 +71,7 @@ export default function Welcome() {
             Recent Workspaces
           </div>
           <div className="empty-state__recent-list">
-            {recent.slice(0, 8).map((r) => (
+            {recent.slice(0, 5).map((r) => (
               <button
                 key={r.path}
                 type="button"
