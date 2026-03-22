@@ -46,10 +46,20 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
     return scored.slice(0, 50).map((r) => r.file);
   }, [allFiles, query]);
 
+  const resultsRef = useRef<HTMLDivElement>(null);
+
   // Reset selection when results change
   useEffect(() => {
     setSelectedIdx(0);
   }, [filtered]);
+
+  // Scroll selected item into view
+  useEffect(() => {
+    const container = resultsRef.current;
+    if (!container) return;
+    const item = container.children[selectedIdx] as HTMLElement | undefined;
+    item?.scrollIntoView({ block: "nearest" });
+  }, [selectedIdx]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
@@ -79,7 +89,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
           onKeyDown={handleKeyDown}
           placeholder="Search files by name…"
         />
-        <div className="file-search__results">
+        <div className="file-search__results" ref={resultsRef}>
           {filtered.length === 0 && query && (
             <div className="file-search__empty">No files found</div>
           )}
@@ -97,7 +107,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
               >
                 <File size={14} />
                 <span className="file-search__item-name">{name}</span>
-                {dir && <span className="file-search__item-path">{dir}/</span>}
+                <span className="file-search__item-path">{file}</span>
               </button>
             );
           })}
