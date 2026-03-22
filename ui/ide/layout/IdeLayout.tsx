@@ -16,6 +16,7 @@ import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import AiPanel from "@/ai/AiPanel";
 import GitPanel from "@/ide/git/GitPanel";
+import CommandPalette from "./CommandPalette";
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -52,6 +53,7 @@ export default function IdeLayout() {
   const sidePanelView = ws?.sidePanelView ?? "explorer";
 
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
   const fileTreeRef = useRef<FileTreeHandle>(null);
 
@@ -92,6 +94,12 @@ export default function IdeLayout() {
       if ((e.metaKey || e.ctrlKey) && e.key === "l") {
         e.preventDefault();
         toggleAiPanel();
+        return;
+      }
+      // Cmd+Shift+P — command palette
+      if ((e.metaKey || e.ctrlKey) && e.key === "p" && e.shiftKey) {
+        e.preventDefault();
+        setCommandPaletteOpen((v) => !v);
         return;
       }
       // Cmd+P — file search
@@ -314,6 +322,11 @@ export default function IdeLayout() {
           }}
           onClose={() => setFileSearchOpen(false)}
         />
+      )}
+
+      {/* Command palette (Cmd+Shift+P) */}
+      {commandPaletteOpen && (
+        <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
       )}
 
       {/* Status bar */}
