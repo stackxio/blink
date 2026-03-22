@@ -113,11 +113,12 @@ export default function IdeLayout() {
         }
         return;
       }
-      // Cmd+Shift+F — focus sidebar search
+      // Cmd+Shift+F — focus sidebar search with selected text
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
         e.preventDefault();
+        const selectedText = window.getSelection()?.toString()?.trim() || "";
         setSidePanelView("search");
-        setTimeout(() => searchPanelRef.current?.focusInput(), 50);
+        setTimeout(() => searchPanelRef.current?.focusInput(selectedText), 50);
         return;
       }
       // Cmd+Tab / Cmd+Shift+Tab — cycle through open files

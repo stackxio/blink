@@ -20,7 +20,14 @@ export interface SearchPanelHandle {
 
 const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ workspacePath, onOpenFile }, ref) {
   useImperativeHandle(ref, () => ({
-    focusInput: () => {
+    focusInput: (text?: string) => {
+      if (text && inputRef.current) {
+        setQuery(text);
+        inputRef.current.value = text;
+        // Trigger search
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => doSearch(text), 100);
+      }
       inputRef.current?.focus();
       inputRef.current?.select();
     },
