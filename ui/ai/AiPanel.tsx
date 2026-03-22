@@ -464,7 +464,7 @@ export default function AiPanel() {
                     {t.title}
                   </button>
                   <div className="ai-panel__thread-option-actions">
-                    <button type="button" title="Rename" onClick={(e) => { e.stopPropagation(); setThreadDropdownOpen(false); handleRenameThread(t.id); }}>
+                    <button type="button" title="Rename" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setThreadDropdownOpen(false); setTimeout(() => handleRenameThread(t.id), 100); }}>
                       <Pencil size={11} />
                     </button>
                     <button type="button" title="Archive" onClick={(e) => { e.stopPropagation(); handleArchiveThread(t.id); }}>
