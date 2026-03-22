@@ -99,7 +99,7 @@
 
       &__input {
         flex: 1;
-        max-width: 320px;
+        min-width: 100px;
         height: 28px;
         padding: 0 10px;
         background: var(--c-input);
