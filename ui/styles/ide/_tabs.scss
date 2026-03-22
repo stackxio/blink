@@ -2,8 +2,9 @@
 
 .tab-bar {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   height: var(--tab-bar-h);
+  padding: 0 4px;
   background: var(--c-bg);
   border-bottom: 1px solid var(--c-border);
   overflow-x: auto;
