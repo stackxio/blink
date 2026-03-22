@@ -1,15 +1,11 @@
 @use "../mixins" as *;
 
-$panel-gap: 3px;
-$panel-radius: var(--radius-lg);
-
 .ide {
   display: grid;
   grid-template-columns: var(--activity-bar-w) auto 1fr;
   grid-template-rows: var(--titlebar-h) 1fr var(--status-bar-h);
   height: 100%;
   overflow: hidden;
-  background: var(--c-border);
 
   &--ai-open {
     grid-template-columns: var(--activity-bar-w) auto 1fr auto;
@@ -21,6 +17,7 @@ $panel-radius: var(--radius-lg);
     grid-column: 1 / -1;
     z-index: 10;
     background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border);
   }
 
   // ── Activity bar ──
@@ -29,6 +26,7 @@ $panel-radius: var(--radius-lg);
     grid-column: 1;
     z-index: 5;
     background: var(--c-bg);
+    border-right: 1px solid var(--c-border);
   }
 
   // ── Side panel ──
@@ -38,8 +36,7 @@ $panel-radius: var(--radius-lg);
     display: flex;
     overflow: hidden;
     background: var(--c-bg);
-    margin-left: $panel-gap;
-    border-radius: $panel-radius;
+    border-right: 1px solid var(--c-border);
 
     .side-panel {
       flex: 1;
@@ -57,8 +54,6 @@ $panel-radius: var(--radius-lg);
     @include full-height;
     overflow: hidden;
     background: var(--c-bg);
-    margin: 0 $panel-gap;
-    border-radius: $panel-radius;
   }
 
   &__editor-area {
@@ -85,8 +80,7 @@ $panel-radius: var(--radius-lg);
     display: flex;
     overflow: hidden;
     background: var(--c-bg);
-    margin-right: $panel-gap;
-    border-radius: $panel-radius;
+    border-left: 1px solid var(--c-border);
   }
 
   // ── Status bar ──
@@ -95,5 +89,6 @@ $panel-radius: var(--radius-lg);
     grid-column: 1 / -1;
     z-index: 6;
     background: var(--c-bg);
+    border-top: 1px solid var(--c-border);
   }
 }
