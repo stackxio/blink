@@ -76,6 +76,69 @@
       --indent-marker-active-bg-color: color-mix(in srgb, var(--c-fg) 12%, transparent);
     }
 
+    // ── Search panel (Cmd+F) ──
+    .cm-search {
+      &.cm-panel {
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-border);
+        padding: 6px 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: var(--font-size-sm);
+        color: var(--c-fg);
+
+        input {
+          background: var(--c-input);
+          color: var(--c-fg);
+          border: 1px solid var(--c-border);
+          border-radius: var(--radius-sm);
+          padding: 3px 8px;
+          font-size: var(--font-size-sm);
+          font-family: inherit;
+          outline: none;
+          min-width: 180px;
+
+          &:focus { border-color: var(--c-accent); }
+          &::placeholder { color: var(--c-muted-fg); }
+        }
+
+        button {
+          background: var(--c-surface-raised);
+          color: var(--c-fg);
+          border: 1px solid var(--c-border);
+          border-radius: var(--radius-sm);
+          padding: 3px 10px;
+          font-size: var(--font-size-xs);
+          font-family: inherit;
+          cursor: pointer;
+
+          &:hover { background: var(--c-muted); }
+        }
+
+        label {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          font-size: var(--font-size-xs);
+          color: var(--c-muted-fg);
+          cursor: pointer;
+
+          input[type="checkbox"] {
+            min-width: auto;
+            width: 14px;
+            height: 14px;
+            accent-color: var(--c-accent);
+          }
+        }
+
+        .cm-button { @extend button; }
+
+        br { display: none; }
+      }
+    }
+
     .cm-matchingBracket {
       background: color-mix(in srgb, var(--c-accent) 20%, transparent);
       outline: 1px solid color-mix(in srgb, var(--c-accent) 40%, transparent);
