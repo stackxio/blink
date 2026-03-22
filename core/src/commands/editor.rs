@@ -340,6 +340,35 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
     Ok(files)
 }
 
+/// Install the `caret` CLI command to /usr/local/bin
+#[tauri::command]
+pub async fn install_cli() -> Result<String, String> {
+    let script = r#"#!/bin/bash
+APP_BUNDLE="com.voxire.caret"
+APP_NAME="Caret"
+if [ -z "$1" ]; then
+  open -b "$APP_BUNDLE" 2>/dev/null || open -a "$APP_NAME" 2>/dev/null
+  exit 0
+fi
+TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")" || echo "$1")
+open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
+"#;
+    let path = "/usr/local/bin/caret";
+    fs::write(path, script).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::PermissionDenied {
+            "Permission denied. Try running: sudo caret install-cli".to_string()
+        } else {
+            format!("Failed to write {}: {}", path, e)
+        }
+    })?;
+    // Make executable
+    std::process::Command::new("chmod")
+        .args(["+x", path])
+        .output()
+        .map_err(|e| format!("Failed to chmod: {}", e))?;
+    Ok(format!("CLI installed to {}", path))
+}
+
 /// Open a native file picker dialog and return the selected path(s).
 #[tauri::command]
 pub async fn open_file_dialog(app: tauri::AppHandle) -> Result<Vec<String>, String> {

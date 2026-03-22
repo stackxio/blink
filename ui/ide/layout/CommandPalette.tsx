@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router";
+import { invoke } from "@tauri-apps/api/core";
 import {
   Settings, Sparkles, Terminal, Files, GitBranch, Search, Palette,
-  FolderOpen, SquarePen, PanelLeftClose, PanelLeftOpen, Sun, Moon,
+  FolderOpen, SquarePen, PanelLeftClose, PanelLeftOpen, Sun, Moon, TerminalSquare,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 
@@ -50,8 +51,13 @@ export default function CommandPalette({ onClose }: Props) {
     { id: "open-settings", label: "Open Settings", group: "Navigate", shortcut: "⌘,", icon: Settings, action: () => navigate("/settings") },
     { id: "open-extensions", label: "Open Extensions", group: "Navigate", icon: Palette, action: () => navigate("/extensions") },
 
-    // File
+    // AI
     { id: "new-chat", label: "New AI Chat", group: "AI", icon: SquarePen, action: toggleAiPanel },
+
+    // System
+    { id: "install-cli", label: "Install CLI (caret command)", group: "System", icon: TerminalSquare, action: () => {
+      invoke("install_cli").then((msg) => alert(msg)).catch((err) => alert(`Failed: ${err}`));
+    }},
   ], [toggleSidePanel, toggleBottomPanel, toggleAiPanel, setSidePanelView, setTheme, navigate]);
 
   const filtered = useMemo(() => {

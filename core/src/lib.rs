@@ -179,6 +179,7 @@ pub fn run() {
             commands::editor::read_dir,
             commands::editor::read_file_content,
             commands::editor::write_file_content,
+            commands::editor::install_cli,
             commands::editor::list_all_files,
             commands::editor::open_file_dialog,
             commands::editor::open_folder_dialog,
