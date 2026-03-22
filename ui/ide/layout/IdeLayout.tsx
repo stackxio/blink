@@ -331,6 +331,10 @@ export default function IdeLayout() {
                 onChange={(mod) => markModified(activeFile.path, mod)}
                 onCursorChange={(line, col, scroll) => updateFileState(activeFile.path, { cursorLine: line, cursorCol: col, scrollTop: scroll })}
               />
+            ) : workspacePath ? (
+              <div className="empty-state">
+                <p className="empty-state__text">Select a file from the explorer to start editing</p>
+              </div>
             ) : (
               <Outlet />
             )}
