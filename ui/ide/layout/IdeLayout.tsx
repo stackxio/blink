@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useRef } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "@/store";
 import { loadBindings, matchesKey, effectiveKey } from "@/lib/key-bindings";
 import Titlebar from "./Titlebar";
@@ -106,6 +107,36 @@ export default function IdeLayout() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [workspacePath]);
 
+  // Start file watcher when workspace opens
+  useEffect(() => {
+    if (!workspacePath) return;
+    invoke("start_watching", { path: workspacePath }).catch(() => {});
+    return () => {
+      invoke("stop_watching").catch(() => {});
+    };
+  }, [workspacePath]);
+
+  // Listen for external file changes and reload open files
+  useEffect(() => {
+    const unlisten = listen<string>("file:changed", (event) => {
+      const changedPath = event.payload;
+      const ws = useAppStore.getState().activeWorkspace();
+      if (!ws) return;
+      const fileEntry = ws.openFiles.find((f) => f.path === changedPath);
+      if (!fileEntry) return;
+      // Don't reload if user has unsaved changes
+      if (fileEntry.modified) return;
+      // If this is the active file, reload content
+      const isActive = ws.openFiles[ws.activeFileIdx]?.path === changedPath;
+      if (isActive) {
+        invoke<string>("read_file_content", { path: changedPath })
+          .then((content) => setFileContent(content))
+          .catch(() => {});
+      }
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, []);
+
   // Active file
   const activeFile = activeFileIdx >= 0 && activeFileIdx < openFiles.length ? openFiles[activeFileIdx] : null;
 
@@ -159,7 +190,7 @@ export default function IdeLayout() {
         e.preventDefault();
         const ws = useAppStore.getState().activeWorkspace();
         if (ws && ws.activeFileIdx >= 0) {
-          closeFile(ws.activeFileIdx);
+          handleCloseFile(ws.activeFileIdx);
         }
         return;
       }
@@ -244,6 +275,46 @@ export default function IdeLayout() {
       await invoke("write_file_content", { path: activeFile.path, content });
       markModified(activeFile.path, false);
     } catch {}
+  }
+
+  // Unsaved changes confirmation wrappers
+  async function handleCloseFile(idx: number) {
+    const ws = useAppStore.getState().activeWorkspace();
+    if (!ws) return;
+    const file = ws.openFiles[idx];
+    if (file?.modified) {
+      const ok = confirm(`Save changes to ${file.name}?`);
+      if (!ok) return;
+      // Save the file first
+      try {
+        const content = await invoke<string>("read_file_content", { path: file.path });
+        await invoke("write_file_content", { path: file.path, content });
+        markModified(file.path, false);
+      } catch {}
+    }
+    closeFile(idx);
+  }
+
+  function handleCloseAllFiles() {
+    const ws = useAppStore.getState().activeWorkspace();
+    if (!ws) return;
+    const hasModified = ws.openFiles.some((f) => f.modified);
+    if (hasModified) {
+      const ok = confirm("Save all unsaved changes before closing?");
+      if (!ok) return;
+    }
+    closeAllFiles();
+  }
+
+  function handleCloseOtherFiles(idx: number) {
+    const ws = useAppStore.getState().activeWorkspace();
+    if (!ws) return;
+    const hasModified = ws.openFiles.some((f, i) => i !== idx && f.modified);
+    if (hasModified) {
+      const ok = confirm("Save unsaved changes in other files before closing?");
+      if (!ok) return;
+    }
+    closeOtherFiles(idx);
   }
 
   function getLanguage(name: string): string {
@@ -339,9 +410,9 @@ export default function IdeLayout() {
             activeIdx={activeFileIdx}
             workspacePath={workspacePath}
             onSelect={setActiveFile}
-            onClose={closeFile}
-            onCloseAll={closeAllFiles}
-            onCloseOthers={closeOtherFiles}
+            onClose={handleCloseFile}
+            onCloseAll={handleCloseAllFiles}
+            onCloseOthers={handleCloseOtherFiles}
           />
           {isEditorActive && activeFile && (
             <div style={{ display: "flex", alignItems: "center" }}>

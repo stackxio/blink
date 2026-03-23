@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use tauri::Manager;
-use tauri::menu::{MenuBuilder, SubmenuBuilder};
+use tauri::menu::{AboutMetadataBuilder, MenuBuilder, SubmenuBuilder};
 
 mod commands;
 mod connectors;
@@ -32,8 +32,16 @@ pub fn run() {
         )
         .setup(|app| {
             // Native macOS menu bar
+            let about = AboutMetadataBuilder::new()
+                .name(Some("Caret"))
+                .version(Some(env!("CARGO_PKG_VERSION")))
+                .authors(Some(vec!["Voxire".to_string()]))
+                .comments(Some("AI-first code editor"))
+                .website(Some("https://voxire.com"))
+                .build();
+
             let app_menu = SubmenuBuilder::new(app, "Caret")
-                .about(None)
+                .about(Some(about))
                 .separator()
                 .text("settings", "Settings...")
                 .text("extensions", "Extensions...")
@@ -135,6 +143,7 @@ pub fn run() {
             app.manage(commands::ai::create_stream_sessions());
             app.manage(commands::ai::create_codex_state());
             app.manage(commands::terminal::create_terminal_state());
+            app.manage(std::sync::Mutex::new(commands::watcher::WatcherState::new()));
             app.manage(lsp::manager::create_lsp_state());
             settings::prompts::ensure_defaults();
             Ok(())
@@ -222,6 +231,8 @@ pub fn run() {
             commands::git::git_commit,
             commands::git::git_checkout_branch,
             commands::git::git_blame_line,
+            commands::watcher::start_watching,
+            commands::watcher::stop_watching,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
