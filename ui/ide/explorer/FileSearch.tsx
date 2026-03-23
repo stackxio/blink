@@ -50,7 +50,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
 
   // Reset selection when results change
   useEffect(() => {
-    setSelectedIdx(0);
+    setSelectedIdx(0); // eslint-disable-line react-hooks/set-state-in-effect -- derived state reset on filter change
   }, [filtered]);
 
   const scrollOnKey = useRef(false);
@@ -102,7 +102,6 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
           {filtered.map((file, i) => {
             const parts = file.split("/");
             const name = parts.pop() || file;
-            const dir = parts.join("/");
             return (
               <button
                 key={file}
@@ -143,22 +142,3 @@ function fuzzyScore(str: string, query: string): number {
   return qi === query.length ? score : 0;
 }
 
-function highlightMatch(file: string, query: string): React.ReactNode {
-  if (!query) return file;
-  const parts: React.ReactNode[] = [];
-  const q = query.toLowerCase();
-  const f = file.toLowerCase();
-  let qi = 0;
-  let lastEnd = 0;
-
-  for (let i = 0; i < f.length && qi < q.length; i++) {
-    if (f[i] === q[qi]) {
-      if (i > lastEnd) parts.push(file.slice(lastEnd, i));
-      parts.push(<strong key={i}>{file[i]}</strong>);
-      lastEnd = i + 1;
-      qi++;
-    }
-  }
-  if (lastEnd < file.length) parts.push(file.slice(lastEnd));
-  return parts;
-}

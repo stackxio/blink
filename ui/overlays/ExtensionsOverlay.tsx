@@ -20,8 +20,17 @@ export default function ExtensionsOverlay() {
   const [installing, setInstalling] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<"all" | "installed" | "available">("all");
 
+  async function loadServers() {
+    try {
+      const list = await invoke<ServerStatus[]>("lsp_list_all_servers");
+      setServers(list);
+    } catch {
+      setServers([]);
+    }
+  }
+
   useEffect(() => {
-    loadServers();
+    loadServers(); // eslint-disable-line react-hooks/set-state-in-effect -- initial data load from Tauri backend
 
     const unlisten = listen<{ language_id: string; status: string }>("lsp:install:status", (e) => {
       if (e.payload.status === "installed") {
@@ -34,15 +43,6 @@ export default function ExtensionsOverlay() {
 
     return () => { unlisten.then((fn) => fn()); };
   }, []);
-
-  async function loadServers() {
-    try {
-      const list = await invoke<ServerStatus[]>("lsp_list_all_servers");
-      setServers(list);
-    } catch {
-      setServers([]);
-    }
-  }
 
   async function handleInstall(langId: string) {
     setInstalling((prev) => new Set(prev).add(langId));

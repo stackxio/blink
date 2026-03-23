@@ -19,19 +19,6 @@ export interface SearchPanelHandle {
 }
 
 const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ workspacePath, onOpenFile }, ref) {
-  useImperativeHandle(ref, () => ({
-    focusInput: (text?: string) => {
-      if (text && inputRef.current) {
-        setQuery(text);
-        inputRef.current.value = text;
-        // Trigger search
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => doSearch(text), 100);
-      }
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    },
-  }));
   const [query, setQuery] = useState("");
   const [showReplace, setShowReplace] = useState(false);
   const [replaceValue, setReplaceValue] = useState("");
@@ -43,11 +30,6 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
   const [searched, setSearched] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Focus input on mount
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
 
   const doSearch = useCallback(
     (q: string) => {
@@ -77,6 +59,25 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
     },
     [workspacePath, caseSensitive, wholeWord, useRegex],
   );
+
+  useImperativeHandle(ref, () => ({
+    focusInput: (text?: string) => {
+      if (text && inputRef.current) {
+        setQuery(text);
+        inputRef.current.value = text;
+        // Trigger search
+        if (timerRef.current) clearTimeout(timerRef.current);
+        timerRef.current = setTimeout(() => doSearch(text), 100);
+      }
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    },
+  }));
+
+  // Focus input on mount
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   function handleQueryChange(value: string) {
     setQuery(value);

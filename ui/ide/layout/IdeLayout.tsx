@@ -9,7 +9,6 @@ import ActivityBar from "./ActivityBar";
 import TabBar from "./TabBar";
 import PanelResizer from "./PanelResizer";
 import IdeStatusBar from "./IdeStatusBar";
-import WorkspaceTabs from "./WorkspaceTabs";
 import FileTree, { type FileTreeHandle } from "@/ide/explorer/FileTree";
 import { ChevronsDownUp } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
@@ -71,6 +70,7 @@ export default function IdeLayout() {
   // Load saved workspaces on mount
   useEffect(() => {
     loadSavedWorkspaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount
   }, []);
 
   // Listen for native menu navigation events (settings, extensions)
@@ -139,6 +139,65 @@ export default function IdeLayout() {
 
   // Active file
   const activeFile = activeFileIdx >= 0 && activeFileIdx < openFiles.length ? openFiles[activeFileIdx] : null;
+
+  // File content
+  const [fileContent, setFileContent] = useState<string>("");
+
+  const handleSideResize = useCallback(
+    (delta: number) => setSidePanelWidth(Math.max(180, Math.min(480, sidePanelWidth + delta))),
+    [sidePanelWidth, setSidePanelWidth],
+  );
+
+  const handleAiResize = useCallback(
+    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(800, aiPanelWidth - delta))),
+    [aiPanelWidth, setAiPanelWidth],
+  );
+
+  const handleBottomResize = useCallback(
+    (delta: number) => setBottomPanelHeight(Math.max(100, Math.min(500, bottomPanelHeight - delta))),
+    [bottomPanelHeight, setBottomPanelHeight],
+  );
+
+  async function handleOpenFolder() {
+    try {
+      const path = await invoke<string | null>("open_folder_dialog");
+      if (path) {
+        const name = path.split("/").pop() || path;
+        addWorkspace(path, name);
+      }
+    } catch {}
+  }
+
+  function handleFileSelect(path: string, name: string, preview: boolean) {
+    openFile(path, name, preview);
+    if (location.pathname !== "/") navigate("/");
+  }
+
+  async function handleFileSave(content: string) {
+    if (!activeFile) return;
+    try {
+      await invoke("write_file_content", { path: activeFile.path, content });
+      markModified(activeFile.path, false);
+    } catch {}
+  }
+
+  // Unsaved changes confirmation wrappers
+  async function handleCloseFile(idx: number) {
+    const ws = useAppStore.getState().activeWorkspace();
+    if (!ws) return;
+    const file = ws.openFiles[idx];
+    if (file?.modified) {
+      const ok = confirm(`Save changes to ${file.name}?`);
+      if (!ok) return;
+      // Save the file first
+      try {
+        const content = await invoke<string>("read_file_content", { path: file.path });
+        await invoke("write_file_content", { path: file.path, content });
+        markModified(file.path, false);
+      } catch {}
+    }
+    closeFile(idx);
+  }
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -217,10 +276,8 @@ export default function IdeLayout() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard handler uses refs and store getState(), doesn't need all deps
   }, [navigate, toggleBottomPanel, toggleSidePanel]);
-
-  // File content
-  const [fileContent, setFileContent] = useState<string>("");
 
   useEffect(() => {
     if (!activeFile) {
@@ -237,63 +294,8 @@ export default function IdeLayout() {
         }
       });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only reload when file path changes
   }, [activeFile?.path]);
-
-  const handleSideResize = useCallback(
-    (delta: number) => setSidePanelWidth(Math.max(180, Math.min(480, sidePanelWidth + delta))),
-    [sidePanelWidth, setSidePanelWidth],
-  );
-
-  const handleAiResize = useCallback(
-    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(800, aiPanelWidth - delta))),
-    [aiPanelWidth, setAiPanelWidth],
-  );
-
-  const handleBottomResize = useCallback(
-    (delta: number) => setBottomPanelHeight(Math.max(100, Math.min(500, bottomPanelHeight - delta))),
-    [bottomPanelHeight, setBottomPanelHeight],
-  );
-
-  async function handleOpenFolder() {
-    try {
-      const path = await invoke<string | null>("open_folder_dialog");
-      if (path) {
-        const name = path.split("/").pop() || path;
-        addWorkspace(path, name);
-      }
-    } catch {}
-  }
-
-  function handleFileSelect(path: string, name: string, preview: boolean) {
-    openFile(path, name, preview);
-    if (location.pathname !== "/") navigate("/");
-  }
-
-  async function handleFileSave(content: string) {
-    if (!activeFile) return;
-    try {
-      await invoke("write_file_content", { path: activeFile.path, content });
-      markModified(activeFile.path, false);
-    } catch {}
-  }
-
-  // Unsaved changes confirmation wrappers
-  async function handleCloseFile(idx: number) {
-    const ws = useAppStore.getState().activeWorkspace();
-    if (!ws) return;
-    const file = ws.openFiles[idx];
-    if (file?.modified) {
-      const ok = confirm(`Save changes to ${file.name}?`);
-      if (!ok) return;
-      // Save the file first
-      try {
-        const content = await invoke<string>("read_file_content", { path: file.path });
-        await invoke("write_file_content", { path: file.path, content });
-        markModified(file.path, false);
-      } catch {}
-    }
-    closeFile(idx);
-  }
 
   function handleCloseAllFiles() {
     const ws = useAppStore.getState().activeWorkspace();

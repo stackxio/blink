@@ -53,6 +53,37 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
   const bgMenuRef = useRef<HTMLDivElement>(null);
   const expandedRef = useRef<Set<string>>(new Set());
 
+  async function loadDir(path: string): Promise<TreeNode[]> {
+    const entries = await invoke<DirEntry[]>("read_dir", { path });
+    return entries.map((e) => ({
+      ...e,
+      children: e.is_dir ? null : (undefined as unknown as null),
+      expanded: false,
+    }));
+  }
+
+  async function loadDirRecursive(path: string, expandedDirs: Set<string>): Promise<TreeNode[]> {
+    const entries = await invoke<DirEntry[]>("read_dir", { path });
+    const nodes: TreeNode[] = [];
+    for (const e of entries) {
+      const isExpanded = expandedDirs.has(e.path);
+      const node: TreeNode = {
+        ...e,
+        children: e.is_dir ? null : (undefined as unknown as null),
+        expanded: isExpanded,
+      };
+      if (e.is_dir && isExpanded) {
+        try {
+          node.children = await loadDirRecursive(e.path, expandedDirs);
+        } catch {
+          node.children = [];
+        }
+      }
+      nodes.push(node);
+    }
+    return nodes;
+  }
+
   useImperativeHandle(ref, () => ({
     collapseAll: () => {
       expandedRef.current.clear();
@@ -67,6 +98,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
     if (!rootPath) { setTree([]); return; }
     expandedRef.current = loadExpandedDirs(rootPath);
     loadDirRecursive(rootPath, expandedRef.current).then(setTree).catch(() => setTree([]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDirRecursive is stable within the component
   }, [rootPath]);
 
   // Close background menu
@@ -106,37 +138,6 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
       document.removeEventListener("keydown", onKey);
     };
   }, [ctxMenu]);
-
-  async function loadDir(path: string): Promise<TreeNode[]> {
-    const entries = await invoke<DirEntry[]>("read_dir", { path });
-    return entries.map((e) => ({
-      ...e,
-      children: e.is_dir ? null : (undefined as unknown as null),
-      expanded: false,
-    }));
-  }
-
-  async function loadDirRecursive(path: string, expandedDirs: Set<string>): Promise<TreeNode[]> {
-    const entries = await invoke<DirEntry[]>("read_dir", { path });
-    const nodes: TreeNode[] = [];
-    for (const e of entries) {
-      const isExpanded = expandedDirs.has(e.path);
-      const node: TreeNode = {
-        ...e,
-        children: e.is_dir ? null : (undefined as unknown as null),
-        expanded: isExpanded,
-      };
-      if (e.is_dir && isExpanded) {
-        try {
-          node.children = await loadDirRecursive(e.path, expandedDirs);
-        } catch {
-          node.children = [];
-        }
-      }
-      nodes.push(node);
-    }
-    return nodes;
-  }
 
   function refreshTree() {
     if (rootPath) loadDir(rootPath).then(setTree).catch(() => setTree([]));
@@ -201,7 +202,6 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
 
   async function handleDelete() {
     if (!ctxMenu) return;
-    const name = ctxMenu.node.name;
     setCtxMenu(null);
     try {
       await invoke("delete_path", { path: ctxMenu.node.path });

@@ -55,6 +55,7 @@ export default function TerminalPanel() {
     createdRef.current = true;
     createSession();
     return () => { createdRef.current = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once on mount
   }, []);
 
   function getTermName(id: string, idx: number) {

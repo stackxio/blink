@@ -24,7 +24,7 @@ export default function Welcome() {
 
   useEffect(() => {
     const openPaths = new Set(workspaces.map((w) => w.path));
-    setRecent(getRecentWorkspaces().filter((r) => !openPaths.has(r.path)));
+    setRecent(getRecentWorkspaces().filter((r) => !openPaths.has(r.path))); // eslint-disable-line react-hooks/set-state-in-effect -- derived state from external storage
   }, [workspaces]);
 
   async function handleOpenFolder() {

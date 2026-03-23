@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Settings, Sparkles, Terminal, Files, GitBranch, Search, Palette,
-  FolderOpen, SquarePen, PanelLeftClose, PanelLeftOpen, Sun, Moon, TerminalSquare,
+  SquarePen, PanelLeftClose, Sun, Moon, TerminalSquare,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 
@@ -31,7 +31,7 @@ export default function CommandPalette({ onClose }: Props) {
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
   const setTheme = useAppStore((s) => s.setTheme);
-  const theme = useAppStore((s) => s.theme);
+  const _theme = useAppStore((s) => s.theme);
 
   const commands: Command[] = useMemo(() => [
     // View

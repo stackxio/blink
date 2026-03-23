@@ -113,7 +113,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   }, [workspacePath]);
 
   useEffect(() => {
-    refresh();
+    refresh(); // eslint-disable-line react-hooks/set-state-in-effect -- trigger initial data load
   }, [refresh]);
 
   // Poll for changes every 3s

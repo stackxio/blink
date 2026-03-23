@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ArrowUp, Square, ChevronDown, FileCode, Folder, SquarePen, X, MessageSquare, Pencil, Archive, Trash2 } from "lucide-react";
@@ -30,9 +30,6 @@ interface AiThread {
 }
 
 type ReasoningEffort = "xhigh" | "high" | "medium" | "low";
-const REASONING_LABELS: Record<ReasoningEffort, string> = {
-  xhigh: "Extra High", high: "High", medium: "Medium", low: "Low",
-};
 
 interface ModelOption { slug: string; label: string }
 const GPT_MODELS: ModelOption[] = [
@@ -58,7 +55,7 @@ export default function AiPanel() {
   const [claudeModel, setClaudeModel] = useState("sonnet");
   const [ollamaModel, setOllamaModel] = useState("llama3");
   const [ollamaModels, setOllamaModels] = useState<{ name: string }[]>([]);
-  const [composerReasoning, setComposerReasoning] = useState<ReasoningEffort>("high");
+  const [_composerReasoning, _setComposerReasoning] = useState<ReasoningEffort>("high");
   const [contextFiles, setContextFiles] = useState<string[]>([]); // paths attached via @
   const [atMenuOpen, setAtMenuOpen] = useState(false);
   const [atQuery, setAtQuery] = useState("");
@@ -242,7 +239,7 @@ export default function AiPanel() {
         : activeProvider === "ollama" ? ollamaModel : "default";
 
       // Inject workspace context + @-mentioned files
-      let contextParts: string[] = [];
+      const contextParts: string[] = [];
       if (ws?.path) {
         contextParts.push(`[Workspace: ${ws.path}]`);
       }
@@ -401,6 +398,7 @@ export default function AiPanel() {
       }).catch(() => setAtResults([]));
     }, atQuery ? 150 : 0); // instant for empty query, debounced for typing
     return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeFile and ws.openFiles intentionally omitted to avoid excessive re-fetching
   }, [atQuery, atMenuOpen, ws?.path]);
 
   // Close @ menu on outside click

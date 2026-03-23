@@ -271,6 +271,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
       view.destroy();
       viewRef.current = null;
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only recreate editor when file identity changes, not on every callback/content update
   }, [filename, filePath]);
 
   // Only sync content from parent when the file is reloaded (content prop changes from parent)

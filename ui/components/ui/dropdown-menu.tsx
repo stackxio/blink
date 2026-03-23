@@ -33,11 +33,9 @@ const DropdownOpenCtx = React.createContext<{
 // ── Trigger ──
 function DropdownMenuTrigger({ children, asChild: _ }: { children: React.ReactNode; asChild?: boolean }) {
   const { isOpen, setOpen } = React.useContext(DropdownOpenCtx);
-  const ref = React.useRef<HTMLButtonElement>(null);
 
   if (React.isValidElement(children)) {
     return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
-      ref,
       onClick: (e: React.MouseEvent) => {
         (children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>).props.onClick?.(e);
         setOpen(!isOpen);
@@ -46,7 +44,7 @@ function DropdownMenuTrigger({ children, asChild: _ }: { children: React.ReactNo
   }
 
   return (
-    <button ref={ref} type="button" onClick={() => setOpen(!isOpen)}>
+    <button type="button" onClick={() => setOpen(!isOpen)}>
       {children}
     </button>
   );
@@ -55,7 +53,7 @@ function DropdownMenuTrigger({ children, asChild: _ }: { children: React.ReactNo
 // ── Content ──
 function DropdownMenuContent({
   children,
-  align = "start",
+  align: _align = "start",
   className,
   onCloseAutoFocus,
   ...props

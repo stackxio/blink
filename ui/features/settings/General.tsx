@@ -19,7 +19,7 @@ interface Settings {
 }
 
 export default function SettingsGeneral() {
-  const [settings, setSettings] = useState<Settings | null>(null);
+  const [_settings, setSettings] = useState<Settings | null>(null);
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());

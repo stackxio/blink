@@ -72,7 +72,7 @@ export default function WorkspaceTabs() {
 
   useEffect(() => {
     if (dropdownOpen) {
-      setRecentFilter("");
+      setRecentFilter(""); // eslint-disable-line react-hooks/set-state-in-effect -- reset filter when dropdown opens
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [dropdownOpen]);
