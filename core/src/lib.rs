@@ -48,10 +48,16 @@ pub fn run() {
                 .quit()
                 .build()?;
 
+            let go_to_file = tauri::menu::MenuItemBuilder::new("Go to File...")
+                .id("go_to_file")
+                .accelerator("CmdOrCtrl+P")
+                .build(app)?;
+
             let file_menu = SubmenuBuilder::new(app, "File")
                 .text("new_file", "New File")
                 .text("open_file", "Open...")
                 .text("open_folder", "Open Folder...")
+                .item(&go_to_file)
                 .separator()
                 .text("save", "Save")
                 .separator()
@@ -115,6 +121,7 @@ pub fn run() {
                         "search" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'f', metaKey: true, shiftKey: true}))"),
                         "explorer" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'explorer'}))"),
                         "source_control" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'git'}))"),
+                        "go_to_file" => window.eval("document.dispatchEvent(new CustomEvent('caret:file-search'))"),
                         "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
                         "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('caret:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),

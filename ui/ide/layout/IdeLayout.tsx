@@ -78,8 +78,15 @@ export default function IdeLayout() {
       const path = (e as CustomEvent<string>).detail;
       if (path) navigate(path);
     }
+    function onFileSearch() {
+      setFileSearchOpen((v) => !v);
+    }
     document.addEventListener("caret:navigate", onNavigate);
-    return () => document.removeEventListener("caret:navigate", onNavigate);
+    document.addEventListener("caret:file-search", onFileSearch);
+    return () => {
+      document.removeEventListener("caret:navigate", onNavigate);
+      document.removeEventListener("caret:file-search", onFileSearch);
+    };
   }, [navigate]);
 
   // Fetch git branch for status bar
