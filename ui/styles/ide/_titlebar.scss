@@ -14,17 +14,16 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    // Reserve space for macOS traffic lights
     padding-left: 70px;
-    flex: 1;
     min-width: 0;
     overflow: hidden;
+    flex-shrink: 1;
   }
 
   // Drag region fills remaining space between left and right
   &__drag {
-    flex-shrink: 0;
-    width: 48px;
+    flex: 1;
+    min-width: 32px;
     height: 100%;
   }
 

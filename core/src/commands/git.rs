@@ -213,3 +213,42 @@ pub fn git_checkout_branch(path: String, branch: String) -> Result<(), String> {
     run_git(&path, &["checkout", &branch])?;
     Ok(())
 }
+
+#[derive(Debug, Serialize)]
+pub struct BlameInfo {
+    pub author: String,
+    pub date: String,
+    pub summary: String,
+}
+
+/// Get git blame info for a specific line in a file.
+#[tauri::command]
+pub fn git_blame_line(path: String, file_path: String, line: u32) -> Result<Option<BlameInfo>, String> {
+    let output = run_git(&path, &[
+        "blame", "-L", &format!("{},{}", line, line),
+        "--porcelain", &file_path,
+    ])?;
+
+    let mut author = String::new();
+    let mut date = String::new();
+    let mut summary = String::new();
+
+    for l in output.lines() {
+        if let Some(v) = l.strip_prefix("author ") { author = v.to_string(); }
+        if let Some(v) = l.strip_prefix("author-time ") {
+            if let Ok(ts) = v.parse::<i64>() {
+                let dt = chrono::DateTime::from_timestamp(ts, 0);
+                if let Some(dt) = dt {
+                    date = chrono::DateTime::<chrono::Utc>::from(dt).format("%Y-%m-%d").to_string();
+                }
+            }
+        }
+        if let Some(v) = l.strip_prefix("summary ") { summary = v.to_string(); }
+    }
+
+    if author.is_empty() || author == "Not Committed Yet" {
+        return Ok(None);
+    }
+
+    Ok(Some(BlameInfo { author, date, summary }))
+}

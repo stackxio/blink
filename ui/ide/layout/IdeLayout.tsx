@@ -19,6 +19,8 @@ import GitPanel from "@/ide/git/GitPanel";
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
 import CommandPalette from "./CommandPalette";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
+import MarkdownPreview from "@/ide/editor/MarkdownPreview";
+import { BookOpen } from "lucide-react";
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -59,6 +61,7 @@ export default function IdeLayout() {
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
 
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
+  const [mdPreview, setMdPreview] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
   const fileTreeRef = useRef<FileTreeHandle>(null);
@@ -334,22 +337,44 @@ export default function IdeLayout() {
             onCloseOthers={closeOtherFiles}
           />
           {isEditorActive && activeFile && (
-            <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
+              {activeFile.name.endsWith(".md") && (
+                <button
+                  type="button"
+                  className={`md-toggle ${mdPreview ? "md-toggle--active" : ""}`}
+                  onClick={() => setMdPreview((v) => !v)}
+                  title="Toggle Markdown Preview"
+                >
+                  <BookOpen />
+                  Preview
+                </button>
+              )}
+            </div>
           )}
           <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {isEditorActive ? (
-              <Editor
-                key={activeFile.path}
-                content={fileContent}
-                filename={activeFile.name}
-                filePath={activeFile.path}
-                initialCursorLine={activeFile.cursorLine}
-                initialCursorCol={activeFile.cursorCol}
-                initialScrollTop={activeFile.scrollTop}
-                onSave={handleFileSave}
-                onChange={(mod) => markModified(activeFile.path, mod)}
-                onCursorChange={(line, col, scroll) => updateFileState(activeFile.path, { cursorLine: line, cursorCol: col, scrollTop: scroll })}
-              />
+              <div className={mdPreview && activeFile.name.endsWith(".md") ? "md-split" : ""} style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+                <div className="md-split__editor" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <Editor
+                    key={activeFile.path}
+                    content={fileContent}
+                    filename={activeFile.name}
+                    filePath={activeFile.path}
+                    initialCursorLine={activeFile.cursorLine}
+                    initialCursorCol={activeFile.cursorCol}
+                    initialScrollTop={activeFile.scrollTop}
+                    onSave={handleFileSave}
+                    onChange={(mod) => markModified(activeFile.path, mod)}
+                    onCursorChange={(line, col, scroll) => updateFileState(activeFile.path, { cursorLine: line, cursorCol: col, scrollTop: scroll })}
+                  />
+                </div>
+                {mdPreview && activeFile.name.endsWith(".md") && (
+                  <div className="md-split__preview">
+                    <MarkdownPreview content={fileContent} />
+                  </div>
+                )}
+              </div>
             ) : workspacePath ? (
               <div className="empty-state">
                 <p className="empty-state__text">Select a file from the explorer to start editing</p>

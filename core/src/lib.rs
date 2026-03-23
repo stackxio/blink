@@ -214,6 +214,7 @@ pub fn run() {
             commands::git::git_unstage,
             commands::git::git_commit,
             commands::git::git_checkout_branch,
+            commands::git::git_blame_line,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

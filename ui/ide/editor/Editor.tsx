@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
@@ -139,6 +139,8 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const savedContentRef = useRef(content);
+  const [blameInfo, setBlameInfo] = useState<{ author: string; date: string; summary: string } | null>(null);
+  const blameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lspClientRef = useRef<LspClient | null>(null);
   const diagCleanupRef = useRef<(() => void) | null>(null);
   const ws = useAppStore((s) => s.activeWorkspace());
@@ -216,13 +218,22 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
             }, 500);
           }
         }),
-        // Track cursor position changes
+        // Track cursor position changes + fetch blame
         EditorView.updateListener.of((update) => {
           if (update.selectionSet || update.geometryChanged) {
             const pos = update.state.selection.main.head;
             const line = update.state.doc.lineAt(pos);
             const scrollTop = update.view.scrollDOM.scrollTop;
             onCursorChange?.(line.number, pos - line.from + 1, scrollTop);
+            // Debounced blame fetch
+            if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
+            blameTimerRef.current = setTimeout(() => {
+              if (ws?.path) {
+                invoke<{ author: string; date: string; summary: string } | null>("git_blame_line", {
+                  path: ws.path, filePath, line: line.number,
+                }).then(setBlameInfo).catch(() => setBlameInfo(null));
+              }
+            }, 400);
           }
         }),
         // Auto-save on blur (focus loss)
@@ -279,5 +290,14 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     }
   }, [content]);
 
-  return <div ref={containerRef} className="editor-pane" />;
+  return (
+    <div className="editor-pane" style={{ position: "relative" }}>
+      <div ref={containerRef} style={{ flex: 1, overflow: "hidden" }} />
+      {blameInfo && (
+        <div className="editor-blame">
+          {blameInfo.author}, {blameInfo.date} — {blameInfo.summary}
+        </div>
+      )}
+    </div>
+  );
 }

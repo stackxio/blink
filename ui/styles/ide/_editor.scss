@@ -1,5 +1,25 @@
 @use "../mixins" as *;
 
+.editor-blame {
+  position: absolute;
+  bottom: 8px;
+  right: 16px;
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  font-size: 11px;
+  color: var(--c-muted-fg);
+  font-family: var(--font-sans);
+  pointer-events: none;
+  opacity: 0.8;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  z-index: 5;
+}
+
 .editor-pane {
   @include flex-col;
   @include full-height;
@@ -51,6 +71,9 @@
       color: var(--c-muted-fg);
       font-size: 12px;
       min-width: 48px;
+      user-select: none;
+      -webkit-user-select: none;
+      cursor: default;
     }
 
     .cm-activeLineGutter {
