@@ -15,7 +15,7 @@ interface Props {
 }
 
 export interface SearchPanelHandle {
-  focusInput: () => void;
+  focusInput: (text?: string) => void;
 }
 
 const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ workspacePath, onOpenFile }, ref) {

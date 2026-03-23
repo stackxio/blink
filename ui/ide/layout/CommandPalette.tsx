@@ -31,7 +31,7 @@ export default function CommandPalette({ onClose }: Props) {
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
   const setTheme = useAppStore((s) => s.setTheme);
-  const _theme = useAppStore((s) => s.theme);
+  
 
   const commands: Command[] = useMemo(() => [
     // View

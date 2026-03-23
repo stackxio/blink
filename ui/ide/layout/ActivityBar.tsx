@@ -8,7 +8,10 @@ const ITEMS: { id: SidePanelView; icon: typeof Files; label: string }[] = [
 ];
 
 export default function ActivityBar() {
-  const { sidePanelView, sidePanelOpen, setSidePanelView } = useAppStore();
+  const ws = useAppStore((s) => s.activeWorkspace());
+  const setSidePanelView = useAppStore((s) => s.setSidePanelView);
+  const sidePanelView = ws?.sidePanelView ?? "explorer";
+  const sidePanelOpen = ws?.sidePanelOpen ?? true;
 
   return (
     <div className="activity-bar">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, type Panel } from "@codemirror/view";
+import { invoke } from "@tauri-apps/api/core";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";

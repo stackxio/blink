@@ -10,7 +10,9 @@ interface Props {
 }
 
 export default function IdeStatusBar({ branch, language, line, col, workspaceName }: Props) {
-  const { bottomPanelOpen, toggleBottomPanel } = useAppStore();
+  const ws = useAppStore((s) => s.activeWorkspace());
+  const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
+  const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
 
   return (
     <div className="status-bar">

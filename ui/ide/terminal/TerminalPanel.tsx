@@ -58,7 +58,7 @@ export default function TerminalPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once on mount
   }, []);
 
-  function getTermName(id: string, idx: number) {
+  function getTermName(_id: string, idx: number) {
     return `Terminal ${idx + 1}`;
   }
 
