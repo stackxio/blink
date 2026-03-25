@@ -14,6 +14,7 @@ import { ChevronsDownUp } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
+import ProblemsPanel from "@/ide/problems/ProblemsPanel";
 import AiPanel from "@/ai/AiPanel";
 import GitPanel from "@/ide/git/GitPanel";
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
@@ -55,6 +56,11 @@ export default function IdeLayout() {
   const sidePanelWidth = ws?.sidePanelWidth ?? 260;
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
+  const bottomPanelTab = ws?.bottomPanelTab ?? "terminal";
+  const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
+  const diagnostics = useAppStore((s) => s.diagnostics);
+  const errorCount = Object.values(diagnostics).flat().filter((d) => d.severity === 1).length;
+  const warningCount = Object.values(diagnostics).flat().filter((d) => d.severity === 2).length;
 
   const sidePanelView = ws?.sidePanelView ?? "explorer";
 
@@ -469,7 +475,56 @@ export default function IdeLayout() {
           <>
             <PanelResizer direction="vertical" onResize={handleBottomResize} />
             <div className="ide__bottom-panel" style={{ height: bottomPanelHeight }}>
-              <TerminalPanel />
+              {/* Tab bar */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                borderBottom: "1px solid var(--c-border)",
+                background: "var(--c-surface)",
+                flexShrink: 0,
+                height: 32,
+                paddingLeft: 8,
+              }}>
+                {(["terminal", "problems"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setBottomPanelTab(tab)}
+                    style={{
+                      height: "100%",
+                      padding: "0 12px",
+                      border: "none",
+                      borderBottom: bottomPanelTab === tab ? "2px solid var(--c-accent)" : "2px solid transparent",
+                      background: "transparent",
+                      color: bottomPanelTab === tab ? "var(--c-fg)" : "var(--c-muted-fg)",
+                      fontSize: "var(--font-size-xs)",
+                      fontFamily: "inherit",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                    {tab === "problems" && (errorCount + warningCount) > 0 && (
+                      <span style={{
+                        fontSize: 10,
+                        background: errorCount > 0 ? "var(--c-danger)" : "var(--c-warning)",
+                        color: "#fff",
+                        borderRadius: 8,
+                        padding: "0 5px",
+                        lineHeight: "16px",
+                      }}>
+                        {errorCount + warningCount}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {/* Panel content */}
+              <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", height: "calc(100% - 32px)" }}>
+                {bottomPanelTab === "terminal" ? <TerminalPanel /> : <ProblemsPanel />}
+              </div>
             </div>
           </>
         )}

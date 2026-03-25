@@ -2,6 +2,15 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 
 export type SidePanelView = "explorer" | "chat" | "search" | "git";
+export type BottomPanelTab = "terminal" | "problems";
+
+export interface DiagnosticEntry {
+  uri: string;
+  severity: number; // 1=error 2=warning 3=info 4=hint
+  message: string;
+  line: number;
+  character: number;
+}
 export type Theme = "dark" | "light" | "system";
 
 export interface OpenFile {
@@ -28,6 +37,7 @@ export interface Workspace {
   sidePanelWidth: number;
   bottomPanelOpen: boolean;
   bottomPanelHeight: number;
+  bottomPanelTab: BottomPanelTab;
   // Terminal sessions (IDs tracked per workspace)
   terminalIds: string[];
   activeTerminalId: string | null;
@@ -40,7 +50,7 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
     id, path, name,
     openFiles: [], activeFileIdx: -1,
     sidePanelOpen: true, sidePanelView: "explorer", sidePanelWidth: 300,
-    bottomPanelOpen: false, bottomPanelHeight: 200,
+    bottomPanelOpen: false, bottomPanelHeight: 200, bottomPanelTab: "terminal",
     terminalIds: [], activeTerminalId: null,
     expandedDirs: new Set(),
   };
@@ -52,6 +62,9 @@ interface AppState {
   aiPanelOpen: boolean;
   aiPanelWidth: number;
   persistWorkspaces: boolean;
+  // Diagnostics (global — keyed by file URI)
+  diagnostics: Record<string, DiagnosticEntry[]>;
+  setDiagnosticsForUri: (uri: string, diags: DiagnosticEntry[]) => void;
 
   // Workspaces
   workspaces: Workspace[];
@@ -79,6 +92,7 @@ interface AppState {
   setSidePanelWidth: (w: number) => void;
   toggleBottomPanel: () => void;
   setBottomPanelHeight: (h: number) => void;
+  setBottomPanelTab: (tab: BottomPanelTab) => void;
 
   // Per-workspace editor actions
   openFile: (path: string, name: string, preview?: boolean) => void;
@@ -114,6 +128,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiPanelOpen: false,
   aiPanelWidth: 360,
   persistWorkspaces: true,
+  diagnostics: {},
+  setDiagnosticsForUri: (uri, diags) =>
+    set((s) => ({ diagnostics: { ...s.diagnostics, [uri]: diags } })),
   workspaces: [],
   activeWorkspaceId: null,
 
@@ -224,6 +241,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidePanelWidth: (w) => set((s) => updateWs(s, () => ({ sidePanelWidth: w }))),
   toggleBottomPanel: () => set((s) => updateWs(s, (ws) => ({ bottomPanelOpen: !ws.bottomPanelOpen }))),
   setBottomPanelHeight: (h) => set((s) => updateWs(s, () => ({ bottomPanelHeight: h }))),
+  setBottomPanelTab: (tab) => set((s) => updateWs(s, () => ({ bottomPanelTab: tab }))),
 
   // ── Per-workspace editor ──
 

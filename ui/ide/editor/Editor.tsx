@@ -148,6 +148,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
   const blameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lspClientRef = useRef<LspClient | null>(null);
   const diagCleanupRef = useRef<(() => void) | null>(null);
+  const storeDiagCleanupRef = useRef<(() => void) | null>(null);
   const ws = useAppStore((s) => s.activeWorkspace());
 
   const handleSave = useCallback(() => {
@@ -183,6 +184,18 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
           filePath,
           (cb) => lspClient.onDiagnostics(cb),
         );
+        // Also push diagnostics into the global store for the Problems panel
+        const uri = `file://${filePath}`;
+        storeDiagCleanupRef.current = lspClient.onDiagnostics((diagUri, lspDiags) => {
+          if (diagUri !== uri) return;
+          useAppStore.getState().setDiagnosticsForUri(uri, lspDiags.map((d) => ({
+            uri,
+            severity: d.severity ?? 2,
+            message: d.message,
+            line: d.range.start.line,
+            character: d.range.start.character,
+          })));
+        });
       }
     }).catch(() => {});
 
@@ -301,6 +314,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
       if (changeTimer) clearTimeout(changeTimer);
       lspClientRef.current?.didClose(`file://${filePath}`);
       diagCleanupRef.current?.();
+      storeDiagCleanupRef.current?.();
       view.destroy();
       viewRef.current = null;
     };

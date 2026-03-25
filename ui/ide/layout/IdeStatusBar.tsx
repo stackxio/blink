@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { GitBranch, Terminal } from "lucide-react";
+import { GitBranch, Terminal, AlertCircle, AlertTriangle } from "lucide-react";
 import { useAppStore } from "@/store";
 
 interface Props {
@@ -13,7 +13,11 @@ interface Props {
 export default function IdeStatusBar({ branch, language, line, col, workspaceName }: Props) {
   const ws = useAppStore((s) => s.activeWorkspace());
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
+  const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
+  const diagnostics = useAppStore((s) => s.diagnostics);
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
+  const errorCount = Object.values(diagnostics).flat().filter((d) => d.severity === 1).length;
+  const warningCount = Object.values(diagnostics).flat().filter((d) => d.severity === 2).length;
 
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("caret:wordWrap") === "true");
   const [tabSize] = useState(() => parseInt(localStorage.getItem("caret:tabSize") || "2", 10));
@@ -35,6 +39,26 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
             <span>{branch}</span>
           </button>
         )}
+        <button
+          type="button"
+          className="status-bar__item"
+          style={errorCount > 0 ? { color: "var(--c-danger)" } : undefined}
+          onClick={() => { setBottomPanelTab("problems"); if (!bottomPanelOpen) toggleBottomPanel(); }}
+          title="Errors"
+        >
+          <AlertCircle size={12} />
+          <span>{errorCount}</span>
+        </button>
+        <button
+          type="button"
+          className="status-bar__item"
+          style={warningCount > 0 ? { color: "var(--c-warning)" } : undefined}
+          onClick={() => { setBottomPanelTab("problems"); if (!bottomPanelOpen) toggleBottomPanel(); }}
+          title="Warnings"
+        >
+          <AlertTriangle size={12} />
+          <span>{warningCount}</span>
+        </button>
       </div>
       <div className="status-bar__right">
         {line != null && col != null && (

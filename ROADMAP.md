@@ -14,7 +14,7 @@ Work through these in order, one at a time.
 - [x] Settings refactor — split General.tsx, move editor prefs off localStorage, wire Providers forms to backend
 - [x] Provider settings wiring — Ollama endpoint/model + Custom API endpoint/key/model save & load
 - [x] Auto-updater flow — commands + UI wired; **needs signing keys**: run `pnpm tauri signer generate`, add private key to GitHub secret `TAURI_SIGNING_PRIVATE_KEY`, put pubkey in `core/tauri.conf.json`
-- [ ] LSP diagnostics — display error/warning squiggles in editor, Problems panel in bottom bar
+- [x] LSP diagnostics — squiggles in editor + Problems panel in bottom bar + error/warning counts in status bar
 
 ### Medium priority
 - [ ] Batch find & replace across files
