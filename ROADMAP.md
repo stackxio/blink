@@ -17,7 +17,7 @@ Work through these in order, one at a time.
 - [x] LSP diagnostics — squiggles in editor + Problems panel in bottom bar + error/warning counts in status bar
 
 ### Medium priority
-- [ ] Batch find & replace across files
+- [x] Batch find & replace across files
 - [ ] Git panel polish — diff viewer, merge conflict resolution
 - [ ] MCP server management — backend spawning/lifecycle, wire UI handlers
 - [ ] AI tool calling framework — agent actions, tool registry

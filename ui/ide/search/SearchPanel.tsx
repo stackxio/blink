@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Search, Replace, ChevronRight, FileText } from "lucide-react";
+import { Search, Replace, ChevronRight, FileText, RefreshCw } from "lucide-react";
 
 interface SearchResult {
   path: string;
@@ -28,6 +28,8 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [replacing, setReplacing] = useState(false);
+  const [replaceResult, setReplaceResult] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -89,6 +91,29 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
     if (e.key === "Enter") {
       if (timerRef.current) clearTimeout(timerRef.current);
       doSearch(query);
+    }
+  }
+
+  async function doReplaceAll() {
+    if (!query.trim() || !workspacePath) return;
+    setReplacing(true);
+    setReplaceResult(null);
+    try {
+      const res = await invoke<{ files_modified: number; replacements_made: number }>("replace_in_files", {
+        root: workspacePath,
+        query,
+        replacement: replaceValue,
+        caseSensitive,
+        wholeWord,
+        isRegex: useRegex,
+      });
+      setReplaceResult(`Replaced ${res.replacements_made} occurrence${res.replacements_made !== 1 ? "s" : ""} in ${res.files_modified} file${res.files_modified !== 1 ? "s" : ""}.`);
+      // Re-run search to update results
+      doSearch(query);
+    } catch (e) {
+      setReplaceResult(`Error: ${String(e)}`);
+    } finally {
+      setReplacing(false);
     }
   }
 
@@ -187,8 +212,19 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
                 placeholder="Replace"
                 value={replaceValue}
                 onChange={(e) => setReplaceValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") doReplaceAll(); }}
                 spellCheck={false}
               />
+              <button
+                type="button"
+                className="search-panel__filter"
+                title="Replace All"
+                disabled={replacing || !query.trim() || results.length === 0}
+                onClick={doReplaceAll}
+                style={{ padding: "0 6px" }}
+              >
+                <RefreshCw size={12} />
+              </button>
             </div>
           </div>
         )}
@@ -198,10 +234,16 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
         {searching && (
           <div className="search-panel__status">Searching...</div>
         )}
-        {!searching && searched && results.length === 0 && (
+        {replacing && (
+          <div className="search-panel__status">Replacing...</div>
+        )}
+        {replaceResult && !replacing && (
+          <div className="search-panel__status" style={{ color: "var(--c-accent)" }}>{replaceResult}</div>
+        )}
+        {!searching && !replacing && !replaceResult && searched && results.length === 0 && (
           <div className="search-panel__status">No results found</div>
         )}
-        {!searching && results.length > 0 && (
+        {!searching && !replacing && results.length > 0 && (
           <div className="search-panel__status">
             {results.length} result{results.length !== 1 ? "s" : ""} in {grouped.size} file{grouped.size !== 1 ? "s" : ""}
           </div>

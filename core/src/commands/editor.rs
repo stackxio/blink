@@ -159,6 +159,136 @@ pub async fn search_in_files(
     Ok(results)
 }
 
+/// Replace all matches of a query across files in a directory.
+/// Returns the number of files modified and total replacements made.
+#[tauri::command]
+pub async fn replace_in_files(
+    root: String,
+    query: String,
+    replacement: String,
+    case_sensitive: Option<bool>,
+    whole_word: Option<bool>,
+    is_regex: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    let case_sensitive = case_sensitive.unwrap_or(false);
+    let whole_word = whole_word.unwrap_or(false);
+    let is_regex = is_regex.unwrap_or(false);
+    let root_path = PathBuf::from(&root);
+
+    let skip_dirs: &[&str] = &[
+        "node_modules", ".git", "target", "dist", "build", ".next",
+        "__pycache__", ".venv", "venv", ".cache",
+    ];
+
+    let regex_pattern = if is_regex && !case_sensitive {
+        format!("(?i){}", query)
+    } else {
+        query.clone()
+    };
+    let regex = if is_regex {
+        match regex::Regex::new(&regex_pattern) {
+            Ok(r) => Some(r),
+            Err(e) => return Err(format!("Invalid regex: {}", e)),
+        }
+    } else {
+        None
+    };
+
+    let query_lower = query.to_lowercase();
+
+    // Collect all file paths first
+    let mut all_files: Vec<PathBuf> = Vec::new();
+    let mut stack = vec![root_path.clone()];
+    while let Some(dir) = stack.pop() {
+        let entries = match fs::read_dir(&dir) {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        for entry in entries {
+            let entry = match entry { Ok(e) => e, Err(_) => continue };
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.starts_with('.') { continue; }
+            let path = entry.path();
+            let meta = match entry.metadata() { Ok(m) => m, Err(_) => continue };
+            if meta.is_dir() {
+                if !skip_dirs.contains(&name.as_str()) { stack.push(path); }
+            } else {
+                if meta.len() > 1_048_576 { continue; }
+                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+                let binary_exts = ["png","jpg","jpeg","gif","bmp","ico","woff","woff2","ttf","eot","otf","mp3","mp4","wav","avi","mov","zip","tar","gz","rar","7z","pdf","exe","dll","so","dylib","o","a","wasm","lock"];
+                if !binary_exts.contains(&ext.as_str()) {
+                    all_files.push(path);
+                }
+            }
+        }
+    }
+
+    let mut files_modified = 0usize;
+    let mut total_replacements = 0usize;
+
+    for file_path in all_files {
+        let content = match fs::read_to_string(&file_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+
+        let (new_content, count) = if let Some(ref re) = regex {
+            let mut count = 0usize;
+            let result = re.replace_all(&content, |_caps: &regex::Captures| {
+                count += 1;
+                replacement.clone()
+            });
+            (result.into_owned(), count)
+        } else {
+            let mut count = 0usize;
+            let mut result = String::new();
+            let mut remaining = content.as_str();
+            loop {
+                let pos = if case_sensitive {
+                    remaining.find(&query)
+                } else {
+                    remaining.to_lowercase().find(&query_lower)
+                };
+                match pos {
+                    None => { result.push_str(remaining); break; }
+                    Some(idx) => {
+                        if whole_word {
+                            let before = if idx > 0 { remaining.as_bytes().get(idx - 1).copied() } else { None };
+                            let after = remaining.as_bytes().get(idx + query.len()).copied();
+                            let is_word_boundary = |b: Option<u8>| match b {
+                                None => true,
+                                Some(c) => !c.is_ascii_alphanumeric() && c != b'_',
+                            };
+                            if !is_word_boundary(before) || !is_word_boundary(after) {
+                                result.push_str(&remaining[..idx + 1]);
+                                remaining = &remaining[idx + 1..];
+                                continue;
+                            }
+                        }
+                        result.push_str(&remaining[..idx]);
+                        result.push_str(&replacement);
+                        remaining = &remaining[idx + query.len()..];
+                        count += 1;
+                    }
+                }
+            }
+            (result, count)
+        };
+
+        if count > 0 {
+            fs::write(&file_path, &new_content)
+                .map_err(|e| format!("Failed to write {}: {}", file_path.display(), e))?;
+            files_modified += 1;
+            total_replacements += count;
+        }
+    }
+
+    Ok(serde_json::json!({
+        "files_modified": files_modified,
+        "replacements_made": total_replacements
+    }))
+}
+
 #[derive(Debug, Serialize)]
 pub struct DirEntry {
     pub name: String,

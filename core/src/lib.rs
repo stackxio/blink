@@ -211,6 +211,7 @@ pub fn run() {
             commands::editor::create_file,
             commands::editor::create_directory,
             commands::editor::search_in_files,
+            commands::editor::replace_in_files,
             commands::terminal::terminal_create,
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,
