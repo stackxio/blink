@@ -46,6 +46,10 @@
       color: var(--c-fg);
     }
 
+    &--active {
+      color: var(--c-accent);
+    }
+
     svg {
       width: 12px;
       height: 12px;

@@ -1,3 +1,4 @@
+import { useState, useCallback } from "react";
 import { GitBranch, Terminal } from "lucide-react";
 import { useAppStore } from "@/store";
 
@@ -13,6 +14,17 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const ws = useAppStore((s) => s.activeWorkspace());
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
+
+  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("caret:wordWrap") === "true");
+  const [tabSize] = useState(() => parseInt(localStorage.getItem("caret:tabSize") || "2", 10));
+
+  const toggleWordWrap = useCallback(() => {
+    const next = !wordWrap;
+    setWordWrap(next);
+    localStorage.setItem("caret:wordWrap", String(next));
+    // Dispatch a storage event so the editor can react to the change
+    window.dispatchEvent(new StorageEvent("storage", { key: "caret:wordWrap", newValue: String(next) }));
+  }, [wordWrap]);
 
   return (
     <div className="status-bar">
@@ -30,11 +42,28 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
             Ln {line}, Col {col}
           </button>
         )}
+        <button type="button" className="status-bar__item" title="Indentation">
+          Spaces: {tabSize}
+        </button>
+        <button type="button" className="status-bar__item" title="File encoding">
+          UTF-8
+        </button>
+        <button type="button" className="status-bar__item" title="End of line sequence">
+          LF
+        </button>
         {language && (
           <button type="button" className="status-bar__item">
             {language}
           </button>
         )}
+        <button
+          type="button"
+          className={`status-bar__item ${wordWrap ? "status-bar__item--active" : ""}`}
+          onClick={toggleWordWrap}
+          title="Toggle Word Wrap"
+        >
+          Word Wrap
+        </button>
         <button
           type="button"
           className="status-bar__item"

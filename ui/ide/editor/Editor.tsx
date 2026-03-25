@@ -1,9 +1,9 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, type Panel } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, indentOnInput, foldGutter, foldKeymap } from "@codemirror/language";
+import { bracketMatching, indentOnInput, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
 import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
 import { search, searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, closeSearchPanel, gotoLine } from "@codemirror/search";
 import { lintGutter } from "@codemirror/lint";
@@ -136,6 +136,9 @@ interface Props {
   onCursorChange?: (line: number, col: number, scrollTop: number) => void;
 }
 
+// Compartment for word wrap — shared across editor instances
+const wordWrapCompartment = new Compartment();
+
 export default function Editor({ content, filename, filePath, initialCursorLine, initialCursorCol, initialScrollTop, onSave, onChange, onCursorChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -161,6 +164,10 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
 
     const lang = getLanguageExtension(filename);
     const ext = filename.split(".").pop()?.toLowerCase() || "";
+
+    // Read editor preferences from localStorage
+    const storedWordWrap = localStorage.getItem("caret:wordWrap") === "true";
+    const storedTabSize = parseInt(localStorage.getItem("caret:tabSize") || "2", 10);
 
     // Start LSP in background — doesn't block editor creation
     const lspClient = new LspClient();
@@ -197,6 +204,11 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         darkSyntaxHighlighting,
         autocompletion(), // CM's built-in — no LSP override
         lintGutter(),
+        // Tab size & indent
+        EditorState.tabSize.of(storedTabSize),
+        indentUnit.of(" ".repeat(storedTabSize)),
+        // Word wrap (in compartment so it can be toggled at runtime)
+        wordWrapCompartment.of(storedWordWrap ? EditorView.lineWrapping : []),
         ...(Array.isArray(lang) ? lang : [lang]),
         keymap.of([
           ...closeBracketsKeymap,
@@ -253,6 +265,17 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
+    // Listen for word wrap toggle from status bar
+    function onStorageChange(e: StorageEvent) {
+      if (e.key === "caret:wordWrap" && viewRef.current) {
+        const wrap = e.newValue === "true";
+        viewRef.current.dispatch({
+          effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []),
+        });
+      }
+    }
+    window.addEventListener("storage", onStorageChange);
+
     // Restore cursor position and scroll
     if (initialCursorLine && initialCursorLine > 0) {
       try {
@@ -266,6 +289,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     }
 
     return () => {
+      window.removeEventListener("storage", onStorageChange);
       if (changeTimer) clearTimeout(changeTimer);
       lspClientRef.current?.didClose(`file://${filePath}`);
       diagCleanupRef.current?.();
