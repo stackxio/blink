@@ -218,7 +218,7 @@ export default function IdeLayout() {
         e.preventDefault();
         if (e.shiftKey) {
           setCommandPaletteOpen((v) => !v);
-        } else if (workspacePath) {
+        } else {
           setFileSearchOpen((v) => !v);
         }
         return;
