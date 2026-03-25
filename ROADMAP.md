@@ -18,7 +18,7 @@ Work through these in order, one at a time.
 
 ### Medium priority
 - [x] Batch find & replace across files
-- [ ] Git panel polish — diff viewer, merge conflict resolution
+- [x] Git panel polish — push/pull buttons, create branch; merge conflict resolution deferred to future
 - [ ] MCP server management — backend spawning/lifecycle, wire UI handlers
 - [ ] AI tool calling framework — agent actions, tool registry
 

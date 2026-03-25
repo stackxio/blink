@@ -214,6 +214,22 @@ pub fn git_checkout_branch(path: String, branch: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub fn git_push(path: String) -> Result<String, String> {
+    run_git(&path, &["push"])
+}
+
+#[tauri::command]
+pub fn git_pull(path: String) -> Result<String, String> {
+    run_git(&path, &["pull"])
+}
+
+#[tauri::command]
+pub fn git_create_branch(path: String, branch: String) -> Result<(), String> {
+    run_git(&path, &["checkout", "-b", &branch])?;
+    Ok(())
+}
+
 #[derive(Debug, Serialize)]
 pub struct BlameInfo {
     pub author: String,

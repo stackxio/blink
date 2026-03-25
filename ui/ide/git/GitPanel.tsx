@@ -13,6 +13,8 @@ import {
   FileQuestion,
   ArrowRightLeft,
   GitBranch,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 interface GitFileStatus {
@@ -77,6 +79,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffFile, setDiffFile] = useState<string | null>(null);
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [pushPullStatus, setPushPullStatus] = useState<string | null>(null);
   const [stagedOpen, setStagedOpen] = useState(true);
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const [commitsOpen, setCommitsOpen] = useState(false);
@@ -188,6 +191,31 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
     }
   }
 
+  async function handlePush() {
+    if (!workspacePath) return;
+    setPushPullStatus("Pushing...");
+    try {
+      await invoke("git_push", { path: workspacePath });
+      setPushPullStatus("Pushed.");
+    } catch (e) {
+      setPushPullStatus(`Push failed: ${String(e)}`);
+    }
+    setTimeout(() => setPushPullStatus(null), 3000);
+  }
+
+  async function handlePull() {
+    if (!workspacePath) return;
+    setPushPullStatus("Pulling...");
+    try {
+      await invoke("git_pull", { path: workspacePath });
+      setPushPullStatus("Pulled.");
+      refresh();
+    } catch (e) {
+      setPushPullStatus(`Pull failed: ${String(e)}`);
+    }
+    setTimeout(() => setPushPullStatus(null), 3000);
+  }
+
   async function handleCheckoutBranch(branchName: string) {
     if (!workspacePath) return;
     try {
@@ -236,12 +264,33 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
         <button
           type="button"
           className="git-panel__refresh-btn"
+          onClick={handlePull}
+          title="Pull"
+        >
+          <ArrowDown size={14} />
+        </button>
+        <button
+          type="button"
+          className="git-panel__refresh-btn"
+          onClick={handlePush}
+          title="Push"
+        >
+          <ArrowUp size={14} />
+        </button>
+        <button
+          type="button"
+          className="git-panel__refresh-btn"
           onClick={refresh}
           title="Refresh"
         >
           <RefreshCw size={14} className={loading ? "git-panel__spin" : ""} />
         </button>
       </div>
+      {pushPullStatus && (
+        <div style={{ padding: "4px 12px", fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)", borderBottom: "1px solid var(--c-border)" }}>
+          {pushPullStatus}
+        </div>
+      )}
 
       {branchDropdownOpen && (
         <div className="git-panel__branch-dropdown">
