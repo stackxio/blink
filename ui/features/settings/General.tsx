@@ -11,27 +11,36 @@ import {
 } from "@/lib/key-bindings";
 import { useAppStore } from "@/store";
 
+interface EditorSettings {
+  auto_save: boolean;
+  tab_size: number;
+  font_size: number;
+  word_wrap: boolean;
+  minimap: boolean;
+}
+
 interface Settings {
   active_provider: string;
   codex: { model: string };
   ollama: { endpoint: string; model: string };
   custom: { endpoint: string; model: string; api_key: string };
+  editor: EditorSettings;
 }
 
+const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20];
+const TAB_SIZES = [2, 4, 8];
+
 export default function SettingsGeneral() {
-  const [_settings, setSettings] = useState<Settings | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
   const [recording, setRecording] = useState<string | null>(null);
   const recordingRef = useRef<string | null>(null);
 
-  // IDE settings (stored in localStorage for now)
-  const [autoSave, setAutoSave] = useState(() => localStorage.getItem("caret:autoSave") !== "false");
-  const [tabSize, setTabSize] = useState(() => parseInt(localStorage.getItem("caret:tabSize") || "2", 10));
-  const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem("caret:fontSize") || "13", 10));
-  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("caret:wordWrap") === "true");
-  const [minimap, setMinimap] = useState(() => localStorage.getItem("caret:minimap") !== "false");
+  useEffect(() => {
+    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!recording) return;
@@ -50,37 +59,23 @@ export default function SettingsGeneral() {
     return () => window.removeEventListener("keydown", onKey, true);
   }, [recording, bindingMap]);
 
-  useEffect(() => {
-    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
-  }, []);
-
-  function toggleAutoSave() {
-    const next = !autoSave;
-    setAutoSave(next);
-    localStorage.setItem("caret:autoSave", String(next));
+  async function updateEditor(patch: Partial<EditorSettings>) {
+    if (!settings) return;
+    const updated: Settings = {
+      ...settings,
+      editor: { ...settings.editor, ...patch },
+    };
+    setSettings(updated);
+    try {
+      await invoke("save_settings", { settings: updated });
+    } catch {
+      setSettings(settings);
+    }
   }
 
-  function changeTabSize(v: number) {
-    setTabSize(v);
-    localStorage.setItem("caret:tabSize", String(v));
-  }
+  if (!settings) return null;
 
-  function changeFontSize(v: number) {
-    setFontSize(v);
-    localStorage.setItem("caret:fontSize", String(v));
-  }
-
-  function toggleWordWrap() {
-    const next = !wordWrap;
-    setWordWrap(next);
-    localStorage.setItem("caret:wordWrap", String(next));
-  }
-
-  function toggleMinimap() {
-    const next = !minimap;
-    setMinimap(next);
-    localStorage.setItem("caret:minimap", String(next));
-  }
+  const { editor } = settings;
 
   return (
     <div className="settings-section">
@@ -95,8 +90,8 @@ export default function SettingsGeneral() {
           </div>
           <button
             type="button"
-            className={`toggle ${autoSave ? "toggle--on" : ""}`}
-            onClick={toggleAutoSave}
+            className={`toggle ${editor.auto_save ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ auto_save: !editor.auto_save })}
           >
             <span className="toggle__thumb" />
           </button>
@@ -108,12 +103,12 @@ export default function SettingsGeneral() {
             <div className="settings-row__hint">Number of spaces per indentation level.</div>
           </div>
           <div className="segment-control">
-            {[2, 4, 8].map((v) => (
+            {TAB_SIZES.map((v) => (
               <button
                 key={v}
                 type="button"
-                className={`segment-control__item ${tabSize === v ? "segment-control__item--active" : ""}`}
-                onClick={() => changeTabSize(v)}
+                className={`segment-control__item ${editor.tab_size === v ? "segment-control__item--active" : ""}`}
+                onClick={() => updateEditor({ tab_size: v })}
               >
                 {v}
               </button>
@@ -128,10 +123,10 @@ export default function SettingsGeneral() {
           </div>
           <select
             className="input input--sm"
-            value={fontSize}
-            onChange={(e) => changeFontSize(parseInt(e.target.value, 10))}
+            value={editor.font_size}
+            onChange={(e) => updateEditor({ font_size: parseInt(e.target.value, 10) })}
           >
-            {[11, 12, 13, 14, 15, 16, 18, 20].map((v) => (
+            {FONT_SIZES.map((v) => (
               <option key={v} value={v}>{v}px</option>
             ))}
           </select>
@@ -144,8 +139,8 @@ export default function SettingsGeneral() {
           </div>
           <button
             type="button"
-            className={`toggle ${wordWrap ? "toggle--on" : ""}`}
-            onClick={toggleWordWrap}
+            className={`toggle ${editor.word_wrap ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ word_wrap: !editor.word_wrap })}
           >
             <span className="toggle__thumb" />
           </button>
@@ -158,8 +153,8 @@ export default function SettingsGeneral() {
           </div>
           <button
             type="button"
-            className={`toggle ${minimap ? "toggle--on" : ""}`}
-            onClick={toggleMinimap}
+            className={`toggle ${editor.minimap ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ minimap: !editor.minimap })}
           >
             <span className="toggle__thumb" />
           </button>
@@ -185,12 +180,11 @@ export default function SettingsGeneral() {
 
       <h2 className="settings-section__subtitle">Keyboard shortcuts</h2>
       <div className="settings-card">
-        {BINDINGS.map((b, i) => {
-          const isLast = i === BINDINGS.length - 1;
+        {BINDINGS.map((b) => {
           const isRecording = recording === b.id;
           const key = effectiveKey(b.id, bindingMap);
           return (
-            <div key={b.id} className={`settings-row ${isLast ? "" : ""}`}>
+            <div key={b.id} className="settings-row">
               <div className="settings-row__label">{b.label}</div>
               <button
                 type="button"

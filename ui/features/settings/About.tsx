@@ -1,9 +1,14 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-
-const APP_VERSION = "0.2.0";
+import { getVersion } from "@tauri-apps/api/app";
 
 export default function SettingsAbout() {
   const navigate = useNavigate();
+  const [version, setVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => setVersion("unknown"));
+  }, []);
 
   return (
     <div className="settings-section">
@@ -14,7 +19,7 @@ export default function SettingsAbout() {
             <div className="settings-row__label">App version</div>
             <div className="settings-row__hint">Current application version</div>
           </div>
-          <span className="settings-row__value">{APP_VERSION}</span>
+          <span className="settings-row__value">{version ?? "…"}</span>
         </div>
         <div className="settings-row">
           <div className="settings-row__info">

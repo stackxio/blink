@@ -14,6 +14,10 @@ pub struct CaretSettings {
     pub custom: CustomSettings,
     #[serde(default)]
     pub claude_code: ClaudeCodeSettings,
+    #[serde(default)]
+    pub editor: EditorSettings,
+    #[serde(default)]
+    pub appearance: AppearanceSettings,
 }
 
 fn default_prompt_mode() -> String {
@@ -59,6 +63,57 @@ impl Default for ClaudeCodeSettings {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EditorSettings {
+    #[serde(default = "default_auto_save")]
+    pub auto_save: bool,
+    #[serde(default = "default_tab_size")]
+    pub tab_size: u8,
+    #[serde(default = "default_font_size")]
+    pub font_size: u8,
+    #[serde(default)]
+    pub word_wrap: bool,
+    #[serde(default = "default_minimap")]
+    pub minimap: bool,
+}
+
+fn default_auto_save() -> bool { true }
+fn default_tab_size() -> u8 { 2 }
+fn default_font_size() -> u8 { 13 }
+fn default_minimap() -> bool { true }
+
+impl Default for EditorSettings {
+    fn default() -> Self {
+        Self {
+            auto_save: true,
+            tab_size: 2,
+            font_size: 13,
+            word_wrap: false,
+            minimap: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppearanceSettings {
+    #[serde(default = "default_theme")]
+    pub theme: String,
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
+}
+
+fn default_theme() -> String { "dark".to_string() }
+fn default_font_family() -> String { "default".to_string() }
+
+impl Default for AppearanceSettings {
+    fn default() -> Self {
+        Self {
+            theme: "dark".to_string(),
+            font_family: "default".to_string(),
+        }
+    }
+}
+
 impl Default for CaretSettings {
     fn default() -> Self {
         Self {
@@ -79,6 +134,8 @@ impl Default for CaretSettings {
                 api_key: String::new(),
             },
             claude_code: ClaudeCodeSettings::default(),
+            editor: EditorSettings::default(),
+            appearance: AppearanceSettings::default(),
         }
     }
 }

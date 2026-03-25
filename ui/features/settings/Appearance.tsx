@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { type Theme, getStoredTheme, changeTheme } from "@/lib/theme";
 
 const FONT_FAMILIES = [
@@ -11,20 +12,40 @@ const FONT_FAMILIES = [
   { value: "'IBM Plex Mono', monospace", label: "IBM Plex Mono" },
 ];
 
+interface Settings {
+  appearance: { theme: string; font_family: string };
+  [key: string]: unknown;
+}
+
 export default function SettingsAppearance() {
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
-  const [fontFamily, setFontFamily] = useState(
-    () => localStorage.getItem("caret:fontFamily") || "default",
-  );
+  const [fontFamily, setFontFamily] = useState("default");
+  const [settings, setSettings] = useState<Settings | null>(null);
 
-  function handleThemeChange(t: Theme) {
+  useEffect(() => {
+    invoke<Settings>("get_settings")
+      .then((s) => {
+        setSettings(s);
+        setFontFamily(s.appearance.font_family);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleThemeChange(t: Theme) {
     setTheme(t);
     changeTheme(t);
+    if (!settings) return;
+    const updated = { ...settings, appearance: { ...settings.appearance, theme: t } };
+    setSettings(updated);
+    invoke("save_settings", { settings: updated }).catch(() => {});
   }
 
-  function handleFontChange(value: string) {
+  async function handleFontChange(value: string) {
     setFontFamily(value);
-    localStorage.setItem("caret:fontFamily", value);
+    if (!settings) return;
+    const updated = { ...settings, appearance: { ...settings.appearance, font_family: value } };
+    setSettings(updated);
+    invoke("save_settings", { settings: updated }).catch(() => {});
   }
 
   return (

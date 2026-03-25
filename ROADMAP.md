@@ -2,7 +2,31 @@
 
 **Vision:** AI-first IDE with multi-workspace support, built on Tauri + Rust.
 
-**Status:** Phases 0-7 complete. Polish in progress.
+**Status:** Phases 0-7 complete. Active development on v0.1.x polish + new features.
+
+---
+
+## v0.1.x — Active work queue
+
+Work through these in order, one at a time.
+
+### High priority
+- [x] Settings refactor — split General.tsx, move editor prefs off localStorage, wire Providers forms to backend
+- [x] Provider settings wiring — Ollama endpoint/model + Custom API endpoint/key/model save & load
+- [ ] Auto-updater flow — wire tauri-plugin-updater to a hosted `latest.json` manifest
+- [ ] LSP diagnostics — display error/warning squiggles in editor, Problems panel in bottom bar
+
+### Medium priority
+- [ ] Batch find & replace across files
+- [ ] Git panel polish — diff viewer, merge conflict resolution
+- [ ] MCP server management — backend spawning/lifecycle, wire UI handlers
+- [ ] AI tool calling framework — agent actions, tool registry
+
+### Lower priority
+- [ ] Code signing + notarization (Apple Developer account)
+- [ ] Extensions/plugin system
+- [ ] Debugger integration (DAP)
+- [ ] Windows + Linux builds
 
 ---
 
