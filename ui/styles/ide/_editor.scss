@@ -71,9 +71,15 @@
       color: var(--c-muted-fg);
       font-size: 12px;
       min-width: 48px;
-      user-select: none;
-      -webkit-user-select: none;
-      cursor: default;
+      user-select: none !important;
+      -webkit-user-select: none !important;
+      pointer-events: none;
+    }
+
+    // Minimap — no select
+    .cm-minimap {
+      user-select: none !important;
+      -webkit-user-select: none !important;
     }
 
     .cm-activeLineGutter {
