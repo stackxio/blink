@@ -95,6 +95,9 @@ importers:
       '@replit/codemirror-indentation-markers':
         specifier: ^6.5.3
         version: 6.5.3(@codemirror/language@6.12.2)(@codemirror/state@6.6.0)(@codemirror/view@6.40.0)
+      '@replit/codemirror-minimap':
+        specifier: ^0.5.2
+        version: 0.5.2(@codemirror/language@6.12.2)(@codemirror/lint@6.9.5)(@codemirror/state@6.6.0)(@codemirror/view@6.40.0)(@lezer/common@1.5.1)(@lezer/highlight@1.2.3)
       '@tauri-apps/api':
         specifier: ^2.10.1
         version: 2.10.1
@@ -844,6 +847,16 @@ packages:
       '@codemirror/language': ^6.0.0
       '@codemirror/state': ^6.0.0
       '@codemirror/view': ^6.0.0
+
+  '@replit/codemirror-minimap@0.5.2':
+    resolution: {integrity: sha512-eNAtpr0hOG09/5zqAQ5PkgZEb3V/MHi30zentCxiR73r+utR2m9yVMCpBmfsWbb8mWxUWhMGPiHxM5hFtnscQA==}
+    peerDependencies:
+      '@codemirror/language': ^6.9.1
+      '@codemirror/lint': ^6.4.2
+      '@codemirror/state': ^6.3.1
+      '@codemirror/view': ^6.21.3
+      '@lezer/common': ^1.1.0
+      '@lezer/highlight': ^1.1.6
 
   '@rolldown/pluginutils@1.0.0-rc.3':
     resolution: {integrity: sha512-eybk3TjzzzV97Dlj5c+XrBFW57eTNhzod66y9HrBlzJ6NsCrWCp/2kaPS3K9wJmurBC0Tdw4yPjXKZqlznim3Q==}
@@ -2885,6 +2898,16 @@ snapshots:
       '@codemirror/language': 6.12.2
       '@codemirror/state': 6.6.0
       '@codemirror/view': 6.40.0
+
+  '@replit/codemirror-minimap@0.5.2(@codemirror/language@6.12.2)(@codemirror/lint@6.9.5)(@codemirror/state@6.6.0)(@codemirror/view@6.40.0)(@lezer/common@1.5.1)(@lezer/highlight@1.2.3)':
+    dependencies:
+      '@codemirror/language': 6.12.2
+      '@codemirror/lint': 6.9.5
+      '@codemirror/state': 6.6.0
+      '@codemirror/view': 6.40.0
+      '@lezer/common': 1.5.1
+      '@lezer/highlight': 1.2.3
+      crelt: 1.0.6
 
   '@rolldown/pluginutils@1.0.0-rc.3': {}
 

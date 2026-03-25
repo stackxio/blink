@@ -11,6 +11,7 @@ import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
 import { lspDiagnosticsListener } from "./cm-lsp-extension";
 import { useAppStore } from "@/store";
+import { showMinimap } from "@replit/codemirror-minimap";
 
 import { javascript } from "@codemirror/lang-javascript";
 import { python } from "@codemirror/lang-python";
@@ -168,6 +169,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     // Read editor preferences from localStorage
     const storedWordWrap = localStorage.getItem("caret:wordWrap") === "true";
     const storedTabSize = parseInt(localStorage.getItem("caret:tabSize") || "2", 10);
+    const storedMinimap = localStorage.getItem("caret:minimap") !== "false"; // default on
 
     // Start LSP in background — doesn't block editor creation
     const lspClient = new LspClient();
@@ -209,6 +211,12 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         indentUnit.of(" ".repeat(storedTabSize)),
         // Word wrap (in compartment so it can be toggled at runtime)
         wordWrapCompartment.of(storedWordWrap ? EditorView.lineWrapping : []),
+        // Minimap
+        ...(storedMinimap ? [showMinimap.compute(["doc"], () => ({
+          create: () => { const dom = document.createElement("div"); return { dom }; },
+          displayText: "blocks",
+          showOverlay: "always",
+        }))] : []),
         ...(Array.isArray(lang) ? lang : [lang]),
         keymap.of([
           ...closeBracketsKeymap,
