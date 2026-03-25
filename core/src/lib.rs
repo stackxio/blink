@@ -133,6 +133,7 @@ pub fn run() {
                         "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
                         "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('caret:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),
+                        "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('caret:check-updates'))"),
                         _ => Ok(()),
                     };
                 }
@@ -151,6 +152,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::settings::get_settings,
             commands::settings::save_settings,
+            commands::updater::check_for_update,
+            commands::updater::install_update,
             commands::ai::chat,
             commands::ai::chat_stream,
             commands::ai::cancel_stream,
