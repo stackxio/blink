@@ -19,7 +19,7 @@ Work through these in order, one at a time.
 ### Medium priority
 - [x] Batch find & replace across files
 - [x] Git panel polish — push/pull buttons, create branch; merge conflict resolution deferred to future
-- [ ] MCP server management — backend spawning/lifecycle, wire UI handlers
+- [x] MCP server management — config CRUD (add/remove/list), recommended server install; runtime process spawning deferred
 - [ ] AI tool calling framework — agent actions, tool registry
 
 ### Lower priority
