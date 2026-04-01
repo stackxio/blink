@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolDefinition {
@@ -70,7 +70,8 @@ pub fn built_in_tools() -> Vec<ToolDefinition> {
         },
         ToolDefinition {
             name: "search_files".to_string(),
-            description: "Search for a text pattern across files in a directory (grep-style).".to_string(),
+            description: "Search for a text pattern across files in a directory (grep-style)."
+                .to_string(),
             parameters: json!({
                 "type": "object",
                 "properties": {

@@ -21,7 +21,7 @@ export const BINDINGS: Binding[] = [
   { id: "open_settings", label: "Settings", defaultKey: "Meta+," },
 ];
 
-const STORAGE_KEY = "caret:keybindings";
+const STORAGE_KEY = "blink:keybindings";
 
 export type BindingMap = Record<string, string>;
 

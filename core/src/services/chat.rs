@@ -3,13 +3,13 @@
 use rusqlite::Connection;
 
 use crate::db::queries;
-use crate::providers::api::ApiProvider;
 use crate::providers::anthropic::ClaudeCodeProvider;
+use crate::providers::api::ApiProvider;
 use crate::providers::ollama::OllamaProvider;
 use crate::providers::openai::CodexProvider;
 use crate::providers::types::{ChatMessage, ChatRequest};
 use crate::services::router::AIRouter;
-use crate::settings::config::CaretSettings;
+use crate::settings::config::BlinkSettings;
 use crate::settings::prompts;
 
 /// Whether a provider manages conversation context internally.
@@ -19,7 +19,9 @@ pub fn provider_manages_context(provider: &str) -> bool {
 
 /// Load project memory block for a thread.
 fn project_memory_block(conn: &Connection, thread_id: Option<&str>) -> String {
-    let Some(tid) = thread_id else { return String::new() };
+    let Some(tid) = thread_id else {
+        return String::new();
+    };
     let thread = match queries::get_thread(conn, tid) {
         Ok(Some(t)) => t,
         _ => return String::new(),
@@ -32,7 +34,9 @@ fn project_memory_block(conn: &Connection, thread_id: Option<&str>) -> String {
         Ok(m) => m,
         Err(_) => return String::new(),
     };
-    if memories.is_empty() { return String::new(); }
+    if memories.is_empty() {
+        return String::new();
+    }
     let mut block = String::from("\n\n--- Project context ---\n");
     for m in &memories {
         block.push_str(&m.content);
@@ -44,19 +48,25 @@ fn project_memory_block(conn: &Connection, thread_id: Option<&str>) -> String {
 
 /// Load attachment summaries for a thread.
 fn attachment_summaries_block(conn: &Connection, thread_id: Option<&str>) -> String {
-    let Some(tid) = thread_id else { return String::new() };
+    let Some(tid) = thread_id else {
+        return String::new();
+    };
     let attachments = match queries::list_attachments_by_thread(conn, tid) {
         Ok(a) => a,
         Err(_) => return String::new(),
     };
-    if attachments.is_empty() { return String::new(); }
+    if attachments.is_empty() {
+        return String::new();
+    }
     let mut block = String::from("\n\n--- Attached files ---\n");
     for a in &attachments {
         block.push_str(&format!("[{}] ", a.original_name));
         if let Some(ref preview) = a.preview_text {
             let snippet: String = preview.chars().take(1500).collect();
             block.push_str(&snippet);
-            if preview.len() > 1500 { block.push_str("..."); }
+            if preview.len() > 1500 {
+                block.push_str("...");
+            }
         } else {
             block.push_str("(not available)");
         }
@@ -124,7 +134,7 @@ pub fn build_chat_request(
 }
 
 /// Construct an AIRouter with all configured providers registered.
-pub fn build_router(settings: &CaretSettings) -> AIRouter {
+pub fn build_router(settings: &BlinkSettings) -> AIRouter {
     let mut router = AIRouter::new(settings.active_provider.clone());
 
     router.register(Box::new(CodexProvider::new(settings.codex.model.clone())));

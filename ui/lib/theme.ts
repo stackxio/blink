@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 export type Theme = "light" | "dark" | "system";
 
-const STORAGE_KEY = "caret-theme";
+const STORAGE_KEY = "blink-theme";
 
 export function getStoredTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);

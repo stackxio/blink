@@ -127,7 +127,10 @@ pub async fn terminal_write(
         .writer
         .write_all(data.as_bytes())
         .map_err(|e| format!("Write failed: {}", e))?;
-    session.writer.flush().map_err(|e| format!("Flush failed: {}", e))?;
+    session
+        .writer
+        .flush()
+        .map_err(|e| format!("Flush failed: {}", e))?;
     Ok(())
 }
 

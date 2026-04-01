@@ -153,7 +153,10 @@ pub async fn chat_stream(
     })?;
 
     // Use explicit provider/model from input if provided, otherwise fall back to settings
-    let provider = input.provider.clone().unwrap_or_else(|| settings.active_provider.clone());
+    let provider = input
+        .provider
+        .clone()
+        .unwrap_or_else(|| settings.active_provider.clone());
     if let Some(ref model) = input.model {
         match provider.as_str() {
             "codex" => settings.codex.model = model.clone(),
@@ -164,7 +167,9 @@ pub async fn chat_stream(
         }
         settings.active_provider = provider.clone();
     }
-    log::info!("chat_stream: provider={}, model={}", provider,
+    log::info!(
+        "chat_stream: provider={}, model={}",
+        provider,
         match provider.as_str() {
             "codex" => &settings.codex.model,
             "ollama" => &settings.ollama.model,
@@ -232,7 +237,7 @@ pub async fn chat_stream(
 fn stream_via_router(
     app_handle: tauri::AppHandle,
     state: tauri::State<'_, Mutex<Connection>>,
-    settings: &crate::settings::config::CaretSettings,
+    settings: &crate::settings::config::BlinkSettings,
     provider: &str,
     input: ChatInput,
     session_id_clone: String,
@@ -374,7 +379,7 @@ async fn stream_via_codex_server(
     state: tauri::State<'_, Mutex<Connection>>,
     sessions: tauri::State<'_, StreamSessions>,
     codex_state: tauri::State<'_, CodexState>,
-    settings: &crate::settings::config::CaretSettings,
+    settings: &crate::settings::config::BlinkSettings,
     input: ChatInput,
     session_id: String,
     session_id_clone: String,
@@ -486,7 +491,11 @@ async fn stream_via_codex_server(
             }
         }
 
-        let model_ref = if codex_model.is_empty() { None } else { Some(codex_model.as_str()) };
+        let model_ref = if codex_model.is_empty() {
+            None
+        } else {
+            Some(codex_model.as_str())
+        };
         let (turn_id, mut event_rx) = match server
             .send_turn(
                 &codex_thread_id,
@@ -534,8 +543,7 @@ async fn stream_via_codex_server(
                 break;
             }
 
-            match tokio::time::timeout(std::time::Duration::from_millis(100), event_rx.recv())
-                .await
+            match tokio::time::timeout(std::time::Duration::from_millis(100), event_rx.recv()).await
             {
                 Ok(Some(CodexStreamEvent::Delta(delta))) => {
                     full_text.push_str(&delta);

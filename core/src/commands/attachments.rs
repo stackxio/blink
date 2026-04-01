@@ -160,34 +160,29 @@ pub fn extract_attachment_text(
                 }),
             )
         }
-        "pdf" => {
-            match fs::read(path) {
-                Ok(bytes) => match pdf_extract::extract_text_from_mem(&bytes) {
-                    Ok(text) => {
-                        let preview = text.chars().take(4000).collect::<String>();
-                        (
-                            "complete",
-                            Some(if text.len() > 4000 {
-                                format!("{}...", preview)
-                            } else {
-                                preview
-                            }),
-                        )
-                    }
-                    Err(_) => ("failed", Some("PDF could not be extracted (e.g. scanned image).".to_string())),
-                },
-                Err(e) => ("failed", Some(format!("Could not read PDF: {}", e))),
-            }
-        }
+        "pdf" => match fs::read(path) {
+            Ok(bytes) => match pdf_extract::extract_text_from_mem(&bytes) {
+                Ok(text) => {
+                    let preview = text.chars().take(4000).collect::<String>();
+                    (
+                        "complete",
+                        Some(if text.len() > 4000 {
+                            format!("{}...", preview)
+                        } else {
+                            preview
+                        }),
+                    )
+                }
+                Err(_) => (
+                    "failed",
+                    Some("PDF could not be extracted (e.g. scanned image).".to_string()),
+                ),
+            },
+            Err(e) => ("failed", Some(format!("Could not read PDF: {}", e))),
+        },
         _ => ("failed", None),
     };
-    queries::set_attachment_extraction(
-        &conn,
-        &attachment_id,
-        status,
-        None,
-        preview.as_deref(),
-    )
+    queries::set_attachment_extraction(&conn, &attachment_id, status, None, preview.as_deref())
         .map_err(|e| e.to_string())?;
     Ok(())
 }

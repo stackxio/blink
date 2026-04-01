@@ -7,8 +7,8 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, String> {
     match name {
         "read_file" => {
             let path = args["path"].as_str().ok_or("Missing required arg: path")?;
-            let content = fs::read_to_string(path)
-                .map_err(|e| format!("Failed to read {}: {}", path, e))?;
+            let content =
+                fs::read_to_string(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
             // Truncate very large files to prevent context overflow
             if content.len() > 50_000 {
                 Ok(format!(
@@ -23,7 +23,9 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, String> {
 
         "write_file" => {
             let path = args["path"].as_str().ok_or("Missing required arg: path")?;
-            let content = args["content"].as_str().ok_or("Missing required arg: content")?;
+            let content = args["content"]
+                .as_str()
+                .ok_or("Missing required arg: content")?;
             if let Some(parent) = std::path::Path::new(path).parent() {
                 fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
@@ -55,7 +57,9 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, String> {
         }
 
         "run_command" => {
-            let cmd = args["command"].as_str().ok_or("Missing required arg: command")?;
+            let cmd = args["command"]
+                .as_str()
+                .ok_or("Missing required arg: command")?;
             let cwd = args["cwd"].as_str();
             let mut command = Command::new("sh");
             command.arg("-c").arg(cmd);
@@ -91,7 +95,9 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, String> {
 
         "search_files" => {
             let root = args["root"].as_str().ok_or("Missing required arg: root")?;
-            let pattern = args["pattern"].as_str().ok_or("Missing required arg: pattern")?;
+            let pattern = args["pattern"]
+                .as_str()
+                .ok_or("Missing required arg: pattern")?;
             let output = Command::new("grep")
                 .args(["-r", "-n", "--include=*", pattern, root])
                 .output()

@@ -1,15 +1,15 @@
 #![allow(dead_code)]
 
-use tauri::Manager;
 use tauri::menu::{AboutMetadataBuilder, MenuBuilder, SubmenuBuilder};
+use tauri::Manager;
 
 mod commands;
 mod connectors;
 mod db;
 pub mod lsp;
 pub mod providers;
-pub mod services;
 mod scope;
+pub mod services;
 mod settings;
 pub mod tools;
 
@@ -34,14 +34,14 @@ pub fn run() {
         .setup(|app| {
             // Native macOS menu bar
             let about = AboutMetadataBuilder::new()
-                .name(Some("Caret"))
+                .name(Some("Blink"))
                 .version(Some(env!("CARGO_PKG_VERSION")))
                 .authors(Some(vec!["Voxire".to_string()]))
                 .comments(Some("AI-first code editor"))
                 .website(Some("https://voxire.com"))
                 .build();
 
-            let app_menu = SubmenuBuilder::new(app, "Caret")
+            let app_menu = SubmenuBuilder::new(app, "Blink")
                 .about(Some(about))
                 .separator()
                 .text("settings", "Settings...")
@@ -102,7 +102,7 @@ pub fn run() {
                 .build()?;
 
             let help_menu = SubmenuBuilder::new(app, "Help")
-                .text("about", "About Caret")
+                .text("about", "About Blink")
                 .build()?;
 
             let menu = MenuBuilder::new(app)
@@ -121,20 +121,20 @@ pub fn run() {
                 let window = app_handle.get_webview_window("main");
                 if let Some(window) = window {
                     let _ = match event.id().0.as_str() {
-                        "settings" => window.eval("document.dispatchEvent(new CustomEvent('caret:navigate', {detail: '/settings'}))"),
-                        "extensions" => window.eval("document.dispatchEvent(new CustomEvent('caret:navigate', {detail: '/extensions'}))"),
+                        "settings" => window.eval("document.dispatchEvent(new CustomEvent('blink:navigate', {detail: '/settings'}))"),
+                        "extensions" => window.eval("document.dispatchEvent(new CustomEvent('blink:navigate', {detail: '/extensions'}))"),
                         "command_palette" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'p', metaKey: true, shiftKey: true}))"),
                         "toggle_sidebar" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'b', metaKey: true}))"),
                         "toggle_terminal" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: '`', ctrlKey: true}))"),
                         "toggle_ai" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'l', metaKey: true}))"),
                         "search" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'f', metaKey: true, shiftKey: true}))"),
-                        "explorer" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'explorer'}))"),
-                        "source_control" => window.eval("document.dispatchEvent(new CustomEvent('caret:sidebar-view', {detail: 'git'}))"),
-                        "go_to_file" => window.eval("document.dispatchEvent(new CustomEvent('caret:file-search'))"),
+                        "explorer" => window.eval("document.dispatchEvent(new CustomEvent('blink:sidebar-view', {detail: 'explorer'}))"),
+                        "source_control" => window.eval("document.dispatchEvent(new CustomEvent('blink:sidebar-view', {detail: 'git'}))"),
+                        "go_to_file" => window.eval("document.dispatchEvent(new CustomEvent('blink:file-search'))"),
                         "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
-                        "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('caret:open-folder'))"),
+                        "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('blink:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),
-                        "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('caret:check-updates'))"),
+                        "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('blink:check-updates'))"),
                         _ => Ok(()),
                     };
                 }

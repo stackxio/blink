@@ -29,7 +29,7 @@ export default function SettingsLicenses() {
       </p>
       <div className="settings-card" style={{ padding: 16 }}>
         <pre style={{ whiteSpace: "pre-wrap", fontSize: "var(--font-size-xs)", lineHeight: 1.6, color: "var(--c-fg)" }}>
-          {`Caret uses the following open source software. Notices and licenses are listed below.
+          {`Blink uses the following open source software. Notices and licenses are listed below.
 
 (Add your bundled dependency notices here. You can generate this from your lockfile or use a tool like license-checker.)`}
         </pre>

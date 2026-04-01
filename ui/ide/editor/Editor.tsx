@@ -62,18 +62,18 @@ function getLanguageExtension(filename: string) {
 
 function createSearchPanel(view: EditorView): Panel {
   const dom = document.createElement("div");
-  dom.className = "caret-search";
+  dom.className = "blink-search";
   dom.innerHTML = `
-    <div class="caret-search__row">
-      <input type="text" class="caret-search__input" placeholder="Find" spellcheck="false" autocorrect="off" />
-      <div class="caret-search__toggles">
-        <button class="caret-search__toggle" data-opt="case" title="Match Case">Aa</button>
-        <button class="caret-search__toggle" data-opt="word" title="Whole Word">ab</button>
-        <button class="caret-search__toggle" data-opt="regex" title="Regex">.*</button>
+    <div class="blink-search__row">
+      <input type="text" class="blink-search__input" placeholder="Find" spellcheck="false" autocorrect="off" />
+      <div class="blink-search__toggles">
+        <button class="blink-search__toggle" data-opt="case" title="Match Case">Aa</button>
+        <button class="blink-search__toggle" data-opt="word" title="Whole Word">ab</button>
+        <button class="blink-search__toggle" data-opt="regex" title="Regex">.*</button>
       </div>
-      <button class="caret-search__btn" data-action="prev" title="Previous (Shift+Enter)">‹</button>
-      <button class="caret-search__btn" data-action="next" title="Next (Enter)">›</button>
-      <button class="caret-search__btn caret-search__btn--text" data-action="close">✕</button>
+      <button class="blink-search__btn" data-action="prev" title="Previous (Shift+Enter)">‹</button>
+      <button class="blink-search__btn" data-action="next" title="Next (Enter)">›</button>
+      <button class="blink-search__btn blink-search__btn--text" data-action="close">✕</button>
     </div>
   `;
 
@@ -87,13 +87,13 @@ function createSearchPanel(view: EditorView): Panel {
     view.dispatch({ effects: setSearchQuery.of(query) });
   }
 
-  dom.querySelectorAll(".caret-search__toggle").forEach((btn) => {
+  dom.querySelectorAll(".blink-search__toggle").forEach((btn) => {
     btn.addEventListener("click", () => {
       const opt = (btn as HTMLElement).dataset.opt;
       if (opt === "case") { caseSensitive = !caseSensitive; }
       if (opt === "word") { wholeWord = !wholeWord; }
       if (opt === "regex") { regexp = !regexp; }
-      btn.classList.toggle("caret-search__toggle--on");
+      btn.classList.toggle("blink-search__toggle--on");
       updateQuery();
     });
   });
@@ -142,9 +142,24 @@ interface Props {
 // Compartments for dynamic editor settings
 const wordWrapCompartment = new Compartment();
 const fontSizeCompartment = new Compartment();
+const minimapCompartment = new Compartment();
 
 function fontSizeTheme(size: number) {
   return EditorView.theme({ "&": { fontSize: `${size}px` } });
+}
+
+function minimapExtension(enabled: boolean) {
+  if (!enabled) return [];
+  return [
+    showMinimap.compute(["doc"], () => ({
+      create: () => {
+        const dom = document.createElement("div");
+        return { dom };
+      },
+      displayText: "blocks",
+      showOverlay: "always",
+    })),
+  ];
 }
 
 export default function Editor({ content, filename, filePath, initialCursorLine, initialCursorCol, initialScrollTop, onSave, onChange, onCursorChange }: Props) {
@@ -187,10 +202,10 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     const ext = filename.split(".").pop()?.toLowerCase() || "";
 
     // Read editor preferences from localStorage
-    const storedWordWrap = localStorage.getItem("caret:wordWrap") === "true";
-    const storedTabSize = parseInt(localStorage.getItem("caret:tabSize") || "2", 10);
-    const storedMinimap = localStorage.getItem("caret:minimap") !== "false"; // default on
-    const storedFontSize = parseInt(localStorage.getItem("caret:fontSize") || "13", 10);
+    const storedWordWrap = localStorage.getItem("blink:wordWrap") === "true";
+    const storedTabSize = parseInt(localStorage.getItem("blink:tabSize") || "2", 10);
+    const storedMinimap = localStorage.getItem("blink:minimap") !== "false"; // default on
+    const storedFontSize = parseInt(localStorage.getItem("blink:fontSize") || "13", 10);
 
     // Start LSP in background — doesn't block editor creation
     const lspClient = new LspClient();
@@ -252,11 +267,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         inlineEditExtension,
         inlineEditTheme,
         // Minimap
-        ...(storedMinimap ? [showMinimap.compute(["doc"], () => ({
-          create: () => { const dom = document.createElement("div"); return { dom }; },
-          displayText: "blocks",
-          showOverlay: "always",
-        }))] : []),
+        minimapCompartment.of(minimapExtension(storedMinimap)),
         ...(Array.isArray(lang) ? lang : [lang]),
         keymap.of([
           ...closeBracketsKeymap,
@@ -301,7 +312,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         // Auto-save on blur (focus loss) — respects auto_save setting
         EditorView.domEventHandlers({
           blur: (_event, view) => {
-            const autoSave = localStorage.getItem("caret:autoSave") !== "false"; // default on
+            const autoSave = localStorage.getItem("blink:autoSave") !== "false"; // default on
             if (!autoSave) return;
             const current = view.state.doc.toString();
             if (current !== savedContentRef.current) {
@@ -329,7 +340,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         .catch(() => {});
     }
 
-    // Handle inline AI edit (Cmd+K) — caret:inline-edit event from cm-inline-edit.ts
+    // Handle inline AI edit (Cmd+K) — blink:inline-edit event from cm-inline-edit.ts
     async function onInlineEdit(e: Event) {
       const { from, to, selectedText, instruction, view: editorView } = (e as CustomEvent).detail as {
         from: number;
@@ -390,17 +401,22 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         }
       }
     }
-    document.addEventListener("caret:inline-edit", onInlineEdit);
+    document.addEventListener("blink:inline-edit", onInlineEdit);
 
     // Listen for editor setting changes from settings panel
     function onStorageChange(e: StorageEvent) {
       if (!viewRef.current) return;
-      if (e.key === "caret:wordWrap") {
+      if (e.key === "blink:wordWrap") {
         const wrap = e.newValue === "true";
         viewRef.current.dispatch({
           effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []),
         });
-      } else if (e.key === "caret:fontSize") {
+      } else if (e.key === "blink:minimap") {
+        const enabled = e.newValue !== "false";
+        viewRef.current.dispatch({
+          effects: minimapCompartment.reconfigure(minimapExtension(enabled)),
+        });
+      } else if (e.key === "blink:fontSize") {
         const size = parseInt(e.newValue ?? "13", 10);
         viewRef.current.dispatch({
           effects: fontSizeCompartment.reconfigure(fontSizeTheme(size)),
@@ -423,7 +439,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
 
     return () => {
       window.removeEventListener("storage", onStorageChange);
-      document.removeEventListener("caret:inline-edit", onInlineEdit);
+      document.removeEventListener("blink:inline-edit", onInlineEdit);
       if (changeTimer) clearTimeout(changeTimer);
       lspClientRef.current?.didClose(`file://${filePath}`);
       diagCleanupRef.current?.();

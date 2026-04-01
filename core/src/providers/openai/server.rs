@@ -286,8 +286,8 @@ impl CodexServer {
             "initialize",
             serde_json::json!({
                 "clientInfo": {
-                    "name": "caret",
-                    "title": "Caret",
+                    "name": "blink",
+                    "title": "Blink",
                     "version": "0.1.0"
                 },
                 "capabilities": {

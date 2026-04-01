@@ -11,19 +11,19 @@ interface RecentWorkspace {
 
 function getRecentWorkspaces(): RecentWorkspace[] {
   try {
-    return JSON.parse(localStorage.getItem("caret:recent-workspaces") || "[]");
+    return JSON.parse(localStorage.getItem("blink:recent-workspaces") || "[]");
   } catch { return []; }
 }
 
 function addToRecent(path: string, name: string) {
   const recent = getRecentWorkspaces().filter((r) => r.path !== path);
   recent.unshift({ path, name, lastOpened: Date.now() });
-  localStorage.setItem("caret:recent-workspaces", JSON.stringify(recent.slice(0, 20)));
+  localStorage.setItem("blink:recent-workspaces", JSON.stringify(recent.slice(0, 20)));
 }
 
 function removeFromRecent(path: string) {
   const recent = getRecentWorkspaces().filter((r) => r.path !== path);
-  localStorage.setItem("caret:recent-workspaces", JSON.stringify(recent));
+  localStorage.setItem("blink:recent-workspaces", JSON.stringify(recent));
 }
 
 function getDisplayName(ws: Workspace, all: Workspace[]): string {

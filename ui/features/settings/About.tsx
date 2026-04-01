@@ -29,8 +29,8 @@ export default function SettingsAbout() {
   // Listen for "Check for Updates" from the native menu
   useEffect(() => {
     function onCheckUpdates() { checkForUpdate(); }
-    document.addEventListener("caret:check-updates", onCheckUpdates);
-    return () => document.removeEventListener("caret:check-updates", onCheckUpdates);
+    document.addEventListener("blink:check-updates", onCheckUpdates);
+    return () => document.removeEventListener("blink:check-updates", onCheckUpdates);
   }, []);
 
   async function checkForUpdate() {
@@ -79,7 +79,7 @@ export default function SettingsAbout() {
               {update.status === "available" && `Version ${update.info.version} is available.`}
               {update.status === "installing" && "Downloading and installing…"}
               {update.status === "error" && `Error: ${update.message}`}
-              {(update.status === "idle") && "Check for the latest version of Caret."}
+              {(update.status === "idle") && "Check for the latest version of Blink."}
             </div>
           </div>
           {update.status === "available" ? (

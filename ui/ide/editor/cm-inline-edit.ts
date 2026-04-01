@@ -110,7 +110,7 @@ class InlineEditWidget extends WidgetType {
         cancelBtn.disabled = true;
 
         const selectedText = view.state.doc.sliceString(this.from, this.to);
-        const event = new CustomEvent("caret:inline-edit", {
+        const event = new CustomEvent("blink:inline-edit", {
           detail: {
             from: this.from,
             to: this.to,

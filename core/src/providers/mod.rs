@@ -1,6 +1,6 @@
 pub mod anthropic;
 pub mod api;
-pub mod caret;
+pub mod blink;
 pub mod ollama;
 pub mod openai;
 pub mod traits;

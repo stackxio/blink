@@ -132,7 +132,11 @@ pub async fn search_in_files(
                     if let Some(col) = matched_col {
                         // Whole word check
                         if whole_word && !is_regex {
-                            let before = if col > 0 { line.as_bytes().get(col - 1).copied() } else { None };
+                            let before = if col > 0 {
+                                line.as_bytes().get(col - 1).copied()
+                            } else {
+                                None
+                            };
                             let after = line.as_bytes().get(col + query.len()).copied();
                             let is_word_boundary = |b: Option<u8>| -> bool {
                                 match b {
@@ -176,8 +180,16 @@ pub async fn replace_in_files(
     let root_path = PathBuf::from(&root);
 
     let skip_dirs: &[&str] = &[
-        "node_modules", ".git", "target", "dist", "build", ".next",
-        "__pycache__", ".venv", "venv", ".cache",
+        "node_modules",
+        ".git",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".cache",
     ];
 
     let regex_pattern = if is_regex && !case_sensitive {
@@ -205,17 +217,37 @@ pub async fn replace_in_files(
             Err(_) => continue,
         };
         for entry in entries {
-            let entry = match entry { Ok(e) => e, Err(_) => continue };
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') { continue; }
+            if name.starts_with('.') {
+                continue;
+            }
             let path = entry.path();
-            let meta = match entry.metadata() { Ok(m) => m, Err(_) => continue };
+            let meta = match entry.metadata() {
+                Ok(m) => m,
+                Err(_) => continue,
+            };
             if meta.is_dir() {
-                if !skip_dirs.contains(&name.as_str()) { stack.push(path); }
+                if !skip_dirs.contains(&name.as_str()) {
+                    stack.push(path);
+                }
             } else {
-                if meta.len() > 1_048_576 { continue; }
-                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                let binary_exts = ["png","jpg","jpeg","gif","bmp","ico","woff","woff2","ttf","eot","otf","mp3","mp4","wav","avi","mov","zip","tar","gz","rar","7z","pdf","exe","dll","so","dylib","o","a","wasm","lock"];
+                if meta.len() > 1_048_576 {
+                    continue;
+                }
+                let ext = path
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                let binary_exts = [
+                    "png", "jpg", "jpeg", "gif", "bmp", "ico", "woff", "woff2", "ttf", "eot",
+                    "otf", "mp3", "mp4", "wav", "avi", "mov", "zip", "tar", "gz", "rar", "7z",
+                    "pdf", "exe", "dll", "so", "dylib", "o", "a", "wasm", "lock",
+                ];
                 if !binary_exts.contains(&ext.as_str()) {
                     all_files.push(path);
                 }
@@ -250,10 +282,17 @@ pub async fn replace_in_files(
                     remaining.to_lowercase().find(&query_lower)
                 };
                 match pos {
-                    None => { result.push_str(remaining); break; }
+                    None => {
+                        result.push_str(remaining);
+                        break;
+                    }
                     Some(idx) => {
                         if whole_word {
-                            let before = if idx > 0 { remaining.as_bytes().get(idx - 1).copied() } else { None };
+                            let before = if idx > 0 {
+                                remaining.as_bytes().get(idx - 1).copied()
+                            } else {
+                                None
+                            };
                             let after = remaining.as_bytes().get(idx + query.len()).copied();
                             let is_word_boundary = |b: Option<u8>| match b {
                                 None => true,
@@ -364,8 +403,7 @@ pub async fn read_file_content(path: String) -> Result<String, String> {
 pub async fn write_file_content(path: String, content: String) -> Result<(), String> {
     // Ensure parent directory exists
     if let Some(parent) = PathBuf::from(&path).parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+        fs::create_dir_all(parent).map_err(|e| format!("Failed to create directory: {}", e))?;
     }
     fs::write(&path, &content).map_err(|e| format!("Failed to write {}: {}", path, e))
 }
@@ -397,9 +435,7 @@ pub async fn delete_path(path: String) -> Result<(), String> {
 #[tauri::command]
 pub async fn rename_path(old_path: String, new_name: String) -> Result<String, String> {
     let old = PathBuf::from(&old_path);
-    let new_path = old.parent()
-        .ok_or("No parent directory")?
-        .join(&new_name);
+    let new_path = old.parent().ok_or("No parent directory")?.join(&new_name);
     fs::rename(&old, &new_path).map_err(|e| format!("Failed to rename: {}", e))?;
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -429,12 +465,23 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
     let mut stack = vec![root_path.clone()];
 
     let skip_dirs = [
-        "node_modules", ".git", "target", "dist", "build", ".next",
-        "__pycache__", ".venv", "venv", ".cache", ".DS_Store",
+        "node_modules",
+        ".git",
+        "target",
+        "dist",
+        "build",
+        ".next",
+        "__pycache__",
+        ".venv",
+        "venv",
+        ".cache",
+        ".DS_Store",
     ];
 
     while let Some(dir) = stack.pop() {
-        if files.len() >= max { break; }
+        if files.len() >= max {
+            break;
+        }
         let entries = match fs::read_dir(&dir) {
             Ok(e) => e,
             Err(_) => continue,
@@ -445,7 +492,9 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
                 Err(_) => continue,
             };
             let name = entry.file_name().to_string_lossy().to_string();
-            if name.starts_with('.') && name != ".env" { continue; }
+            if name.starts_with('.') && name != ".env" {
+                continue;
+            }
             let path = entry.path();
             let meta = match entry.metadata() {
                 Ok(m) => m,
@@ -456,12 +505,15 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
                     stack.push(path);
                 }
             } else {
-                let rel = path.strip_prefix(&root_path)
+                let rel = path
+                    .strip_prefix(&root_path)
                     .unwrap_or(&path)
                     .to_string_lossy()
                     .to_string();
                 files.push(rel);
-                if files.len() >= max { break; }
+                if files.len() >= max {
+                    break;
+                }
             }
         }
     }
@@ -470,12 +522,12 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
     Ok(files)
 }
 
-/// Install the `caret` CLI command to /usr/local/bin using admin privileges
+/// Install the `blink` CLI command to /usr/local/bin using admin privileges
 #[tauri::command]
 pub async fn install_cli() -> Result<String, String> {
     let script = r#"#!/bin/bash
-APP_BUNDLE="com.voxire.caret"
-APP_NAME="Caret"
+APP_BUNDLE="com.voxire.blink"
+APP_NAME="Blink"
 if [ -z "$1" ]; then
   open -b "$APP_BUNDLE" 2>/dev/null || open -a "$APP_NAME" 2>/dev/null
   exit 0
@@ -484,13 +536,13 @@ TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")" || e
 open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
 "#;
     // Write to a temp file first, then use osascript to move with admin privileges
-    let tmp = "/tmp/caret-cli-install";
+    let tmp = "/tmp/blink-cli-install";
     fs::write(tmp, script).map_err(|e| format!("Failed to write temp file: {}", e))?;
 
     let output = std::process::Command::new("osascript")
         .args([
             "-e",
-            "do shell script \"cp /tmp/caret-cli-install /usr/local/bin/caret && chmod +x /usr/local/bin/caret\" with administrator privileges",
+            "do shell script \"cp /tmp/blink-cli-install /usr/local/bin/blink && chmod +x /usr/local/bin/blink\" with administrator privileges",
         ])
         .output()
         .map_err(|e| format!("Failed to run osascript: {}", e))?;
@@ -498,10 +550,13 @@ open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args
     let _ = fs::remove_file(tmp);
 
     if output.status.success() {
-        Ok("CLI installed to /usr/local/bin/caret".to_string())
+        Ok("CLI installed to /usr/local/bin/blink".to_string())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        Err(format!("Installation cancelled or failed: {}", stderr.trim()))
+        Err(format!(
+            "Installation cancelled or failed: {}",
+            stderr.trim()
+        ))
     }
 }
 
@@ -509,10 +564,7 @@ open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args
 #[tauri::command]
 pub async fn open_file_dialog(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     use tauri_plugin_dialog::DialogExt;
-    let files = app
-        .dialog()
-        .file()
-        .blocking_pick_files();
+    let files = app.dialog().file().blocking_pick_files();
 
     Ok(files
         .unwrap_or_default()
@@ -525,10 +577,7 @@ pub async fn open_file_dialog(app: tauri::AppHandle) -> Result<Vec<String>, Stri
 #[tauri::command]
 pub async fn open_folder_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
-    let folder = app
-        .dialog()
-        .file()
-        .blocking_pick_folder();
+    let folder = app.dialog().file().blocking_pick_folder();
 
     Ok(folder.map(|p| p.to_string()))
 }

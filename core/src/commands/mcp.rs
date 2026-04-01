@@ -20,7 +20,7 @@ struct McpConfig {
 fn mcp_config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("caret")
+        .join("blink")
         .join("mcp.json")
 }
 

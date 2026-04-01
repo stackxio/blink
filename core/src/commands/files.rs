@@ -135,7 +135,9 @@ pub async fn organize_downloads(
     let downloads_dir = dirs::download_dir()
         .or_else(|| dirs::home_dir().map(|home| home.join("Downloads")))
         .ok_or_else(|| "Could not resolve Downloads directory".to_string())?;
-    guard.allow_read(&downloads_dir).map_err(|e| e.to_string())?;
+    guard
+        .allow_read(&downloads_dir)
+        .map_err(|e| e.to_string())?;
     let entries = connector
         .list_dir(&downloads_dir)
         .map_err(|e| e.to_string())?;
@@ -229,7 +231,10 @@ pub async fn rename_file_with_ai(
         return Ok(format!("Kept existing file name: {}", original_name));
     }
 
-    let target_path = path.parent().map(|p| p.join(&final_name)).unwrap_or_else(|| path.clone());
+    let target_path = path
+        .parent()
+        .map(|p| p.join(&final_name))
+        .unwrap_or_else(|| path.clone());
     guard.allow_write(&target_path).map_err(|e| e.to_string())?;
 
     let renamed = connector

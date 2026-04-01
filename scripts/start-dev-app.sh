@@ -8,7 +8,7 @@ if [ "$(uname)" != "Darwin" ]; then
 fi
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORE="$PROJECT_ROOT/core"
-APP="$CORE/target/debug/Caret.app"
+APP="$CORE/target/debug/Blink.app"
 DEV_URL="http://localhost:1420"
 
 # 1. Start frontend dev server in background
@@ -40,14 +40,14 @@ mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
 # Launcher: run binary from target/debug (so it finds config) as a child; we stay main process so Dock keeps our icon
-cat > "$APP/Contents/MacOS/Caret" << LAUNCHER
+cat > "$APP/Contents/MacOS/Blink" << LAUNCHER
 #!/bin/bash
 CORE="$CORE"
 cd "\$CORE"
 export TAURI_DEV_URL="$DEV_URL"
-"\$CORE/target/debug/caret"
+"\$CORE/target/debug/blink"
 LAUNCHER
-chmod +x "$APP/Contents/MacOS/Caret"
+chmod +x "$APP/Contents/MacOS/Blink"
 
 # Icon
 cp "$CORE/icons/icon.icns" "$APP/Contents/Resources/"
@@ -59,11 +59,11 @@ cat > "$APP/Contents/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>Caret</string>
+  <string>Blink</string>
   <key>CFBundleIdentifier</key>
-  <string>com.voxire.caret</string>
+  <string>com.voxire.blink</string>
   <key>CFBundleName</key>
-  <string>Caret</string>
+  <string>Blink</string>
   <key>CFBundleIconFile</key>
   <string>icon.icns</string>
   <key>CFBundlePackageType</key>
@@ -75,7 +75,7 @@ cat > "$APP/Contents/Info.plist" << PLIST
 PLIST
 
 # 5. Open the .app (keeps running; trap will kill vite on script exit)
-echo "Opening Caret.app (dev)..."
+echo "Opening Blink.app (dev)..."
 open "$APP"
 
 # Keep script running so vite stays up; Ctrl+C will kill both

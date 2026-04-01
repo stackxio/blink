@@ -177,7 +177,10 @@ impl ApiProvider {
         }
         messages.push(json!({"role": "user", "content": req.prompt}));
 
-        let url = format!("{}/v1/chat/completions", self.endpoint.trim_end_matches('/'));
+        let url = format!(
+            "{}/v1/chat/completions",
+            self.endpoint.trim_end_matches('/')
+        );
         const MAX_ROUNDS: usize = 10;
 
         for _round in 0..MAX_ROUNDS {
@@ -233,7 +236,9 @@ impl ApiProvider {
                                 }
                                 // Accumulate text
                                 if let Some(content) = &choice.delta.content {
-                                    if !content.is_empty() && tx.send(content.clone()).await.is_err() {
+                                    if !content.is_empty()
+                                        && tx.send(content.clone()).await.is_err()
+                                    {
                                         return Ok(());
                                     }
                                 }

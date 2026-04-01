@@ -67,9 +67,8 @@ pub fn insert_open_file(
 }
 
 pub fn list_all(conn: &Connection) -> rusqlite::Result<Vec<SavedWorkspaceWithFiles>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, path, name, position, is_active FROM workspaces ORDER BY position",
-    )?;
+    let mut stmt = conn
+        .prepare("SELECT id, path, name, position, is_active FROM workspaces ORDER BY position")?;
 
     let ws_rows: Vec<SavedWorkspace> = stmt
         .query_map([], |row| {

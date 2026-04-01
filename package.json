@@ -1,5 +1,5 @@
 {
-  "name": "caret",
+  "name": "blink",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -8,15 +8,19 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format:js": "prettier --write .",
+    "format:js:check": "prettier --check .",
+    "format:rust": "cargo fmt --manifest-path core/Cargo.toml --all",
+    "format:rust:check": "cargo fmt --manifest-path core/Cargo.toml --all --check",
+    "format": "pnpm format:js && pnpm format:rust",
+    "format:check": "pnpm format:js:check && pnpm format:rust:check",
     "preview": "vite preview",
     "tauri": "TAURI_DIR=core tauri",
     "icon": "TAURI_DIR=core pnpm tauri icon",
     "icon:fix": "node scripts/icon-squircle.mjs",
     "app": "bash scripts/start-dev-app.sh",
     "app:build": "TAURI_DIR=core pnpm tauri build",
-    "db:reset": "rm -f ~/.caret/caret.db && echo 'Database reset. It will be recreated on next app launch.'"
+    "db:reset": "rm -f ~/.blink/blink.db && echo 'Database reset. It will be recreated on next app launch.'"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
@@ -80,6 +84,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "prettier": "^3.8.1",
+    "prettier-plugin-toml": "^2.0.6",
     "sass": "^1.98.0",
     "sharp": "^0.33.5",
     "typescript": "~5.9.3",

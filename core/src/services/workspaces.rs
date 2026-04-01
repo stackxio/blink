@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use crate::db::queries::workspaces as repo;
+use rusqlite::Connection;
 
 pub use repo::SavedWorkspaceWithFiles;
 
@@ -11,8 +11,16 @@ pub fn save_all(conn: &Connection, workspaces: &[SavedWorkspaceWithFiles]) -> Re
             .map_err(|e| e.to_string())?;
 
         for (j, f) in ws.open_files.iter().enumerate() {
-            repo::insert_open_file(conn, &ws.id, &f.path, &f.name, j as i32, f.is_active, f.is_preview)
-                .map_err(|e| e.to_string())?;
+            repo::insert_open_file(
+                conn,
+                &ws.id,
+                &f.path,
+                &f.name,
+                j as i32,
+                f.is_active,
+                f.is_preview,
+            )
+            .map_err(|e| e.to_string())?;
         }
     }
 

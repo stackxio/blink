@@ -41,8 +41,8 @@ pub fn ensure_server(
     ext: &str,
     workspace_root: Option<&str>,
 ) -> Result<String, String> {
-    let info = server_for_extension(ext)
-        .ok_or_else(|| format!("No LSP server known for .{}", ext))?;
+    let info =
+        server_for_extension(ext).ok_or_else(|| format!("No LSP server known for .{}", ext))?;
 
     let lang_id = info.language_id.to_string();
 
@@ -54,12 +54,13 @@ pub fn ensure_server(
         }
     }
 
-    // Resolve the server binary (checks ~/.caret/servers/ then PATH)
-    let server_bin = resolve_server_path(info.command)
-        .ok_or_else(|| format!(
+    // Resolve the server binary (checks ~/.blink/servers/ then PATH)
+    let server_bin = resolve_server_path(info.command).ok_or_else(|| {
+        format!(
             "{} not found. Install it from the Extensions page to enable {} support.",
             info.command, info.language_id
-        ))?;
+        )
+    })?;
 
     // Spawn the server
     let mut cmd = Command::new(&server_bin);

@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Caret",
+  "productName": "Blink",
   "version": "0.0.1",
-  "identifier": "com.voxire.caret",
+  "identifier": "com.voxire.blink",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Caret",
+        "title": "Blink",
         "width": 900,
         "height": 680,
         "resizable": true,
@@ -37,7 +37,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/voxire/caret/releases/latest/download/latest.json"
+        "https://github.com/stackxio/blink/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": ""

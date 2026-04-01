@@ -9,7 +9,7 @@
 
 ## Product Context
 
-- Caret is an AI control layer for the computer, not a generic web chatbot
+- Blink is an AI control layer for the computer, not a generic web chatbot
 - The product is oriented around helping users manage and understand their local environment
 - Current MVP themes include file understanding, folder summarization, download organization, and AI-assisted file renaming
 

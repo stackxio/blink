@@ -68,7 +68,7 @@ export default function SettingsMemory() {
         <div>
           <h1 className="settings-section__title" style={{ marginBottom: 4 }}>Memory</h1>
           <p className="settings-section__description" style={{ marginBottom: 0 }}>
-            Daily memory logs stored in ~/.caret/memory/
+            Daily memory logs stored in ~/.blink/memory/
           </p>
         </div>
         <button

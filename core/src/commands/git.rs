@@ -4,7 +4,7 @@ use std::process::Command;
 #[derive(Debug, Serialize)]
 pub struct GitFileStatus {
     pub path: String,
-    pub status: String,  // "modified", "added", "deleted", "untracked", "renamed"
+    pub status: String, // "modified", "added", "deleted", "untracked", "renamed"
     pub staged: bool,
 }
 
@@ -56,7 +56,11 @@ pub fn git_status(path: String) -> Result<Vec<GitFileStatus>, String> {
 
         // Handle renames: "R  old -> new"
         let display_path = if file_path.contains(" -> ") {
-            file_path.split(" -> ").last().unwrap_or(file_path).to_string()
+            file_path
+                .split(" -> ")
+                .last()
+                .unwrap_or(file_path)
+                .to_string()
         } else {
             file_path.to_string()
         };
@@ -163,11 +167,7 @@ pub fn git_log(path: String, limit: Option<u32>) -> Result<Vec<GitCommitInfo>, S
     let limit_str = format!("-{}", limit.unwrap_or(50));
     let output = run_git(
         &path,
-        &[
-            "log",
-            &limit_str,
-            "--pretty=format:%H%x1f%s%x1f%an%x1f%ai",
-        ],
+        &["log", &limit_str, "--pretty=format:%H%x1f%s%x1f%an%x1f%ai"],
     )?;
 
     let commits: Vec<GitCommitInfo> = output
@@ -239,32 +239,52 @@ pub struct BlameInfo {
 
 /// Get git blame info for a specific line in a file.
 #[tauri::command]
-pub fn git_blame_line(path: String, file_path: String, line: u32) -> Result<Option<BlameInfo>, String> {
-    let output = run_git(&path, &[
-        "blame", "-L", &format!("{},{}", line, line),
-        "--porcelain", &file_path,
-    ])?;
+pub fn git_blame_line(
+    path: String,
+    file_path: String,
+    line: u32,
+) -> Result<Option<BlameInfo>, String> {
+    let output = run_git(
+        &path,
+        &[
+            "blame",
+            "-L",
+            &format!("{},{}", line, line),
+            "--porcelain",
+            &file_path,
+        ],
+    )?;
 
     let mut author = String::new();
     let mut date = String::new();
     let mut summary = String::new();
 
     for l in output.lines() {
-        if let Some(v) = l.strip_prefix("author ") { author = v.to_string(); }
+        if let Some(v) = l.strip_prefix("author ") {
+            author = v.to_string();
+        }
         if let Some(v) = l.strip_prefix("author-time ") {
             if let Ok(ts) = v.parse::<i64>() {
                 let dt = chrono::DateTime::from_timestamp(ts, 0);
                 if let Some(dt) = dt {
-                    date = chrono::DateTime::<chrono::Utc>::from(dt).format("%Y-%m-%d").to_string();
+                    date = chrono::DateTime::<chrono::Utc>::from(dt)
+                        .format("%Y-%m-%d")
+                        .to_string();
                 }
             }
         }
-        if let Some(v) = l.strip_prefix("summary ") { summary = v.to_string(); }
+        if let Some(v) = l.strip_prefix("summary ") {
+            summary = v.to_string();
+        }
     }
 
     if author.is_empty() || author == "Not Committed Yet" {
         return Ok(None);
     }
 
-    Ok(Some(BlameInfo { author, date, summary }))
+    Ok(Some(BlameInfo {
+        author,
+        date,
+        summary,
+    }))
 }

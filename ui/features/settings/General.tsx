@@ -68,23 +68,23 @@ export default function SettingsGeneral() {
     setSettings(updated);
     // Sync to localStorage so the editor picks up changes instantly via storage events
     if ("auto_save" in patch) {
-      localStorage.setItem("caret:autoSave", String(patch.auto_save));
+      localStorage.setItem("blink:autoSave", String(patch.auto_save));
     }
     if ("tab_size" in patch) {
-      localStorage.setItem("caret:tabSize", String(patch.tab_size));
-      window.dispatchEvent(new StorageEvent("storage", { key: "caret:tabSize", newValue: String(patch.tab_size) }));
+      localStorage.setItem("blink:tabSize", String(patch.tab_size));
+      window.dispatchEvent(new StorageEvent("storage", { key: "blink:tabSize", newValue: String(patch.tab_size) }));
     }
     if ("word_wrap" in patch) {
-      localStorage.setItem("caret:wordWrap", String(patch.word_wrap));
-      window.dispatchEvent(new StorageEvent("storage", { key: "caret:wordWrap", newValue: String(patch.word_wrap) }));
+      localStorage.setItem("blink:wordWrap", String(patch.word_wrap));
+      window.dispatchEvent(new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(patch.word_wrap) }));
     }
     if ("minimap" in patch) {
-      localStorage.setItem("caret:minimap", String(patch.minimap));
-      window.dispatchEvent(new StorageEvent("storage", { key: "caret:minimap", newValue: String(patch.minimap) }));
+      localStorage.setItem("blink:minimap", String(patch.minimap));
+      window.dispatchEvent(new StorageEvent("storage", { key: "blink:minimap", newValue: String(patch.minimap) }));
     }
     if ("font_size" in patch) {
-      localStorage.setItem("caret:fontSize", String(patch.font_size));
-      window.dispatchEvent(new StorageEvent("storage", { key: "caret:fontSize", newValue: String(patch.font_size) }));
+      localStorage.setItem("blink:fontSize", String(patch.font_size));
+      window.dispatchEvent(new StorageEvent("storage", { key: "blink:fontSize", newValue: String(patch.font_size) }));
     }
     try {
       await invoke("save_settings", { settings: updated });
@@ -168,8 +168,8 @@ export default function SettingsGeneral() {
 
         <div className="settings-row">
           <div className="settings-row__info">
-            <div className="settings-row__label">Minimap</div>
-            <div className="settings-row__hint">Show a minimap overview on the right side of the editor.</div>
+            <div className="settings-row__label">Code minimap</div>
+            <div className="settings-row__hint">Show or hide the code minimap on the right side of the editor.</div>
           </div>
           <button
             type="button"
@@ -186,7 +186,7 @@ export default function SettingsGeneral() {
         <div className="settings-row">
           <div className="settings-row__info">
             <div className="settings-row__label">Persist workspaces across restarts</div>
-            <div className="settings-row__hint">Reopen your last workspaces and tabs when Caret launches.</div>
+            <div className="settings-row__hint">Reopen your last workspaces and tabs when Blink launches.</div>
           </div>
           <button
             type="button"

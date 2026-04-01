@@ -20,8 +20,8 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const errorCount = Object.values(diagnostics).flat().filter((d) => d.severity === 1).length;
   const warningCount = Object.values(diagnostics).flat().filter((d) => d.severity === 2).length;
 
-  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("caret:wordWrap") === "true");
-  const [tabSize] = useState(() => parseInt(localStorage.getItem("caret:tabSize") || "2", 10));
+  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("blink:wordWrap") === "true");
+  const [tabSize] = useState(() => parseInt(localStorage.getItem("blink:tabSize") || "2", 10));
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
@@ -31,9 +31,9 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const toggleWordWrap = useCallback(() => {
     const next = !wordWrap;
     setWordWrap(next);
-    localStorage.setItem("caret:wordWrap", String(next));
+    localStorage.setItem("blink:wordWrap", String(next));
     // Dispatch a storage event so the editor can react to the change
-    window.dispatchEvent(new StorageEvent("storage", { key: "caret:wordWrap", newValue: String(next) }));
+    window.dispatchEvent(new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(next) }));
   }, [wordWrap]);
 
   // Load branches when picker opens
@@ -62,7 +62,7 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
       setBranchPickerOpen(false);
       setNewBranchInput("");
       // Trigger git branch refresh in IdeLayout via DOM event
-      document.dispatchEvent(new CustomEvent("caret:git-refresh"));
+      document.dispatchEvent(new CustomEvent("blink:git-refresh"));
     } catch (e) {
       alert(`Failed to switch branch: ${e}`);
     }
@@ -75,7 +75,7 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
       await invoke("git_checkout_branch", { path: ws.path, branch: newBranchInput.trim() });
       setBranchPickerOpen(false);
       setNewBranchInput("");
-      document.dispatchEvent(new CustomEvent("caret:git-refresh"));
+      document.dispatchEvent(new CustomEvent("blink:git-refresh"));
     } catch (e) {
       alert(`Failed to create branch: ${e}`);
     }

@@ -23,11 +23,11 @@ function useSyncSettingsToLocalStorage() {
       .then((s) => {
         const editor = s.editor as Record<string, unknown> | undefined;
         if (editor) {
-          if (editor.auto_save != null) localStorage.setItem("caret:autoSave", String(editor.auto_save));
-          if (editor.tab_size != null) localStorage.setItem("caret:tabSize", String(editor.tab_size));
-          if (editor.font_size != null) localStorage.setItem("caret:fontSize", String(editor.font_size));
-          if (editor.word_wrap != null) localStorage.setItem("caret:wordWrap", String(editor.word_wrap));
-          if (editor.minimap != null) localStorage.setItem("caret:minimap", String(editor.minimap));
+          if (editor.auto_save != null) localStorage.setItem("blink:autoSave", String(editor.auto_save));
+          if (editor.tab_size != null) localStorage.setItem("blink:tabSize", String(editor.tab_size));
+          if (editor.font_size != null) localStorage.setItem("blink:fontSize", String(editor.font_size));
+          if (editor.word_wrap != null) localStorage.setItem("blink:wordWrap", String(editor.word_wrap));
+          if (editor.minimap != null) localStorage.setItem("blink:minimap", String(editor.minimap));
         }
         const appearance = s.appearance as Record<string, unknown> | undefined;
         if (appearance?.theme) {

@@ -38,10 +38,7 @@ pub async fn lsp_notify(
 
 /// Stop an LSP server.
 #[tauri::command]
-pub async fn lsp_stop(
-    state: tauri::State<'_, LspState>,
-    lang_id: String,
-) -> Result<(), String> {
+pub async fn lsp_stop(state: tauri::State<'_, LspState>, lang_id: String) -> Result<(), String> {
     manager::stop_server(&state, &lang_id)
 }
 
@@ -94,15 +91,18 @@ pub async fn lsp_install_server(
         .find(|s| s.language_id == language_id)
         .ok_or_else(|| format!("Unknown language: {}", language_id))?;
 
-    let _ = app.emit("lsp:install:status", serde_json::json!({
-        "language_id": language_id,
-        "status": "installing",
-    }));
+    let _ = app.emit(
+        "lsp:install:status",
+        serde_json::json!({
+            "language_id": language_id,
+            "status": "installing",
+        }),
+    );
 
-    // Install to ~/.caret/servers/ to avoid polluting global env
+    // Install to ~/.blink/servers/ to avoid polluting global env
     let servers_dir = dirs::home_dir()
         .ok_or("No home directory")?
-        .join(".caret")
+        .join(".blink")
         .join("servers");
     std::fs::create_dir_all(&servers_dir).map_err(|e| e.to_string())?;
 
@@ -111,7 +111,10 @@ pub async fn lsp_install_server(
         format!(
             "cd {} && npm install {}",
             servers_dir.to_string_lossy(),
-            server.install_command.strip_prefix("npm install -g ").unwrap_or(server.install_command)
+            server
+                .install_command
+                .strip_prefix("npm install -g ")
+                .unwrap_or(server.install_command)
         )
     } else {
         server.install_command.to_string()
@@ -124,18 +127,24 @@ pub async fn lsp_install_server(
         .map_err(|e| format!("Failed to run install: {}", e))?;
 
     if output.status.success() {
-        let _ = app.emit("lsp:install:status", serde_json::json!({
-            "language_id": language_id,
-            "status": "installed",
-        }));
+        let _ = app.emit(
+            "lsp:install:status",
+            serde_json::json!({
+                "language_id": language_id,
+                "status": "installed",
+            }),
+        );
         Ok(format!("{} installed successfully", server.display_name))
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        let _ = app.emit("lsp:install:status", serde_json::json!({
-            "language_id": language_id,
-            "status": "failed",
-            "error": &stderr,
-        }));
+        let _ = app.emit(
+            "lsp:install:status",
+            serde_json::json!({
+                "language_id": language_id,
+                "status": "failed",
+                "error": &stderr,
+            }),
+        );
         Err(format!("Install failed: {}", stderr))
     }
 }

@@ -14,16 +14,21 @@ pub struct ServerInfo {
     pub install_method: &'static str,
 }
 
-/// Resolve the full path to a server binary — checks ~/.caret/servers/ first, then PATH.
+/// Resolve the full path to a server binary — checks ~/.blink/servers/ first, then PATH.
 pub fn resolve_server_path(command: &str) -> Option<String> {
     // Check local servers dir first
     if let Some(home) = dirs::home_dir() {
-        let local_path = home.join(".caret").join("servers").join(command);
+        let local_path = home.join(".blink").join("servers").join(command);
         if local_path.exists() {
             return Some(local_path.to_string_lossy().to_string());
         }
         // Also check node_modules/.bin style
-        let local_bin = home.join(".caret").join("servers").join("node_modules").join(".bin").join(command);
+        let local_bin = home
+            .join(".blink")
+            .join("servers")
+            .join("node_modules")
+            .join(".bin")
+            .join(command);
         if local_bin.exists() {
             return Some(local_bin.to_string_lossy().to_string());
         }
@@ -149,9 +154,7 @@ pub const KNOWN_SERVERS: &[ServerInfo] = &[
 
 /// Find the server for a given file extension.
 pub fn server_for_extension(ext: &str) -> Option<&'static ServerInfo> {
-    KNOWN_SERVERS
-        .iter()
-        .find(|s| s.extensions.contains(&ext))
+    KNOWN_SERVERS.iter().find(|s| s.extensions.contains(&ext))
 }
 
 /// Check if a command exists on the system.

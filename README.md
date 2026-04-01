@@ -1,8 +1,8 @@
-# Caret
+# Blink
 
 AI-first code editor built on Tauri + Rust.
 
-Caret is a lightweight, cross-platform IDE with AI deeply integrated — not as an afterthought sidebar, but as a core part of the editing experience. Built by [Voxire](https://voxire.com).
+Blink is a lightweight, cross-platform IDE with AI deeply integrated — not as an afterthought sidebar, but as a core part of the editing experience. Built by [Voxire](https://voxire.com).
 
 ## Features
 
@@ -35,7 +35,7 @@ Caret is a lightweight, cross-platform IDE with AI deeply integrated — not as 
 ## Project Structure
 
 ```
-caret/
+blink/
 ├── ui/                    # React frontend
 │   ├── ide/               # IDE components (editor, file tree, terminal, tabs, etc.)
 │   ├── components/        # Shared UI components
@@ -96,8 +96,8 @@ pnpm db:reset       # Reset local database
 
 ### Data
 
-- **`~/.caret/`** — database, memory, prompts
-- **`~/.caret/servers/`** — locally installed LSP servers
+- **`~/.blink/`** — database, memory, prompts
+- **`~/.blink/servers/`** — locally installed LSP servers
 
 ## AI Providers
 
@@ -110,7 +110,7 @@ pnpm db:reset       # Reset local database
 
 ## Windows Support
 
-Windows support is planned for a future release. Caret currently targets macOS as the primary platform. Windows builds will include native window chrome, proper path handling, and platform-specific shell detection for the integrated terminal. Track progress in the [roadmap](ROADMAP.md).
+Windows support is planned for a future release. Blink currently targets macOS as the primary platform. Windows builds will include native window chrome, proper path handling, and platform-specific shell detection for the integrated terminal. Track progress in the [roadmap](ROADMAP.md).
 
 ## License
 

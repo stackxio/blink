@@ -3,7 +3,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
-    pub role: String,    // "system", "user", "assistant"
+    pub role: String, // "system", "user", "assistant"
     pub content: String,
 }
 

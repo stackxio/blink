@@ -56,7 +56,7 @@ export default function CommandPalette({ onClose }: Props) {
     { id: "inline-edit", label: "Inline Edit (select code first)", group: "AI", shortcut: "⌘K", icon: SquarePen, action: () => {} },
 
     // System
-    { id: "install-cli", label: "Install CLI (caret command)", group: "System", icon: TerminalSquare, action: () => {
+    { id: "install-cli", label: "Install CLI (blink command)", group: "System", icon: TerminalSquare, action: () => {
       invoke("install_cli").then((msg) => alert(msg)).catch((err) => alert(`Failed: ${err}`));
     }},
   ], [toggleSidePanel, toggleBottomPanel, toggleAiPanel, setSidePanelView, setTheme, navigate]);

@@ -14,7 +14,9 @@ fn row_to_thread(row: &rusqlite::Row<'_>) -> rusqlite::Result<DbThread> {
         folder_id: row.get(1)?,
         title: row.get(2)?,
         root_path_override: row.get(3)?,
-        scope_mode_override: row.get::<_, Option<String>>(4)?.unwrap_or_else(|| "inherit".to_string()),
+        scope_mode_override: row
+            .get::<_, Option<String>>(4)?
+            .unwrap_or_else(|| "inherit".to_string()),
         created_at: row.get(5)?,
         updated_at: row.get(6)?,
         archived_at: row.get(7)?,
@@ -37,7 +39,10 @@ pub fn create_thread(
     )?;
 
     conn.query_row(
-        &format!("SELECT {} FROM threads WHERE id = ?1", THREAD_COLS_WITH_COUNT),
+        &format!(
+            "SELECT {} FROM threads WHERE id = ?1",
+            THREAD_COLS_WITH_COUNT
+        ),
         params![id],
         |row| row_to_thread(row),
     )

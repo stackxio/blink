@@ -6,7 +6,7 @@ use super::schema::MIGRATIONS;
 
 fn db_path() -> PathBuf {
     let home = dirs::home_dir().expect("Could not determine home directory");
-    home.join(".caret").join("caret.db")
+    home.join(".blink").join("blink.db")
 }
 
 pub fn init_db() -> rusqlite::Result<Connection> {
@@ -14,7 +14,7 @@ pub fn init_db() -> rusqlite::Result<Connection> {
     log::info!("init_db: path={:?}", path);
 
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create ~/.caret directory");
+        fs::create_dir_all(parent).expect("Failed to create ~/.blink directory");
     }
 
     let conn = Connection::open(&path)?;

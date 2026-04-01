@@ -46,12 +46,12 @@ fn prompt_sort_key(name: &str) -> u8 {
 
 fn prompts_dir() -> PathBuf {
     let home = dirs::home_dir().expect("No home directory found");
-    home.join(".caret").join("prompts")
+    home.join(".blink").join("prompts")
 }
 
 fn memory_dir() -> PathBuf {
     let home = dirs::home_dir().expect("No home directory found");
-    home.join(".caret").join("memory")
+    home.join(".blink").join("memory")
 }
 
 fn is_system_file(filename: &str) -> bool {
@@ -85,7 +85,7 @@ pub fn load_system_prompt_with_mode(mode: &str) -> String {
     ensure_defaults();
 
     match mode {
-        "none" => "You are Caret, an AI operating layer built by Voxire.".to_string(),
+        "none" => "You are Blink, an AI operating layer built by Voxire.".to_string(),
         "minimal" => {
             let dir = prompts_dir();
             let mut parts: Vec<String> = Vec::new();

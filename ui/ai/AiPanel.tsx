@@ -147,14 +147,14 @@ export default function AiPanel() {
 
   // Draft auto-save
   useEffect(() => {
-    const key = `caret:ai-draft:${activeThreadId ?? "new"}`;
+    const key = `blink:ai-draft:${activeThreadId ?? "new"}`;
     if (input) localStorage.setItem(key, input);
     else localStorage.removeItem(key);
   }, [input, activeThreadId]);
 
   // Restore draft on thread switch
   useEffect(() => {
-    const saved = localStorage.getItem(`caret:ai-draft:${activeThreadId ?? "new"}`);
+    const saved = localStorage.getItem(`blink:ai-draft:${activeThreadId ?? "new"}`);
     setInput(saved ?? "");
   }, [activeThreadId]);
 
@@ -306,7 +306,7 @@ export default function AiPanel() {
     if (!text) return;
     setInput("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
-    localStorage.removeItem(`caret:ai-draft:${activeThreadId ?? "new"}`);
+    localStorage.removeItem(`blink:ai-draft:${activeThreadId ?? "new"}`);
 
     if (isLoading && activeThreadId) {
       setQueue((prev) => [...prev, text]);

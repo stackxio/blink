@@ -45,7 +45,10 @@ pub fn get_attachment(conn: &Connection, id: &str) -> Result<Option<DbAttachment
     }
 }
 
-pub fn list_attachments_by_project(conn: &Connection, project_id: &str) -> Result<Vec<DbAttachment>> {
+pub fn list_attachments_by_project(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<Vec<DbAttachment>> {
     let mut stmt = conn.prepare(
         "SELECT id, project_id, thread_id, message_id, original_name, mime_type, file_path, size_bytes, extraction_status, extracted_text_path, preview_text, created_at
          FROM attachments WHERE project_id = ?1 ORDER BY created_at DESC",

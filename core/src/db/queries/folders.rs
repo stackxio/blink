@@ -48,7 +48,10 @@ pub fn create_folder(
 }
 
 pub fn get_folder(conn: &Connection, id: &str) -> Result<Option<DbFolder>> {
-    let mut stmt = conn.prepare(&format!("SELECT {} FROM folders WHERE id = ?1", FOLDER_COLS))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM folders WHERE id = ?1",
+        FOLDER_COLS
+    ))?;
     let mut rows = stmt.query(params![id])?;
     if let Some(row) = rows.next()? {
         Ok(Some(row_to_folder(&row)?))
@@ -58,8 +61,10 @@ pub fn get_folder(conn: &Connection, id: &str) -> Result<Option<DbFolder>> {
 }
 
 pub fn list_folders(conn: &Connection) -> Result<Vec<DbFolder>> {
-    let mut stmt =
-        conn.prepare(&format!("SELECT {} FROM folders ORDER BY position", FOLDER_COLS))?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {} FROM folders ORDER BY position",
+        FOLDER_COLS
+    ))?;
     let rows = stmt.query_map([], |row| row_to_folder(&row))?;
     rows.collect()
 }
@@ -84,10 +89,16 @@ pub fn update_folder_appearance(
     color: Option<&str>,
 ) -> Result<()> {
     if let Some(icon) = icon {
-        conn.execute("UPDATE folders SET icon = ?1, updated_at = datetime('now') WHERE id = ?2", params![icon, id])?;
+        conn.execute(
+            "UPDATE folders SET icon = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![icon, id],
+        )?;
     }
     if let Some(color) = color {
-        conn.execute("UPDATE folders SET color = ?1, updated_at = datetime('now') WHERE id = ?2", params![color, id])?;
+        conn.execute(
+            "UPDATE folders SET color = ?1, updated_at = datetime('now') WHERE id = ?2",
+            params![color, id],
+        )?;
     }
     Ok(())
 }

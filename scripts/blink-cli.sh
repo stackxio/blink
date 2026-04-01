@@ -1,11 +1,11 @@
 #!/bin/bash
-# Caret CLI — open files/folders in Caret from the terminal
-# Usage: caret [path]  — opens path (file or folder) in Caret
-#        caret .       — opens current directory
-#        caret         — launches Caret
+# Blink CLI — open files/folders in Blink from the terminal
+# Usage: blink [path]  — opens path (file or folder) in Blink
+#        blink .       — opens current directory
+#        blink         — launches Blink
 
-APP_NAME="Caret"
-APP_BUNDLE="com.voxire.caret"
+APP_NAME="Blink"
+APP_BUNDLE="com.voxire.blink"
 
 if [ -z "$1" ]; then
   # No args — just launch the app

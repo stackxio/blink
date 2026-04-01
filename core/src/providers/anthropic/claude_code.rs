@@ -119,9 +119,7 @@ impl AIProvider for ClaudeCodeProvider {
             .args(&args)
             .output()
             .await
-            .map_err(|e| {
-                AIError::ProviderError(format!("Failed to run claude CLI: {}", e))
-            })?;
+            .map_err(|e| AIError::ProviderError(format!("Failed to run claude CLI: {}", e)))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -149,11 +147,7 @@ impl AIProvider for ClaudeCodeProvider {
         })
     }
 
-    async fn chat_stream(
-        &self,
-        req: ChatRequest,
-        tx: mpsc::Sender<String>,
-    ) -> Result<(), AIError> {
+    async fn chat_stream(&self, req: ChatRequest, tx: mpsc::Sender<String>) -> Result<(), AIError> {
         let prompt = self.build_prompt(&req);
         let mut args = self.base_args();
         args.push("--output-format".to_string());
@@ -175,9 +169,7 @@ impl AIProvider for ClaudeCodeProvider {
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn()
-            .map_err(|e| {
-                AIError::ProviderError(format!("Failed to spawn claude CLI: {}", e))
-            })?;
+            .map_err(|e| AIError::ProviderError(format!("Failed to spawn claude CLI: {}", e)))?;
 
         let stdout = child
             .stdout

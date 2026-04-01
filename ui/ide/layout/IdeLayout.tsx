@@ -49,7 +49,7 @@ export default function IdeLayout() {
   // Active workspace — all layout state comes from here
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
-  const workspaceName = ws?.name ?? "Caret";
+  const workspaceName = ws?.name ?? "Blink";
   const openFiles = ws?.openFiles ?? [];
   const activeFileIdx = ws?.activeFileIdx ?? -1;
   const sidePanelOpen = ws?.sidePanelOpen ?? true;
@@ -88,11 +88,11 @@ export default function IdeLayout() {
     function onFileSearch() {
       setFileSearchOpen((v) => !v);
     }
-    document.addEventListener("caret:navigate", onNavigate);
-    document.addEventListener("caret:file-search", onFileSearch);
+    document.addEventListener("blink:navigate", onNavigate);
+    document.addEventListener("blink:file-search", onFileSearch);
     return () => {
-      document.removeEventListener("caret:navigate", onNavigate);
-      document.removeEventListener("caret:file-search", onFileSearch);
+      document.removeEventListener("blink:navigate", onNavigate);
+      document.removeEventListener("blink:file-search", onFileSearch);
     };
   }, [navigate]);
 
@@ -112,8 +112,8 @@ export default function IdeLayout() {
     const interval = setInterval(fetchBranch, 5000);
     // Also refresh immediately when branch switches via status bar
     function onGitRefresh() { fetchBranch(); }
-    document.addEventListener("caret:git-refresh", onGitRefresh);
-    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("caret:git-refresh", onGitRefresh); };
+    document.addEventListener("blink:git-refresh", onGitRefresh);
+    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("blink:git-refresh", onGitRefresh); };
   }, [workspacePath]);
 
   // Start file watcher when workspace opens

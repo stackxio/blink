@@ -126,8 +126,8 @@ function updateWs(state: AppState, updater: (ws: Workspace) => Partial<Workspace
 
 export const useAppStore = create<AppState>((set, get) => ({
   theme: "dark",
-  aiPanelOpen: false,
-  aiPanelWidth: 360,
+  aiPanelOpen: true,
+  aiPanelWidth: 560,
   persistWorkspaces: true,
   diagnostics: {},
   setDiagnosticsForUri: (uri, diags) =>

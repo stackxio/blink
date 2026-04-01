@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CaretSettings {
+pub struct BlinkSettings {
     pub active_provider: String,
     #[serde(default = "default_prompt_mode")]
     pub prompt_mode: String,
@@ -77,10 +77,18 @@ pub struct EditorSettings {
     pub minimap: bool,
 }
 
-fn default_auto_save() -> bool { true }
-fn default_tab_size() -> u8 { 2 }
-fn default_font_size() -> u8 { 13 }
-fn default_minimap() -> bool { true }
+fn default_auto_save() -> bool {
+    true
+}
+fn default_tab_size() -> u8 {
+    2
+}
+fn default_font_size() -> u8 {
+    13
+}
+fn default_minimap() -> bool {
+    true
+}
 
 impl Default for EditorSettings {
     fn default() -> Self {
@@ -102,8 +110,12 @@ pub struct AppearanceSettings {
     pub font_family: String,
 }
 
-fn default_theme() -> String { "dark".to_string() }
-fn default_font_family() -> String { "default".to_string() }
+fn default_theme() -> String {
+    "dark".to_string()
+}
+fn default_font_family() -> String {
+    "default".to_string()
+}
 
 impl Default for AppearanceSettings {
     fn default() -> Self {
@@ -114,7 +126,7 @@ impl Default for AppearanceSettings {
     }
 }
 
-impl Default for CaretSettings {
+impl Default for BlinkSettings {
     fn default() -> Self {
         Self {
             active_provider: "codex".to_string(),
