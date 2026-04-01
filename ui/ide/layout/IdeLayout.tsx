@@ -110,7 +110,10 @@ export default function IdeLayout() {
     };
     fetchBranch();
     const interval = setInterval(fetchBranch, 5000);
-    return () => { cancelled = true; clearInterval(interval); };
+    // Also refresh immediately when branch switches via status bar
+    function onGitRefresh() { fetchBranch(); }
+    document.addEventListener("caret:git-refresh", onGitRefresh);
+    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("caret:git-refresh", onGitRefresh); };
   }, [workspacePath]);
 
   // Start file watcher when workspace opens
@@ -122,12 +125,16 @@ export default function IdeLayout() {
     };
   }, [workspacePath]);
 
-  // Listen for external file changes and reload open files
+  // Listen for external file changes and reload open files + refresh file tree
   useEffect(() => {
     const unlisten = listen<string>("file:changed", (event) => {
       const changedPath = event.payload;
       const ws = useAppStore.getState().activeWorkspace();
       if (!ws) return;
+
+      // Refresh file tree so new/deleted files show up
+      fileTreeRef.current?.refresh();
+
       const fileEntry = ws.openFiles.find((f) => f.path === changedPath);
       if (!fileEntry) return;
       // Don't reload if user has unsaved changes

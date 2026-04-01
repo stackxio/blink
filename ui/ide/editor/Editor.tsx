@@ -10,6 +10,8 @@ import { lintGutter } from "@codemirror/lint";
 import { darkSyntaxHighlighting } from "./cm-theme";
 import { LspClient } from "./lsp-client";
 import { lspDiagnosticsListener } from "./cm-lsp-extension";
+import { gitGutterExtension, setGitChanges, parseDiff } from "./cm-git-gutter";
+import { inlineEditExtension, inlineEditTheme, createInlineEditKeymap, closeInlineEdit } from "./cm-inline-edit";
 import { useAppStore } from "@/store";
 import { showMinimap } from "@replit/codemirror-minimap";
 
@@ -137,8 +139,13 @@ interface Props {
   onCursorChange?: (line: number, col: number, scrollTop: number) => void;
 }
 
-// Compartment for word wrap — shared across editor instances
+// Compartments for dynamic editor settings
 const wordWrapCompartment = new Compartment();
+const fontSizeCompartment = new Compartment();
+
+function fontSizeTheme(size: number) {
+  return EditorView.theme({ "&": { fontSize: `${size}px` } });
+}
 
 export default function Editor({ content, filename, filePath, initialCursorLine, initialCursorCol, initialScrollTop, onSave, onChange, onCursorChange }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -158,6 +165,18 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
       savedContentRef.current = text;
       onChange(false);
       lspClientRef.current?.didSave(`file://${filePath}`, text);
+      // Refresh git gutter after save
+      const wsPath = useAppStore.getState().activeWorkspace()?.path ?? null;
+      if (wsPath && filePath.startsWith(wsPath)) {
+        const relPath = filePath.slice(wsPath.length).replace(/^\//, "");
+        invoke<string>("git_diff", { path: wsPath, filePath: relPath })
+          .then((diff) => {
+            if (!viewRef.current) return;
+            const changes = parseDiff(diff);
+            viewRef.current.dispatch({ effects: setGitChanges.of(changes) });
+          })
+          .catch(() => {});
+      }
     }
   }, [onSave, onChange, filePath]);
 
@@ -171,6 +190,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     const storedWordWrap = localStorage.getItem("caret:wordWrap") === "true";
     const storedTabSize = parseInt(localStorage.getItem("caret:tabSize") || "2", 10);
     const storedMinimap = localStorage.getItem("caret:minimap") !== "false"; // default on
+    const storedFontSize = parseInt(localStorage.getItem("caret:fontSize") || "13", 10);
 
     // Start LSP in background — doesn't block editor creation
     const lspClient = new LspClient();
@@ -224,6 +244,13 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
         indentUnit.of(" ".repeat(storedTabSize)),
         // Word wrap (in compartment so it can be toggled at runtime)
         wordWrapCompartment.of(storedWordWrap ? EditorView.lineWrapping : []),
+        // Font size (in compartment so it can be changed at runtime)
+        fontSizeCompartment.of(fontSizeTheme(storedFontSize)),
+        // Git change gutter
+        gitGutterExtension,
+        // Inline AI edit (Cmd+K)
+        inlineEditExtension,
+        inlineEditTheme,
         // Minimap
         ...(storedMinimap ? [showMinimap.compute(["doc"], () => ({
           create: () => { const dom = document.createElement("div"); return { dom }; },
@@ -240,6 +267,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
           indentWithTab,
           { key: "Mod-s", run: () => { handleSave(); return true; } },
           { key: "Mod-g", run: gotoLine },
+          createInlineEditKeymap(),
         ]),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -270,9 +298,11 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
             }, 400);
           }
         }),
-        // Auto-save on blur (focus loss)
+        // Auto-save on blur (focus loss) — respects auto_save setting
         EditorView.domEventHandlers({
           blur: (_event, view) => {
+            const autoSave = localStorage.getItem("caret:autoSave") !== "false"; // default on
+            if (!autoSave) return;
             const current = view.state.doc.toString();
             if (current !== savedContentRef.current) {
               handleSave();
@@ -286,12 +316,94 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
-    // Listen for word wrap toggle from status bar
+    // Load git diff and apply git gutter markers
+    const wsPath = ws?.path ?? null;
+    if (wsPath && filePath.startsWith(wsPath)) {
+      const relPath = filePath.slice(wsPath.length).replace(/^\//, "");
+      invoke<string>("git_diff", { path: wsPath, filePath: relPath })
+        .then((diff) => {
+          if (!viewRef.current) return;
+          const changes = parseDiff(diff);
+          viewRef.current.dispatch({ effects: setGitChanges.of(changes) });
+        })
+        .catch(() => {});
+    }
+
+    // Handle inline AI edit (Cmd+K) — caret:inline-edit event from cm-inline-edit.ts
+    async function onInlineEdit(e: Event) {
+      const { from, to, selectedText, instruction, view: editorView } = (e as CustomEvent).detail as {
+        from: number;
+        to: number;
+        selectedText: string;
+        instruction: string;
+        view: EditorView;
+      };
+      if (editorView !== view) return; // only handle events for this editor instance
+
+      const prompt = `You are a code editor assistant. The user has selected the following code:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\nInstruction: ${instruction}\n\nRespond with ONLY the replacement code. No explanation, no markdown fences, no extra text.`;
+
+      try {
+        let result = "";
+        const { listen } = await import("@tauri-apps/api/event");
+
+        const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (ev) => {
+          result += ev.payload.chunk;
+        });
+
+        const unlistenDone = await listen<{ full_text: string }>("chat:done", (ev) => {
+          result = ev.payload.full_text;
+          cleanup();
+          applyResult();
+        });
+
+        const unlistenError = await listen<{ error: string }>("chat:error", () => {
+          cleanup();
+          if (viewRef.current) {
+            viewRef.current.dispatch({ effects: closeInlineEdit.of(null) });
+          }
+        });
+
+        function cleanup() { unlistenChunk(); unlistenDone(); unlistenError(); }
+        function applyResult() {
+          if (!viewRef.current) return;
+          // Strip markdown code fences if AI wrapped the response
+          const cleaned = result.trim().replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "");
+          viewRef.current.dispatch({
+            changes: { from, to, insert: cleaned },
+            effects: closeInlineEdit.of(null),
+          });
+          viewRef.current.focus();
+        }
+
+        await invoke("chat_stream", {
+          input: {
+            prompt,
+            threadId: null,
+            runtimeMode: "full-access",
+            provider: null, // use active provider from settings
+            model: null,
+          },
+        });
+      } catch {
+        if (viewRef.current) {
+          viewRef.current.dispatch({ effects: closeInlineEdit.of(null) });
+        }
+      }
+    }
+    document.addEventListener("caret:inline-edit", onInlineEdit);
+
+    // Listen for editor setting changes from settings panel
     function onStorageChange(e: StorageEvent) {
-      if (e.key === "caret:wordWrap" && viewRef.current) {
+      if (!viewRef.current) return;
+      if (e.key === "caret:wordWrap") {
         const wrap = e.newValue === "true";
         viewRef.current.dispatch({
           effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []),
+        });
+      } else if (e.key === "caret:fontSize") {
+        const size = parseInt(e.newValue ?? "13", 10);
+        viewRef.current.dispatch({
+          effects: fontSizeCompartment.reconfigure(fontSizeTheme(size)),
         });
       }
     }
@@ -311,6 +423,7 @@ export default function Editor({ content, filename, filePath, initialCursorLine,
 
     return () => {
       window.removeEventListener("storage", onStorageChange);
+      document.removeEventListener("caret:inline-edit", onInlineEdit);
       if (changeTimer) clearTimeout(changeTimer);
       lspClientRef.current?.didClose(`file://${filePath}`);
       diagCleanupRef.current?.();

@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
-import { useTheme } from "@/lib/theme";
+import { invoke } from "@tauri-apps/api/core";
+import { useTheme, changeTheme, type Theme } from "@/lib/theme";
 import IdeLayout from "@/ide/layout/IdeLayout";
 import Welcome from "@/ide/layout/Welcome";
 import SettingsOverlay from "@/overlays/SettingsOverlay";
@@ -14,8 +16,31 @@ import SettingsArchived from "@/features/settings/Archived";
 import SettingsAbout from "@/features/settings/About";
 import SettingsLicenses from "@/features/settings/Licenses";
 
+// Sync backend settings → localStorage on startup so the editor reads correct values
+function useSyncSettingsToLocalStorage() {
+  useEffect(() => {
+    invoke<Record<string, unknown>>("get_settings")
+      .then((s) => {
+        const editor = s.editor as Record<string, unknown> | undefined;
+        if (editor) {
+          if (editor.auto_save != null) localStorage.setItem("caret:autoSave", String(editor.auto_save));
+          if (editor.tab_size != null) localStorage.setItem("caret:tabSize", String(editor.tab_size));
+          if (editor.font_size != null) localStorage.setItem("caret:fontSize", String(editor.font_size));
+          if (editor.word_wrap != null) localStorage.setItem("caret:wordWrap", String(editor.word_wrap));
+          if (editor.minimap != null) localStorage.setItem("caret:minimap", String(editor.minimap));
+        }
+        const appearance = s.appearance as Record<string, unknown> | undefined;
+        if (appearance?.theme) {
+          changeTheme(appearance.theme as Theme);
+        }
+      })
+      .catch(() => {});
+  }, []);
+}
+
 export default function App() {
   useTheme();
+  useSyncSettingsToLocalStorage();
   return (
     <BrowserRouter>
       <Routes>

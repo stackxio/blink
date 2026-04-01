@@ -415,6 +415,97 @@
     color: var(--c-muted-fg);
   }
 
+  // ── Tool calls ──
+
+  &__tool-calls {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  &__tool-call {
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    overflow: hidden;
+    font-size: var(--font-size-xs);
+  }
+
+  &__tool-call-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 5px 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+
+    &:hover { background: var(--c-surface-raised); }
+
+    svg { flex-shrink: 0; color: var(--c-muted-fg); }
+  }
+
+  &__tool-call-spinner {
+    color: var(--c-accent) !important;
+    animation: spin 0.8s linear infinite;
+  }
+
+  &__tool-call-check {
+    color: color-mix(in srgb, var(--c-success, #22c55e) 80%, transparent) !important;
+  }
+
+  &__tool-call-name {
+    font-weight: 500;
+    text-transform: capitalize;
+  }
+
+  &__tool-call-arg {
+    color: var(--c-muted-fg);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__tool-call-body {
+    border-top: 1px solid var(--c-border);
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  &__tool-call-pre {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    max-height: 120px;
+    overflow-y: auto;
+    background: var(--c-surface-raised);
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+  }
+
+  &__tool-call-result-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--c-muted-fg);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+  }
+
   &__thinking { margin-bottom: 6px; }
 
   &__thinking-toggle {
@@ -526,3 +617,4 @@
 }
 
 @keyframes blink { 50% { opacity: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }

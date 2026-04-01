@@ -53,6 +53,7 @@ export default function CommandPalette({ onClose }: Props) {
 
     // AI
     { id: "new-chat", label: "New AI Chat", group: "AI", icon: SquarePen, action: toggleAiPanel },
+    { id: "inline-edit", label: "Inline Edit (select code first)", group: "AI", shortcut: "⌘K", icon: SquarePen, action: () => {} },
 
     // System
     { id: "install-cli", label: "Install CLI (caret command)", group: "System", icon: TerminalSquare, action: () => {

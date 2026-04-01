@@ -2,7 +2,7 @@
 
 **Vision:** AI-first IDE with multi-workspace support, built on Tauri + Rust.
 
-**Status:** Phases 0-7 complete. Active development on v0.1.x polish + new features.
+**Status:** Phases 0-7 complete. v0.1.x queue complete. Active development on post-launch polish.
 
 ---
 
@@ -20,7 +20,7 @@ Work through these in order, one at a time.
 - [x] Batch find & replace across files
 - [x] Git panel polish — push/pull buttons, create branch; merge conflict resolution deferred to future
 - [x] MCP server management — config CRUD (add/remove/list), recommended server install; runtime process spawning deferred
-- [ ] AI tool calling framework — agent actions, tool registry
+- [x] AI tool calling framework — tool registry (read_file, write_file, list_dir, run_command, search_files), agentic loop for custom/OpenAI-compatible provider, tool call cards in chat UI
 
 ### Lower priority
 - [ ] Code signing + notarization (Apple Developer account)
@@ -139,12 +139,12 @@ Work through these in order, one at a time.
 
 ### Theming integration
 - [ ] Create theme JSON schema
-- [ ] Ship 2 built-in themes: Caret Dark, Caret Light
-- [ ] Theme loader: reads JSON → sets CSS variables on `:root`
+- [x] Ship 2 built-in themes: Caret Dark, Caret Light (CSS variable overrides via `.light` class)
+- [x] Theme loader: applies CSS variables via `.light`/`.dark` class on `<html>`
 - [ ] CodeMirror theme that reads from CSS variables
 - [ ] VS Code theme import adapter (map VS Code JSON → Caret JSON)
-- [ ] Theme picker in settings (preview before applying)
-- [ ] Persist selected theme in settings
+- [x] Theme picker in settings (Light / Dark / System segment control)
+- [x] Persist selected theme in settings (backend + localStorage)
 
 ---
 
@@ -299,9 +299,9 @@ Work through these in order, one at a time.
   - Stage/unstage buttons
   - Commit message input + commit button
   - Push/pull buttons
-- [ ] Git gutter in editor (added/modified/deleted lines)
-- [ ] Branch indicator in status bar (click to switch)
-- [ ] Blame annotations (toggle)
+- [x] Git gutter in editor (added/modified/deleted lines — green=added, yellow=modified)
+- [x] Branch indicator in status bar (click to switch branches, create new branch)
+- [x] Blame annotations (toggle — line/commit info in status bar on cursor move)
 - [ ] Git log viewer
 
 ---

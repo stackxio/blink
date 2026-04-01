@@ -41,6 +41,7 @@ function saveExpandedDirs(rootPath: string, dirs: Set<string>) {
 
 export interface FileTreeHandle {
   collapseAll: () => void;
+  refresh: () => void;
 }
 
 const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath, onOpenFolder, onFileSelect, activeFilePath }, ref) {
@@ -90,6 +91,11 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
       if (rootPath) {
         saveExpandedDirs(rootPath, expandedRef.current);
         loadDir(rootPath).then(setTree).catch(() => setTree([]));
+      }
+    },
+    refresh: () => {
+      if (rootPath) {
+        loadDirRecursive(rootPath, expandedRef.current).then(setTree).catch(() => {});
       }
     },
   }));

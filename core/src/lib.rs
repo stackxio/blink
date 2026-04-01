@@ -11,6 +11,7 @@ pub mod providers;
 pub mod services;
 mod scope;
 mod settings;
+pub mod tools;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -243,6 +244,8 @@ pub fn run() {
             commands::git::git_blame_line,
             commands::watcher::start_watching,
             commands::watcher::stop_watching,
+            commands::tools::tool_list,
+            commands::tools::tool_execute,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

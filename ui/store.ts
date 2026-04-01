@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
+import { changeTheme } from "@/lib/theme";
 
 export type SidePanelView = "explorer" | "chat" | "search" | "git";
 export type BottomPanelTab = "terminal" | "problems";
@@ -139,7 +140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null;
   },
 
-  setTheme: (t) => set({ theme: t }),
+  setTheme: (t) => { set({ theme: t }); changeTheme(t); },
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanelWidth: (w) => set({ aiPanelWidth: w }),
   setPersistWorkspaces: (v) => set({ persistWorkspaces: v }),

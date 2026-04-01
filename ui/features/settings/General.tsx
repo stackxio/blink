@@ -66,6 +66,26 @@ export default function SettingsGeneral() {
       editor: { ...settings.editor, ...patch },
     };
     setSettings(updated);
+    // Sync to localStorage so the editor picks up changes instantly via storage events
+    if ("auto_save" in patch) {
+      localStorage.setItem("caret:autoSave", String(patch.auto_save));
+    }
+    if ("tab_size" in patch) {
+      localStorage.setItem("caret:tabSize", String(patch.tab_size));
+      window.dispatchEvent(new StorageEvent("storage", { key: "caret:tabSize", newValue: String(patch.tab_size) }));
+    }
+    if ("word_wrap" in patch) {
+      localStorage.setItem("caret:wordWrap", String(patch.word_wrap));
+      window.dispatchEvent(new StorageEvent("storage", { key: "caret:wordWrap", newValue: String(patch.word_wrap) }));
+    }
+    if ("minimap" in patch) {
+      localStorage.setItem("caret:minimap", String(patch.minimap));
+      window.dispatchEvent(new StorageEvent("storage", { key: "caret:minimap", newValue: String(patch.minimap) }));
+    }
+    if ("font_size" in patch) {
+      localStorage.setItem("caret:fontSize", String(patch.font_size));
+      window.dispatchEvent(new StorageEvent("storage", { key: "caret:fontSize", newValue: String(patch.font_size) }));
+    }
     try {
       await invoke("save_settings", { settings: updated });
     } catch {

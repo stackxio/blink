@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 
 use crate::db::queries;
+use crate::providers::api::ApiProvider;
 use crate::providers::ollama::{OllamaModelInfo, OllamaProvider};
 use crate::providers::openai::{ActivityEvent, CodexServer, CodexStreamEvent};
 use crate::services::chat;
@@ -100,6 +101,14 @@ struct ChatStreamCancelled {
 #[derive(Clone, Serialize)]
 struct ChatStreamActivity {
     activity: ActivityEvent,
+}
+
+#[derive(Clone, Serialize)]
+struct ChatStreamToolCall {
+    name: String,
+    args: serde_json::Value,
+    result: Option<String>,
+    status: String,
 }
 
 // --- Helpers ---
@@ -244,10 +253,11 @@ fn stream_via_router(
         )
     };
 
+    // Use agentic (tool-calling) path for the custom provider when it has an endpoint
+    let use_agentic = provider == "custom" && !settings.custom.endpoint.is_empty();
+
     let settings = settings.clone();
     tauri::async_runtime::spawn(async move {
-        let router = chat::build_router(&settings);
-
         if cancelled.load(Ordering::Relaxed) {
             let _ = app_handle.emit(
                 "chat:cancelled",
@@ -292,7 +302,36 @@ fn stream_via_router(
             full_text
         });
 
-        let stream_result = router.chat_stream(req, tx).await;
+        let stream_result = if use_agentic {
+            let api_key = if settings.custom.api_key.is_empty() {
+                None
+            } else {
+                Some(settings.custom.api_key.clone())
+            };
+            let api = ApiProvider::new(
+                settings.custom.endpoint.clone(),
+                settings.custom.model.clone(),
+                api_key,
+            );
+            let app_for_tools = app_handle.clone();
+            api.agentic_stream(req, tx, move |event| {
+                let _ = app_for_tools.emit(
+                    "chat:tool_call",
+                    ChatStreamToolCall {
+                        name: event.name,
+                        args: event.args,
+                        result: event.result,
+                        status: event.status,
+                    },
+                );
+            })
+            .await
+            .map_err(|e| crate::providers::types::AIError::ProviderError(e.to_string()))
+        } else {
+            let router = chat::build_router(&settings);
+            router.chat_stream(req, tx).await
+        };
+
         let full_text = reader_handle.await.unwrap_or_default();
 
         if cancelled.load(Ordering::Relaxed) {

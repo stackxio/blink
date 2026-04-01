@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ArrowUp, Square, ChevronDown, FileCode, Folder, SquarePen, X, MessageSquare, Pencil, Archive, Trash2 } from "lucide-react";
-import MessageBubble, { type Message, type Activity } from "./MessageBubble";
+import MessageBubble, { type Message, type Activity, type ToolCall } from "./MessageBubble";
 import { useAppStore } from "@/store";
 
 interface DbMessage {
@@ -196,6 +196,23 @@ export default function AiPanel() {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, activities: [...(m.activities || []), e.payload.activity] } : m));
     });
 
+    const unlistenToolCall = await listen<ToolCall>("chat:tool_call", (e) => {
+      const tc = e.payload;
+      setMessages((prev) => prev.map((m) => {
+        if (m.id !== assistantId) return m;
+        const existing = m.toolCalls ?? [];
+        if (tc.status === "running") {
+          return { ...m, toolCalls: [...existing, tc] };
+        }
+        // Update the last matching "running" call with the result
+        const idx = [...existing].reverse().findIndex((c) => c.name === tc.name && c.status === "running");
+        if (idx === -1) return { ...m, toolCalls: [...existing, tc] };
+        const realIdx = existing.length - 1 - idx;
+        const updated = existing.map((c, i) => i === realIdx ? tc : c);
+        return { ...m, toolCalls: updated };
+      }));
+    });
+
     const unlistenDone = await listen<{ full_text: string }>("chat:done", async (e) => {
       setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: e.payload.full_text, isStreaming: false } : m));
       setIsLoading(false);
@@ -231,7 +248,7 @@ export default function AiPanel() {
       }
     });
 
-    function cleanup() { unlistenChunk(); unlistenActivity(); unlistenDone(); unlistenError(); unlistenCancelled(); }
+    function cleanup() { unlistenChunk(); unlistenActivity(); unlistenToolCall(); unlistenDone(); unlistenError(); unlistenCancelled(); }
 
     try {
       const currentModel = activeProvider === "codex" ? gptModel
