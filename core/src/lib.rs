@@ -211,6 +211,7 @@ pub fn run() {
             commands::memory::clear_today_memory,
             commands::editor::read_dir,
             commands::editor::read_file_content,
+            commands::editor::read_file_base64,
             commands::editor::write_file_content,
             commands::editor::install_cli,
             commands::editor::list_all_files,

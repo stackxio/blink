@@ -588,3 +588,99 @@
   line-height: 1.5;
   @include scrollbar(4px);
 }
+
+// ── File viewer (images, PDF, CSV) ────────────────────────────────────────────
+
+.file-viewer {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  background: var(--c-bg);
+
+  &__loading,
+  &__error,
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    font-size: var(--font-size-sm);
+    color: var(--c-muted-fg);
+    padding: 32px;
+  }
+
+  &__error {
+    color: var(--c-danger);
+  }
+
+  &__image-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    overflow: auto;
+    padding: 24px;
+    @include scrollbar(4px);
+  }
+
+  &__image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  }
+
+  &__pdf {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: var(--c-bg);
+  }
+
+  &__csv-wrap {
+    flex: 1;
+    overflow: auto;
+    @include scrollbar(4px);
+  }
+
+  &__csv {
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    width: 100%;
+
+    th,
+    td {
+      padding: 5px 12px;
+      border: 1px solid var(--c-border);
+      white-space: nowrap;
+      text-align: left;
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--c-fg);
+    }
+
+    th {
+      background: var(--c-surface);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+
+    tr:hover td {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__truncated {
+    padding: 8px 12px;
+    font-size: 11px;
+    color: var(--c-muted);
+    text-align: center;
+    border-top: 1px solid var(--c-border);
+    background: var(--c-surface);
+  }
+}

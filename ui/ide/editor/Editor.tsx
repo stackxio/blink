@@ -16,6 +16,7 @@ import {
   setupMonaco,
 } from "./monaco-setup";
 import { useAppStore } from "@/store";
+import { FileViewer, isViewableFile } from "./FileViewer";
 
 interface Props {
   content: string;
@@ -965,6 +966,10 @@ export default function Editor({
     } catch {
       setInlineEdit((state) => ({ ...state, loading: false }));
     }
+  }
+
+  if (isViewableFile(filename)) {
+    return <FileViewer filePath={filePath} filename={filename} content={content} />;
   }
 
   return (

@@ -398,6 +398,14 @@ pub async fn read_file_content(path: String) -> Result<String, String> {
     fs::read_to_string(&path).map_err(|e| format!("Failed to read {}: {}", path, e))
 }
 
+/// Read file contents as a base64-encoded string (for binary files).
+#[tauri::command]
+pub async fn read_file_base64(path: String) -> Result<String, String> {
+    use base64::{engine::general_purpose::STANDARD, Engine};
+    let bytes = fs::read(&path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    Ok(STANDARD.encode(&bytes))
+}
+
 /// Write content to a file (create or overwrite).
 #[tauri::command]
 pub async fn write_file_content(path: String, content: String) -> Result<(), String> {
