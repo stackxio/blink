@@ -1159,102 +1159,103 @@ function ProviderSettings({
         <span className="blink-settings-panel__title">Provider Settings</span>
       </div>
       <div className="blink-settings-panel__body">
-        {/* Preset picker */}
-        <div className="blink-settings-panel__field">
-          <label>Preset</label>
-          <select value={activePreset} onChange={(e) => applyPreset(e.target.value)}>
-            {visiblePresets.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Model */}
-        <div className="blink-settings-panel__field">
-          <label>Model</label>
-          {ptype === "claude-code" ? (
-            <select
-              value={currentModel}
-              onChange={(e) =>
-                onChange({ provider: { ...config.provider, model: e.target.value } })
-              }
-            >
-              {CLAUDE_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          ) : ptype === "codex" ? (
-            <select
-              value={currentModel}
-              onChange={(e) =>
-                onChange({ provider: { ...config.provider, model: e.target.value } })
-              }
-            >
-              {CODEX_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          ) : availableModels.length > 0 ? (
-            <select
-              value={currentModel}
-              onChange={(e) =>
-                onChange({ provider: { ...config.provider, model: e.target.value } })
-              }
-            >
-              {!availableModels.includes(currentModel) && currentModel && (
-                <option value={currentModel}>{currentModel}</option>
-              )}
-              {availableModels.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              value={currentModel}
-              onChange={(e) =>
-                onChange({ provider: { ...config.provider, model: e.target.value } })
-              }
-              placeholder="e.g. llama3.2 or gpt-4o"
-            />
-          )}
-        </div>
-
-        {/* Base URL — only for openai-compat */}
-        {ptype === "openai-compat" && (
+        {/* Provider card */}
+        <div className="blink-settings-panel__card">
+          {/* Preset picker */}
           <div className="blink-settings-panel__field">
-            <label>Base URL</label>
-            <input
-              value={config.provider.baseUrl ?? ""}
-              onChange={(e) => {
-                if (config.provider.type !== "openai-compat") return;
-                onChange({ provider: { ...config.provider, baseUrl: e.target.value } });
-              }}
-              placeholder="http://localhost:11434/v1"
-            />
+            <label>Preset</label>
+            <select value={activePreset} onChange={(e) => applyPreset(e.target.value)}>
+              {visiblePresets.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
 
-        {/* API Key — only for openai-compat */}
-        {ptype === "openai-compat" && (
+          {/* Model */}
           <div className="blink-settings-panel__field">
-            <label>API Key</label>
-            <input
-              type="password"
-              value={config.provider.apiKey ?? ""}
-              onChange={(e) => {
-                if (config.provider.type !== "openai-compat") return;
-                onChange({ provider: { ...config.provider, apiKey: e.target.value } });
-              }}
-              placeholder="sk-… (leave empty for Ollama)"
-            />
+            <label>Model</label>
+            {ptype === "claude-code" ? (
+              <select
+                value={currentModel}
+                onChange={(e) =>
+                  onChange({ provider: { ...config.provider, model: e.target.value } })
+                }
+              >
+                {CLAUDE_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            ) : ptype === "codex" ? (
+              <select
+                value={currentModel}
+                onChange={(e) =>
+                  onChange({ provider: { ...config.provider, model: e.target.value } })
+                }
+              >
+                {CODEX_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            ) : availableModels.length > 0 ? (
+              <select
+                value={currentModel}
+                onChange={(e) =>
+                  onChange({ provider: { ...config.provider, model: e.target.value } })
+                }
+              >
+                {!availableModels.includes(currentModel) && currentModel && (
+                  <option value={currentModel}>{currentModel}</option>
+                )}
+                {availableModels.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                value={currentModel}
+                onChange={(e) =>
+                  onChange({ provider: { ...config.provider, model: e.target.value } })
+                }
+                placeholder="e.g. llama3.2 or gpt-4o"
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Connection card — only for openai-compat */}
+        {ptype === "openai-compat" && (
+          <div className="blink-settings-panel__card">
+            <div className="blink-settings-panel__field">
+              <label>Base URL</label>
+              <input
+                value={config.provider.baseUrl ?? ""}
+                onChange={(e) => {
+                  if (config.provider.type !== "openai-compat") return;
+                  onChange({ provider: { ...config.provider, baseUrl: e.target.value } });
+                }}
+                placeholder="http://localhost:11434/v1"
+              />
+            </div>
+            <div className="blink-settings-panel__field">
+              <label>API Key</label>
+              <input
+                type="password"
+                value={config.provider.apiKey ?? ""}
+                onChange={(e) => {
+                  if (config.provider.type !== "openai-compat") return;
+                  onChange({ provider: { ...config.provider, apiKey: e.target.value } });
+                }}
+                placeholder="sk-… (leave empty for Ollama)"
+              />
+            </div>
           </div>
         )}
 
@@ -1268,13 +1269,17 @@ function ProviderSettings({
 
         {/* Permission toggle — not relevant for CLI providers */}
         {!isCLI && (
-          <div className="blink-settings-panel__field blink-settings-panel__field--row">
-            <label>Require permission for tools</label>
-            <input
-              type="checkbox"
-              checked={config.requirePermission}
-              onChange={(e) => onChange({ requirePermission: e.target.checked })}
-            />
+          <div className="blink-settings-panel__card">
+            <div className="blink-settings-panel__field blink-settings-panel__field--row">
+              <label>Require permission for tools</label>
+              <button
+                type="button"
+                className={`toggle ${config.requirePermission ? "toggle--on" : ""}`}
+                onClick={() => onChange({ requirePermission: !config.requirePermission })}
+              >
+                <span className="toggle__thumb" />
+              </button>
+            </div>
           </div>
         )}
       </div>
