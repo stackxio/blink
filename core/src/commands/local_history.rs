@@ -13,7 +13,9 @@ pub struct HistoryEntry {
 }
 
 fn percent_encode_path(path: &str) -> String {
-    path.replace('%', "%25").replace('/', "%2F").replace('\\', "%5C")
+    path.replace('%', "%25")
+        .replace('/', "%2F")
+        .replace('\\', "%5C")
 }
 
 fn history_dir_for_file(file_path: &str) -> PathBuf {
@@ -116,8 +118,7 @@ pub async fn list_local_history(file_path: String) -> Result<Vec<HistoryEntry>, 
 /// Read the content of a specific snapshot file.
 #[tauri::command]
 pub async fn read_local_history_entry(snapshot_file: String) -> Result<String, String> {
-    fs::read_to_string(&snapshot_file)
-        .map_err(|e| format!("Failed to read snapshot: {}", e))
+    fs::read_to_string(&snapshot_file).map_err(|e| format!("Failed to read snapshot: {}", e))
 }
 
 /// Delete all history snapshots for a file.

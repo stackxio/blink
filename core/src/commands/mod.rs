@@ -1,10 +1,10 @@
 pub mod ai;
 pub mod attachments;
-pub mod local_history;
 pub mod blink_code_bridge;
 pub mod editor;
 pub mod files;
 pub mod git;
+pub mod local_history;
 pub mod lsp;
 pub mod mcp;
 pub mod memory;
