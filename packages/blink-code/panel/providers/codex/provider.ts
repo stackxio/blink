@@ -44,7 +44,10 @@ export function createCodexProvider(opts: Opts): ChatProvider {
       // ── Shared state ────────────────────────────────────────────────────────
 
       let msgId = 0;
-      const pending = new Map<number, (msg: { result?: unknown; error?: { message?: string } }) => void>();
+      const pending = new Map<
+        number,
+        (msg: { result?: unknown; error?: { message?: string } }) => void
+      >();
 
       // Notification queue — background reader pushes here, main generator consumes
       type QueueItem =
@@ -98,7 +101,12 @@ export function createCodexProvider(opts: Opts): ChatProvider {
           } else if (msg.method) {
             if (msg.id != null) {
               // Server-initiated request (e.g. approval) — push to queue so generator can respond
-              pushNotif({ type: "rpc_request", id: msg.id, method: msg.method, params: msg.params });
+              pushNotif({
+                type: "rpc_request",
+                id: msg.id,
+                method: msg.method,
+                params: msg.params,
+              });
             } else {
               pushNotif({ type: "notification", method: msg.method, params: msg.params });
             }
@@ -180,7 +188,11 @@ export function createCodexProvider(opts: Opts): ChatProvider {
             continue;
           }
 
-          const { method, params } = item as { type: "notification"; method: string; params: unknown };
+          const { method, params } = item as {
+            type: "notification";
+            method: string;
+            params: unknown;
+          };
           const p = params as Record<string, unknown> | undefined;
 
           if (

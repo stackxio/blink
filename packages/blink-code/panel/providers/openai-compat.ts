@@ -77,8 +77,7 @@ function openAiMessages(system: string, messages: BlinkMessage[]): unknown[] {
           }),
         });
       }
-    }
-    else if (m.role === "assistant") {
+    } else if (m.role === "assistant") {
       const entry: Record<string, unknown> = {
         role: "assistant",
         // Some endpoints reject null content — coerce to empty string
@@ -237,7 +236,10 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
       // Some Ollama models output tool calls as plain JSON text rather than
       // using the tool_calls delta format. Detect and convert them.
       if (tool_calls.length === 0 && fullText.trim()) {
-        const textCalls = parseTextToolCalls(fullText.trim(), tools.map((t) => t.function.name));
+        const textCalls = parseTextToolCalls(
+          fullText.trim(),
+          tools.map((t) => t.function.name),
+        );
         if (textCalls.length > 0) {
           tool_calls.push(...textCalls);
           fullText = "";

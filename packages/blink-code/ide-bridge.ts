@@ -503,8 +503,9 @@ rl.on("line", async (line) => {
     engine = ensureEngine();
 
     // Load active thread data
-    const threadData =
-      currentThreadId ? await loadThreadData(currentThreadId) : { messages: [], cliSessionIds: {} };
+    const threadData = currentThreadId
+      ? await loadThreadData(currentThreadId)
+      : { messages: [], cliSessionIds: {} };
     cliSessionIds = threadData.cliSessionIds ?? {};
     if (threadData.messages.length > 0) {
       engine.setHistory(threadData.messages);
@@ -574,7 +575,10 @@ rl.on("line", async (line) => {
     if (meta) {
       meta.name = String(msg.name).trim() || "New conversation";
       await saveThreadsIndex();
-      send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
+      send("threads_list", {
+        threads: threadsIndex.threads,
+        activeThreadId: currentThreadId ?? "",
+      });
     }
     return;
   }
@@ -584,7 +588,9 @@ rl.on("line", async (line) => {
     threadsIndex.threads = threadsIndex.threads.filter((t) => t.id !== deleteId);
 
     // Delete the file
-    try { await fs.unlink(threadFilePath(deleteId)); } catch {}
+    try {
+      await fs.unlink(threadFilePath(deleteId));
+    } catch {}
 
     // If we deleted the active thread, switch to first remaining or create new
     if (deleteId === currentThreadId) {
@@ -609,7 +615,10 @@ rl.on("line", async (line) => {
       }
     } else {
       await saveThreadsIndex();
-      send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
+      send("threads_list", {
+        threads: threadsIndex.threads,
+        activeThreadId: currentThreadId ?? "",
+      });
     }
     return;
   }
@@ -620,7 +629,10 @@ rl.on("line", async (line) => {
     if (currentThreadId) {
       await saveThreadData(currentThreadId, { messages: [], cliSessionIds: {} });
       const meta = threadsIndex.threads.find((t) => t.id === currentThreadId);
-      if (meta) { meta.messageCount = 0; meta.name = "New conversation"; }
+      if (meta) {
+        meta.messageCount = 0;
+        meta.name = "New conversation";
+      }
       await saveThreadsIndex();
       send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId });
     }
@@ -705,7 +717,10 @@ rl.on("line", async (line) => {
       if (threadsDir) {
         await persistCurrentThread();
         // Send updated thread list so UI can refresh name/count
-        send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
+        send("threads_list", {
+          threads: threadsIndex.threads,
+          activeThreadId: currentThreadId ?? "",
+        });
       }
     }
     return;

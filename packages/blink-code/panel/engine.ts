@@ -57,17 +57,16 @@ export class BlinkEngine {
       },
     }));
 
-    const userContent: BlinkMessage["content"] =
-      opts?.images?.length
-        ? [
-            ...opts.images.map((img) => ({
-              type: "image" as const,
-              data: img.data,
-              mimeType: img.mimeType,
-            })),
-            { type: "text" as const, text: userText },
-          ]
-        : userText;
+    const userContent: BlinkMessage["content"] = opts?.images?.length
+      ? [
+          ...opts.images.map((img) => ({
+            type: "image" as const,
+            data: img.data,
+            mimeType: img.mimeType,
+          })),
+          { type: "text" as const, text: userText },
+        ]
+      : userText;
     this._messages.push({ role: "user", content: userContent });
 
     try {

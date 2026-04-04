@@ -519,7 +519,6 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
           </div>
         )}
       </div>
-
     </div>
   );
 }

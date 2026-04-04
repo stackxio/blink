@@ -1,6 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GitBranch, Terminal, AlertCircle, AlertTriangle, Plus, Check, ArrowUpCircle, RotateCcw, Download } from "lucide-react";
+import {
+  GitBranch,
+  Terminal,
+  AlertCircle,
+  AlertTriangle,
+  Plus,
+  Check,
+  ArrowUpCircle,
+  RotateCcw,
+  Download,
+} from "lucide-react";
 import { useAppStore } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 
@@ -21,7 +31,16 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const errorCount = diagnosticSummary.errors;
   const warningCount = diagnosticSummary.warnings;
 
-  const { hasUpdate, isDownloading, isReady, latestVersion, progress, install, restartNow, dismiss } = useUpdateCheck();
+  const {
+    hasUpdate,
+    isDownloading,
+    isReady,
+    latestVersion,
+    progress,
+    install,
+    restartNow,
+    dismiss,
+  } = useUpdateCheck();
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("blink:wordWrap") === "true");
   const [tabSize] = useState(() => parseInt(localStorage.getItem("blink:tabSize") || "2", 10));
 
@@ -232,10 +251,20 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
         {hasUpdate && (
           <div className="status-bar__update">
             <ArrowUpCircle size={12} />
-            <button type="button" className="status-bar__update-action" onClick={install} title={`Install Blink ${latestVersion}`}>
+            <button
+              type="button"
+              className="status-bar__update-action"
+              onClick={install}
+              title={`Install Blink ${latestVersion}`}
+            >
               Update to {latestVersion}
             </button>
-            <button type="button" className="status-bar__update-dismiss" onClick={dismiss} title="Dismiss">
+            <button
+              type="button"
+              className="status-bar__update-dismiss"
+              onClick={dismiss}
+              title="Dismiss"
+            >
               ×
             </button>
           </div>

@@ -72,7 +72,13 @@ export type BridgeInEvent =
       allowTools: boolean;
       persistSession: boolean;
     }
-  | { type: "chat"; assistantMsgId: string; text: string; thinking?: boolean; images?: Array<{ data: string; mimeType: string }> }
+  | {
+      type: "chat";
+      assistantMsgId: string;
+      text: string;
+      thinking?: boolean;
+      images?: Array<{ data: string; mimeType: string }>;
+    }
   | { type: "abort"; assistantMsgId?: string }
   | { type: "permission_response"; reqId: string; allowed: boolean }
   | { type: "clear" }

@@ -72,5 +72,14 @@ export function useUpdateCheck() {
   const latestVersion = state.status === "available" ? state.update.version : null;
   const progress = state.status === "downloading" ? state.progress : null;
 
-  return { hasUpdate, isDownloading, isReady, latestVersion, progress, install, restartNow, dismiss };
+  return {
+    hasUpdate,
+    isDownloading,
+    isReady,
+    latestVersion,
+    progress,
+    install,
+    restartNow,
+    dismiss,
+  };
 }

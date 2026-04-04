@@ -852,9 +852,14 @@
     cursor: pointer;
     @include transition(background);
 
-    svg { color: var(--c-muted-fg); flex-shrink: 0; }
+    svg {
+      color: var(--c-muted-fg);
+      flex-shrink: 0;
+    }
 
-    &:hover { background: var(--c-surface-raised); }
+    &:hover {
+      background: var(--c-surface-raised);
+    }
   }
 
   &__thread-divider {
@@ -873,12 +878,16 @@
     &:hover {
       background: var(--c-surface-raised);
 
-      .blink-panel__thread-item-actions { opacity: 1; }
+      .blink-panel__thread-item-actions {
+        opacity: 1;
+      }
     }
 
     &--active {
       background: color-mix(in srgb, var(--c-accent) 10%, transparent);
-      .blink-panel__thread-item-name { color: var(--c-fg); }
+      .blink-panel__thread-item-name {
+        color: var(--c-fg);
+      }
     }
   }
 
@@ -930,8 +939,13 @@
     cursor: pointer;
     @include transition(background, color);
 
-    &:hover { background: var(--c-surface-raised); color: var(--c-fg); }
-    &--danger:hover { color: var(--c-danger); }
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+    &--danger:hover {
+      color: var(--c-danger);
+    }
   }
 
   &__thread-rename-input {

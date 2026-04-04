@@ -253,7 +253,9 @@ function BlinkCodePanel() {
   const isCompactingRef = useRef(false);
 
   // Image context state
-  const [imageItems, setImageItems] = useState<Array<{ id: string; dataUrl: string; mimeType: string }>>([]);
+  const [imageItems, setImageItems] = useState<
+    Array<{ id: string; dataUrl: string; mimeType: string }>
+  >([]);
 
   const [threads, setThreads] = useState<ThreadMeta[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -491,7 +493,9 @@ function BlinkCodePanel() {
 
           case "threads_list": {
             setThreads((msg as { threads: ThreadMeta[]; activeThreadId: string }).threads);
-            setActiveThreadId((msg as { threads: ThreadMeta[]; activeThreadId: string }).activeThreadId);
+            setActiveThreadId(
+              (msg as { threads: ThreadMeta[]; activeThreadId: string }).activeThreadId,
+            );
             break;
           }
 
@@ -599,7 +603,9 @@ function BlinkCodePanel() {
             } else {
               setMessages((prev) =>
                 prev.map((m) =>
-                  m.id === assistantMsgId && m.role === "assistant" ? { ...m, streaming: false } : m,
+                  m.id === assistantMsgId && m.role === "assistant"
+                    ? { ...m, streaming: false }
+                    : m,
                 ),
               );
             }
@@ -867,7 +873,8 @@ function BlinkCodePanel() {
           })
           .filter(Boolean)
           .join("\n\n");
-        const compactPrompt = getCompactPrompt() + `\n\nConversation to summarize:\n\n${transcript}`;
+        const compactPrompt =
+          getCompactPrompt() + `\n\nConversation to summarize:\n\n${transcript}`;
         isCompactingRef.current = true;
         setMessages((prev) => [
           ...prev,
@@ -1090,13 +1097,19 @@ function BlinkCodePanel() {
           <button
             type="button"
             className={`blink-panel__thread-btn${threadPickerOpen ? " blink-panel__thread-btn--open" : ""}`}
-            onClick={() => { setThreadPickerOpen((v) => !v); setRenamingThreadId(null); }}
+            onClick={() => {
+              setThreadPickerOpen((v) => !v);
+              setRenamingThreadId(null);
+            }}
             title="Switch conversation"
           >
             <span className="blink-panel__thread-name">
               {threads.find((t) => t.id === activeThreadId)?.name ?? "Blink"}
             </span>
-            <ChevronRight size={12} className={`blink-panel__thread-chevron${threadPickerOpen ? " blink-panel__thread-chevron--open" : ""}`} />
+            <ChevronRight
+              size={12}
+              className={`blink-panel__thread-chevron${threadPickerOpen ? " blink-panel__thread-chevron--open" : ""}`}
+            />
           </button>
 
           {threadPickerOpen && (
@@ -1107,7 +1120,9 @@ function BlinkCodePanel() {
                 onClick={() => {
                   setThreadPickerOpen(false);
                   pendingTextDeltasRef.current.clear();
-                  invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "new_thread" }) }).catch(() => {});
+                  invoke("blink_code_bridge_send", {
+                    line: JSON.stringify({ type: "new_thread" }),
+                  }).catch(() => {});
                   currentAssistantMsgIdRef.current = null;
                   forceScrollToBottomRef.current = true;
                   setStreaming(false);
@@ -1130,14 +1145,26 @@ function BlinkCodePanel() {
                       onChange={(e) => setRenameValue(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
-                          invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "rename_thread", threadId: t.id, name: renameValue }) }).catch(() => {});
+                          invoke("blink_code_bridge_send", {
+                            line: JSON.stringify({
+                              type: "rename_thread",
+                              threadId: t.id,
+                              name: renameValue,
+                            }),
+                          }).catch(() => {});
                           setRenamingThreadId(null);
                         }
                         if (e.key === "Escape") setRenamingThreadId(null);
                       }}
                       onBlur={() => {
                         if (renameValue.trim()) {
-                          invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "rename_thread", threadId: t.id, name: renameValue }) }).catch(() => {});
+                          invoke("blink_code_bridge_send", {
+                            line: JSON.stringify({
+                              type: "rename_thread",
+                              threadId: t.id,
+                              name: renameValue,
+                            }),
+                          }).catch(() => {});
                         }
                         setRenamingThreadId(null);
                       }}
@@ -1147,16 +1174,23 @@ function BlinkCodePanel() {
                       type="button"
                       className="blink-panel__thread-item-btn"
                       onClick={() => {
-                        if (t.id === activeThreadId) { setThreadPickerOpen(false); return; }
+                        if (t.id === activeThreadId) {
+                          setThreadPickerOpen(false);
+                          return;
+                        }
                         setThreadPickerOpen(false);
                         pendingTextDeltasRef.current.clear();
                         setStreaming(false);
                         forceScrollToBottomRef.current = true;
-                        invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "switch_thread", threadId: t.id }) }).catch(() => {});
+                        invoke("blink_code_bridge_send", {
+                          line: JSON.stringify({ type: "switch_thread", threadId: t.id }),
+                        }).catch(() => {});
                       }}
                     >
                       <span className="blink-panel__thread-item-name">{t.name}</span>
-                      <span className="blink-panel__thread-item-count">{t.messageCount > 0 ? `${Math.ceil(t.messageCount / 2)}` : ""}</span>
+                      <span className="blink-panel__thread-item-count">
+                        {t.messageCount > 0 ? `${Math.ceil(t.messageCount / 2)}` : ""}
+                      </span>
                     </button>
                   )}
                   <div className="blink-panel__thread-item-actions">
@@ -1178,7 +1212,9 @@ function BlinkCodePanel() {
                       className="blink-panel__thread-action-btn blink-panel__thread-action-btn--danger"
                       onClick={(e) => {
                         e.stopPropagation();
-                        invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "delete_thread", threadId: t.id }) }).catch(() => {});
+                        invoke("blink_code_bridge_send", {
+                          line: JSON.stringify({ type: "delete_thread", threadId: t.id }),
+                        }).catch(() => {});
                       }}
                     >
                       <X size={11} />
@@ -1302,10 +1338,15 @@ function BlinkCodePanel() {
               </div>
             )}
             <div className="blink-panel__input-card">
-              {(contextItems.length > 0 || imageItems.length > 0 || (autoContext && activeFile)) && (
+              {(contextItems.length > 0 ||
+                imageItems.length > 0 ||
+                (autoContext && activeFile)) && (
                 <div className="blink-panel__context-files">
                   {imageItems.map((img) => (
-                    <span key={img.id} className="blink-panel__context-chip blink-panel__context-chip--image">
+                    <span
+                      key={img.id}
+                      className="blink-panel__context-chip blink-panel__context-chip--image"
+                    >
                       <img src={img.dataUrl} alt="pasted" className="blink-panel__img-thumb" />
                       <button
                         type="button"
@@ -1339,7 +1380,9 @@ function BlinkCodePanel() {
                       <button
                         type="button"
                         title="Remove"
-                        onClick={() => setContextItems((prev) => prev.filter((c) => c.id !== item.id))}
+                        onClick={() =>
+                          setContextItems((prev) => prev.filter((c) => c.id !== item.id))
+                        }
                       >
                         <X size={10} />
                       </button>
