@@ -146,9 +146,7 @@ export const FileViewer = memo(function FileViewer({ filePath, filename, content
 
   return (
     <div className="file-viewer">
-      {(IMAGE_EXTS.has(ext) || SVG_EXTS.has(ext)) && (
-        <ImageViewer filePath={filePath} ext={ext} />
-      )}
+      {(IMAGE_EXTS.has(ext) || SVG_EXTS.has(ext)) && <ImageViewer filePath={filePath} ext={ext} />}
       {PDF_EXTS.has(ext) && <PdfViewer filePath={filePath} />}
       {CSV_EXTS.has(ext) && <CsvViewer content={content} filename={filename} />}
     </div>
