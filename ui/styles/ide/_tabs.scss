@@ -117,4 +117,19 @@
   &--modified:hover &__close {
     opacity: 1;
   }
+
+  // Pinned tab styling
+  &--pinned {
+    border-right: 1px solid var(--c-border);
+    padding-right: 8px;
+  }
+
+  &__pin {
+    @include flex-center;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--c-accent);
+    opacity: 0.7;
+  }
 }

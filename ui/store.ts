@@ -23,6 +23,7 @@ export interface OpenFile {
   cursorCol: number;
   scrollTop: number;
   deleted: boolean;
+  pinned?: boolean;
 }
 
 export interface Workspace {
@@ -48,6 +49,8 @@ export interface Workspace {
   activeTerminalId: string | null;
   // File tree expanded paths
   expandedDirs: Set<string>;
+  // Recently closed tabs (for reopen)
+  closedTabHistory: OpenFile[];
 }
 
 function sidebarViewStorageKey(path: string) {
@@ -89,6 +92,7 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
     terminalIds: [],
     activeTerminalId: null,
     expandedDirs: new Set(),
+    closedTabHistory: [],
   };
 }
 
@@ -143,6 +147,9 @@ interface AppState {
     state: { cursorLine?: number; cursorCol?: number; scrollTop?: number },
   ) => void;
   markFileDeleted: (path: string) => void;
+  pinTab: (idx: number) => void;
+  unpinTab: (idx: number) => void;
+  reopenClosedTab: () => void;
 
   // Per-workspace split editor
   openFileSplit: (path: string, name: string) => void;
@@ -402,28 +409,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   closeFile: (idx) =>
     set((s) =>
       updateWs(s, (ws) => {
+        const file = ws.openFiles[idx];
+        if (!file || file.pinned) return {}; // Cannot close pinned tabs
+        const MAX_HISTORY = 20;
+        const closedTabHistory = [file, ...ws.closedTabHistory].slice(0, MAX_HISTORY);
         const updated = ws.openFiles.filter((_, i) => i !== idx);
         let newActive = ws.activeFileIdx;
         if (idx === ws.activeFileIdx) newActive = Math.min(idx, updated.length - 1);
         else if (idx < ws.activeFileIdx) newActive = ws.activeFileIdx - 1;
-        return { openFiles: updated, activeFileIdx: newActive };
+        return { openFiles: updated, activeFileIdx: newActive, closedTabHistory };
       }),
     ),
 
   closeAllFiles: () =>
     set((s) =>
-      updateWs(s, () => ({
-        openFiles: [],
-        activeFileIdx: -1,
-      })),
+      updateWs(s, (ws) => {
+        const pinned = ws.openFiles.filter((f) => f.pinned);
+        const closed = ws.openFiles.filter((f) => !f.pinned);
+        const MAX_HISTORY = 20;
+        const closedTabHistory = [...closed, ...ws.closedTabHistory].slice(0, MAX_HISTORY);
+        const newActive = pinned.length > 0 ? 0 : -1;
+        return { openFiles: pinned, activeFileIdx: newActive, closedTabHistory };
+      }),
     ),
 
   closeOtherFiles: (idx) =>
     set((s) =>
       updateWs(s, (ws) => {
-        const kept = ws.openFiles[idx];
-        if (!kept) return { openFiles: [], activeFileIdx: -1 };
-        return { openFiles: [kept], activeFileIdx: 0 };
+        const target = ws.openFiles[idx];
+        if (!target) return { openFiles: [], activeFileIdx: -1 };
+        // Keep pinned tabs + the target tab
+        const kept = ws.openFiles.filter((f, i) => f.pinned || i === idx);
+        const newActiveIdx = kept.findIndex((f) => f.path === target.path);
+        const closed = ws.openFiles.filter((f, i) => !f.pinned && i !== idx);
+        const MAX_HISTORY = 20;
+        const closedTabHistory = [...closed, ...ws.closedTabHistory].slice(0, MAX_HISTORY);
+        return {
+          openFiles: kept,
+          activeFileIdx: newActiveIdx >= 0 ? newActiveIdx : 0,
+          closedTabHistory,
+        };
       }),
     ),
 
@@ -470,6 +495,55 @@ export const useAppStore = create<AppState>((set, get) => ({
       updateWs(s, (ws) => ({
         openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, deleted: true } : f)),
       })),
+    ),
+
+  pinTab: (idx) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const file = ws.openFiles[idx];
+        if (!file || file.pinned) return {};
+        // Move pinned tab to front (before unpinned tabs)
+        const withoutFile = ws.openFiles.filter((_, i) => i !== idx);
+        const insertAt = withoutFile.filter((f) => f.pinned).length;
+        const openFiles = [
+          ...withoutFile.slice(0, insertAt),
+          { ...file, pinned: true, preview: false },
+          ...withoutFile.slice(insertAt),
+        ];
+        const newActiveIdx = openFiles.findIndex((f) => f.path === file.path);
+        return { openFiles, activeFileIdx: newActiveIdx };
+      }),
+    ),
+
+  unpinTab: (idx) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const file = ws.openFiles[idx];
+        if (!file || !file.pinned) return {};
+        const openFiles = ws.openFiles.map((f, i) =>
+          i === idx ? { ...f, pinned: false } : f,
+        );
+        return { openFiles };
+      }),
+    ),
+
+  reopenClosedTab: () =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        if (ws.closedTabHistory.length === 0) return {};
+        const [tab, ...rest] = ws.closedTabHistory;
+        // Check if already open
+        const existing = ws.openFiles.findIndex((f) => f.path === tab.path);
+        if (existing !== -1) {
+          return { closedTabHistory: rest, activeFileIdx: existing };
+        }
+        const openFiles = [...ws.openFiles, { ...tab, preview: false }];
+        return {
+          openFiles,
+          activeFileIdx: openFiles.length - 1,
+          closedTabHistory: rest,
+        };
+      }),
     ),
 
   // ── Split editor ──

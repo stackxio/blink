@@ -381,9 +381,7 @@ export function registerLspProviders(
                     r.end.character + 1,
                   ),
               ),
-              wordPattern: result.wordPattern
-                ? new RegExp(result.wordPattern)
-                : undefined,
+              wordPattern: result.wordPattern ? new RegExp(result.wordPattern) : undefined,
             };
           } catch {
             return null;

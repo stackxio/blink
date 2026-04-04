@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, Pin } from "lucide-react";
 import type { OpenFile } from "@/store";
 
 interface ContextMenu {
@@ -17,6 +17,10 @@ interface Props {
   onClose: (idx: number) => void;
   onCloseAll: () => void;
   onCloseOthers: (idx: number) => void;
+  onPin?: (idx: number) => void;
+  onUnpin?: (idx: number) => void;
+  onReopenClosed?: () => void;
+  hasClosedHistory?: boolean;
   extraActions?: React.ReactNode;
 }
 
@@ -28,6 +32,10 @@ export default function TabBar({
   onClose,
   onCloseAll,
   onCloseOthers,
+  onPin,
+  onUnpin,
+  onReopenClosed,
+  hasClosedHistory,
   extraActions,
 }: Props) {
   const [ctx, setCtx] = useState<ContextMenu | null>(null);
@@ -86,6 +94,7 @@ export default function TabBar({
           isActive && "tab--active",
           file.modified && "tab--modified",
           file.preview && "tab--preview",
+          file.pinned && "tab--pinned",
         ]
           .filter(Boolean)
           .join(" ");
@@ -97,9 +106,14 @@ export default function TabBar({
             onClick={() => onSelect(i)}
             onContextMenu={(e) => handleContextMenu(e, i)}
             onAuxClick={(e) => {
-              if (e.button === 1) onClose(i);
+              if (e.button === 1 && !file.pinned) onClose(i);
             }}
           >
+            {file.pinned && (
+              <span className="tab__pin" title="Pinned">
+                <Pin size={10} />
+              </span>
+            )}
             <span
               className="tab__name"
               style={{
@@ -110,17 +124,19 @@ export default function TabBar({
               {file.name}
             </span>
             {file.modified && <span className="tab__modified" />}
-            <span
-              className="tab__close"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClose(i);
-              }}
-              role="button"
-              aria-label="Close tab"
-            >
-              <X size={12} />
-            </span>
+            {!file.pinned && (
+              <span
+                className="tab__close"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose(i);
+                }}
+                role="button"
+                aria-label="Close tab"
+              >
+                <X size={12} />
+              </span>
+            )}
           </div>
         );
       })}
@@ -132,11 +148,36 @@ export default function TabBar({
             style={{ left: ctx.x, top: ctx.y }}
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Pin / Unpin */}
+            {files[ctx.idx]?.pinned ? (
+              <button
+                className="menu__item"
+                onClick={() => {
+                  onUnpin?.(ctx.idx);
+                  dismiss();
+                }}
+              >
+                Unpin Tab
+              </button>
+            ) : (
+              <button
+                className="menu__item"
+                onClick={() => {
+                  onPin?.(ctx.idx);
+                  dismiss();
+                }}
+              >
+                Pin Tab
+              </button>
+            )}
+            <div className="menu__separator" />
             <button
-              className="menu__item"
+              className={`menu__item ${files[ctx.idx]?.pinned ? "menu__item--disabled" : ""}`}
               onClick={() => {
-                onClose(ctx.idx);
-                dismiss();
+                if (!files[ctx.idx]?.pinned) {
+                  onClose(ctx.idx);
+                  dismiss();
+                }
               }}
             >
               Close
@@ -168,6 +209,22 @@ export default function TabBar({
             >
               Close to the Right
             </button>
+            {onReopenClosed && (
+              <>
+                <div className="menu__separator" />
+                <button
+                  className={`menu__item ${!hasClosedHistory ? "menu__item--disabled" : ""}`}
+                  onClick={() => {
+                    if (hasClosedHistory) {
+                      onReopenClosed();
+                      dismiss();
+                    }
+                  }}
+                >
+                  Reopen Closed Tab
+                </button>
+              </>
+            )}
             <div className="menu__separator" />
             <button
               className="menu__item"

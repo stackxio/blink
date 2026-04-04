@@ -42,6 +42,9 @@ export default function IdeLayout() {
   const markFileDeleted = useAppStore((s) => s.markFileDeleted);
   const closeAllFiles = useAppStore((s) => s.closeAllFiles);
   const closeOtherFiles = useAppStore((s) => s.closeOtherFiles);
+  const pinTab = useAppStore((s) => s.pinTab);
+  const unpinTab = useAppStore((s) => s.unpinTab);
+  const reopenClosedTab = useAppStore((s) => s.reopenClosedTab);
   const openFileSplit = useAppStore((s) => s.openFileSplit);
   const closeFileSplit = useAppStore((s) => s.closeFileSplit);
   const setActiveSplitFile = useAppStore((s) => s.setActiveSplitFile);
@@ -55,6 +58,7 @@ export default function IdeLayout() {
   const workspaceName = ws?.name ?? "Blink";
   const openFiles = ws?.openFiles ?? [];
   const activeFileIdx = ws?.activeFileIdx ?? -1;
+  const closedTabHistory = ws?.closedTabHistory ?? [];
   const splitFiles = ws?.splitFiles ?? [];
   const splitActiveIdx = ws?.splitActiveIdx ?? -1;
   const splitOpen = ws?.splitOpen ?? false;
@@ -317,6 +321,12 @@ export default function IdeLayout() {
         setSymbolSearchMode((m) => (m === "workspace" ? null : "workspace"));
         return;
       }
+      // Cmd+Shift+T — reopen last closed tab
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "t" || e.key === "T")) {
+        e.preventDefault();
+        reopenClosedTab();
+        return;
+      }
       // Cmd+Shift+F — focus sidebar search with selected text
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
         e.preventDefault();
@@ -551,6 +561,10 @@ export default function IdeLayout() {
               onClose={handleCloseFile}
               onCloseAll={handleCloseAllFiles}
               onCloseOthers={handleCloseOtherFiles}
+              onPin={pinTab}
+              onUnpin={unpinTab}
+              onReopenClosed={reopenClosedTab}
+              hasClosedHistory={closedTabHistory.length > 0}
             />
             {isEditorActive && activeFile && (
               <div className="breadcrumbs-row">
