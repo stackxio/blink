@@ -13,7 +13,22 @@ function toAnthropicMessages(messages: BlinkMessage[]): unknown[] {
 
   for (const m of messages) {
     if (m.role === "user") {
-      result.push({ role: "user", content: m.content });
+      if (typeof m.content === "string") {
+        result.push({ role: "user", content: m.content });
+      } else {
+        result.push({
+          role: "user",
+          content: m.content.map((block) => {
+            if (block.type === "image") {
+              return {
+                type: "image",
+                source: { type: "base64", media_type: block.mimeType, data: block.data },
+              };
+            }
+            return { type: "text", text: block.text };
+          }),
+        });
+      }
     } else if (m.role === "assistant") {
       if (m.tool_calls?.length) {
         const content: unknown[] = [];

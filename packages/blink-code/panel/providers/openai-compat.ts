@@ -7,10 +7,77 @@ type ProviderOpts = {
   maxTokens: number;
 };
 
+/**
+ * Many Ollama models (Qwen, Llama, Mistral tool variants) don't support the
+ * OpenAI tool_calls delta format. They output tool calls as plain JSON text,
+ * typically as: {"name":"tool_name","arguments":{...}}
+ * or wrapped in XML: <tool_call>...</tool_call>
+ *
+ * This function detects those patterns and converts them to BlinkToolCall[].
+ * Only fires when the known tool names list contains the parsed name, so we
+ * don't false-positive on regular JSON responses.
+ */
+function parseTextToolCalls(text: string, knownTools: string[]): BlinkToolCall[] {
+  const results: BlinkToolCall[] = [];
+
+  // Helper to try parsing a single call object
+  function tryObj(raw: string): BlinkToolCall | null {
+    try {
+      const obj = JSON.parse(raw) as { name?: string; arguments?: unknown };
+      if (typeof obj.name === "string" && knownTools.includes(obj.name) && obj.arguments != null) {
+        return {
+          id: `toolu_${crypto.randomUUID()}`,
+          type: "function",
+          function: { name: obj.name, arguments: JSON.stringify(obj.arguments) },
+        };
+      }
+    } catch {}
+    return null;
+  }
+
+  // 1. Try whole text as a single JSON object
+  const direct = tryObj(text);
+  if (direct) return [direct];
+
+  // 2. XML-wrapped: <tool_call>...</tool_call> or <functioncall>...</functioncall>
+  const xmlRe = /<(?:tool_call|functioncall)>([\s\S]+?)<\/(?:tool_call|functioncall)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = xmlRe.exec(text)) !== null) {
+    const tc = tryObj(m[1].trim());
+    if (tc) results.push(tc);
+  }
+  if (results.length > 0) return results;
+
+  // 3. Multiple JSON objects on separate lines
+  for (const line of text.split("\n")) {
+    const tc = tryObj(line.trim());
+    if (tc) results.push(tc);
+  }
+
+  return results;
+}
+
 function openAiMessages(system: string, messages: BlinkMessage[]): unknown[] {
   const out: unknown[] = [{ role: "system", content: system }];
   for (const m of messages) {
-    if (m.role === "user") out.push({ role: "user", content: m.content });
+    if (m.role === "user") {
+      if (typeof m.content === "string") {
+        out.push({ role: "user", content: m.content });
+      } else {
+        out.push({
+          role: "user",
+          content: m.content.map((block) => {
+            if (block.type === "image") {
+              return {
+                type: "image_url",
+                image_url: { url: `data:${block.mimeType};base64,${block.data}` },
+              };
+            }
+            return { type: "text", text: block.text };
+          }),
+        });
+      }
+    }
     else if (m.role === "assistant") {
       const entry: Record<string, unknown> = {
         role: "assistant",
@@ -53,6 +120,7 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
           body: JSON.stringify({
             model,
             stream: true,
+            stream_options: { include_usage: true },
             max_tokens: maxTokens,
             messages: openAiMessages(system, messages),
             tools: includeTools && tools.length ? tools : undefined,
@@ -164,6 +232,16 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
           type: "function",
           function: { name: v.name, arguments: v.args },
         });
+      }
+
+      // Some Ollama models output tool calls as plain JSON text rather than
+      // using the tool_calls delta format. Detect and convert them.
+      if (tool_calls.length === 0 && fullText.trim()) {
+        const textCalls = parseTextToolCalls(fullText.trim(), tools.map((t) => t.function.name));
+        if (textCalls.length > 0) {
+          tool_calls.push(...textCalls);
+          fullText = "";
+        }
       }
 
       if (usageInputTokens > 0) {

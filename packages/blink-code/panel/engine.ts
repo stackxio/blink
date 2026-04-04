@@ -42,7 +42,10 @@ export class BlinkEngine {
     this.abortCtl?.abort();
   }
 
-  async *send(userText: string, opts?: { thinking?: boolean }): AsyncGenerator<EngineEvent> {
+  async *send(
+    userText: string,
+    opts?: { thinking?: boolean; images?: Array<{ data: string; mimeType: string }> },
+  ): AsyncGenerator<EngineEvent> {
     this.abortCtl = new AbortController();
     const signal = this.abortCtl.signal;
     const openaiTools: OpenAIToolSpec[] = this.opts.tools.map((t) => ({
@@ -54,7 +57,18 @@ export class BlinkEngine {
       },
     }));
 
-    this._messages.push({ role: "user", content: userText });
+    const userContent: BlinkMessage["content"] =
+      opts?.images?.length
+        ? [
+            ...opts.images.map((img) => ({
+              type: "image" as const,
+              data: img.data,
+              mimeType: img.mimeType,
+            })),
+            { type: "text" as const, text: userText },
+          ]
+        : userText;
+    this._messages.push({ role: "user", content: userContent });
 
     try {
       for (let turn = 0; turn < this.opts.maxTurns; turn++) {

@@ -4,8 +4,12 @@ export type BlinkToolCall = {
   function: { name: string; arguments: string };
 };
 
+export type ImageBlock = { type: "image"; data: string; mimeType: string };
+export type TextBlock = { type: "text"; text: string };
+export type ContentBlock = TextBlock | ImageBlock;
+
 export type BlinkMessage =
-  | { role: "user"; content: string }
+  | { role: "user"; content: string | ContentBlock[] }
   | { role: "assistant"; content: string | null; tool_calls?: BlinkToolCall[] }
   | { role: "tool"; tool_call_id: string; content: string };
 

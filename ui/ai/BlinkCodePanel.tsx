@@ -16,6 +16,11 @@ import {
   Bug,
   MessageCircle,
   Brain,
+  Plus,
+  FileText,
+  Folder,
+  Copy,
+  Download,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -29,7 +34,8 @@ import {
   getPromptCommand,
   SLASH_COMMANDS,
 } from "@@/panel/slash-commands";
-import type { BridgeOutEvent, HistoryDisplayMessage } from "@contracts/bridge-protocol";
+import { getCompactPrompt, formatCompactSummary } from "@@/panel/compact";
+import type { BridgeOutEvent, HistoryDisplayMessage, ThreadMeta } from "@contracts/bridge-protocol";
 
 // ── Message types ─────────────────────────────────────────────────────────────
 
@@ -52,6 +58,16 @@ type PanelMessage =
       streaming?: boolean;
     }
   | { id: string; role: "system"; content: string };
+
+// ── Context items ─────────────────────────────────────────────────────────────
+
+interface ContextItem {
+  id: string;
+  path: string;
+  name: string;
+  content: string;
+  isFolder?: boolean;
+}
 
 // ── Permission dialog ─────────────────────────────────────────────────────────
 
@@ -202,6 +218,11 @@ function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
 function BlinkCodePanel() {
   const workspacePath = useAppStore((s) => s.activeWorkspace()?.path ?? null);
   const workspaceName = useAppStore((s) => s.activeWorkspace()?.name ?? null);
+  const activeFile = useAppStore((s) => {
+    const ws = s.activeWorkspace();
+    if (!ws) return null;
+    return ws.openFiles[ws.activeFileIdx] ?? null;
+  });
 
   const [config, setConfig] = useState<BlinkCodeConfig>(loadBlinkCodeConfig);
   const [messages, setMessages] = useState<PanelMessage[]>([]);
@@ -216,6 +237,30 @@ function BlinkCodePanel() {
     inputTokens: number;
     outputTokens: number;
   } | null>(null);
+
+  const [contextItems, setContextItems] = useState<ContextItem[]>([]);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+
+  const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  const [atMentionFiles, setAtMentionFiles] = useState<string[]>([]);
+  const [atMentionIdx, setAtMentionIdx] = useState(0);
+  const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
+
+  const [autoContext, setAutoContext] = useState<boolean>(
+    () => localStorage.getItem("blink-auto-context") === "true",
+  );
+  const isCompactingRef = useRef(false);
+
+  // Image context state
+  const [imageItems, setImageItems] = useState<Array<{ id: string; dataUrl: string; mimeType: string }>>([]);
+
+  const [threads, setThreads] = useState<ThreadMeta[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [threadPickerOpen, setThreadPickerOpen] = useState(false);
+  const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const threadPickerRef = useRef<HTMLDivElement>(null);
 
   const [bridgeReady, setBridgeReady] = useState(false);
   const [availableProviders, setAvailableProviders] = useState<string[]>(["ollama", "custom"]);
@@ -284,6 +329,31 @@ function BlinkCodePanel() {
     };
   }, []);
 
+  // Close context menu on outside click
+  useEffect(() => {
+    if (!contextMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [contextMenuOpen]);
+
+  // Close thread picker on outside click
+  useEffect(() => {
+    if (!threadPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (threadPickerRef.current && !threadPickerRef.current.contains(e.target as Node)) {
+        setThreadPickerOpen(false);
+        setRenamingThreadId(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [threadPickerOpen]);
+
   // Reset on workspace switch
   useEffect(() => {
     queueMicrotask(() => {
@@ -332,7 +402,10 @@ function BlinkCodePanel() {
       setPermReq(null);
       currentAssistantMsgIdRef.current = null;
       forceScrollToBottomRef.current = true;
-      setMessages([]);
+      // Stop any in-progress streaming messages, but keep them visible while bridge reinits
+      setMessages((prev) =>
+        prev.map((m) => (m.role === "assistant" && m.streaming ? { ...m, streaming: false } : m)),
+      );
 
       const activeWorkspace = useAppStore.getState().activeWorkspace();
       const activeFile =
@@ -408,7 +481,17 @@ function BlinkCodePanel() {
             if (msg.availableProviders) {
               setAvailableProviders(msg.availableProviders);
             }
-            // History messages arrive in a separate "history" event right after
+            if (msg.threads) setThreads(msg.threads);
+            if (msg.activeThreadId) setActiveThreadId(msg.activeThreadId);
+            if (!msg.resumed) {
+              setMessages([]);
+            }
+            break;
+          }
+
+          case "threads_list": {
+            setThreads((msg as { threads: ThreadMeta[]; activeThreadId: string }).threads);
+            setActiveThreadId((msg as { threads: ThreadMeta[]; activeThreadId: string }).activeThreadId);
             break;
           }
 
@@ -427,6 +510,8 @@ function BlinkCodePanel() {
             });
             forceScrollToBottomRef.current = true;
             setMessages(panelMsgs);
+            setStreaming(false);
+            setContextUsage(null);
             break;
           }
 
@@ -491,11 +576,33 @@ function BlinkCodePanel() {
             const { assistantMsgId } = msg;
             if (currentAssistantMsgIdRef.current !== assistantMsgId) break;
             setStreaming(false);
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId && m.role === "assistant" ? { ...m, streaming: false } : m,
-              ),
-            );
+            if (isCompactingRef.current) {
+              isCompactingRef.current = false;
+              setMessages((prev) => {
+                const summary = [...prev]
+                  .reverse()
+                  .find((m) => m.role === "assistant" && m.id === assistantMsgId);
+                const rawSummary =
+                  summary && summary.role === "assistant" ? summary.content : "(no summary)";
+                const summaryText = formatCompactSummary(rawSummary ?? "(no summary)");
+                return [
+                  {
+                    id: crypto.randomUUID(),
+                    role: "system" as const,
+                    content: `Conversation compacted.\n\n${summaryText}`,
+                  },
+                ];
+              });
+              invoke("blink_code_bridge_send", {
+                line: JSON.stringify({ type: "clear" }),
+              }).catch(() => {});
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsgId && m.role === "assistant" ? { ...m, streaming: false } : m,
+                ),
+              );
+            }
             break;
           }
 
@@ -546,6 +653,14 @@ function BlinkCodePanel() {
     });
   }, [input]);
 
+  // Load workspace file list for @mention
+  useEffect(() => {
+    if (!workspacePath) return;
+    invoke<string[]>("list_all_files", { path: workspacePath })
+      .then(setWorkspaceFiles)
+      .catch(() => {});
+  }, [workspacePath]);
+
   async function handleSend() {
     const text = input.trim();
     if (!text || streaming) return;
@@ -563,13 +678,83 @@ function BlinkCodePanel() {
     await sendMessageToAI(text);
   }
 
+  async function handleAddFiles() {
+    setContextMenuOpen(false);
+    const paths = await invoke<string[]>("open_file_dialog").catch(() => [] as string[]);
+    if (!paths.length) return;
+    const newItems: ContextItem[] = await Promise.all(
+      paths.map(async (p) => {
+        const name = p.split("/").pop() ?? p;
+        const content = await invoke<string>("read_file_content", { path: p }).catch(
+          () => "(could not read file)",
+        );
+        return { id: crypto.randomUUID(), path: p, name, content };
+      }),
+    );
+    setContextItems((prev) => {
+      const existing = new Set(prev.map((c) => c.path));
+      return [...prev, ...newItems.filter((c) => !existing.has(c.path))];
+    });
+  }
+
+  async function handleAddFolder() {
+    setContextMenuOpen(false);
+    const folder = await invoke<string | null>("open_folder_dialog").catch(() => null);
+    if (!folder) return;
+    const name = folder.split("/").pop() ?? folder;
+    // List files in the folder for context
+    const files = await invoke<string[]>("list_all_files", { root: folder, maxFiles: 500 }).catch(
+      () => [] as string[],
+    );
+    const content =
+      files.length > 0
+        ? files.map((f) => f.replace(folder + "/", "")).join("\n")
+        : `(directory: ${folder})`;
+    setContextItems((prev) => {
+      if (prev.some((c) => c.path === folder)) return prev;
+      return [...prev, { id: crypto.randomUUID(), path: folder, name, content, isFolder: true }];
+    });
+  }
+
   async function sendMessageToAI(text: string) {
     if (!bridgeReady || streaming) return;
 
     forceScrollToBottomRef.current = true;
 
     const prefix = MODE_PREFIXES[mode];
-    const bridgeText = prefix ? `${prefix}${text}` : text;
+
+    // Prepend any attached context items + optional active-file auto-context
+    const allItems = [...contextItems];
+
+    if (autoContext && activeFile && !allItems.some((c) => c.path === activeFile.path)) {
+      const content = await invoke<string>("read_file_content", { path: activeFile.path }).catch(
+        () => "(could not read file)",
+      );
+      allItems.unshift({
+        id: "auto-ctx",
+        path: activeFile.path,
+        name: activeFile.name,
+        content,
+      });
+    }
+
+    let contextBlock = "";
+    if (allItems.length > 0) {
+      contextBlock =
+        allItems
+          .map((item) => {
+            const truncated =
+              item.content.length > 20_000
+                ? item.content.slice(0, 20_000) + "\n...[truncated]"
+                : item.content;
+            const tag = item.isFolder ? "directory" : "file";
+            return `<${tag} path="${item.path}">\n${truncated}\n</${tag}>`;
+          })
+          .join("\n\n") + "\n\n";
+      setContextItems([]);
+    }
+
+    const bridgeText = `${prefix}${contextBlock}${text}`;
 
     const userMsgId = crypto.randomUUID();
     setMessages((prev) => [...prev, { id: userMsgId, role: "user", content: text }]);
@@ -585,17 +770,24 @@ function BlinkCodePanel() {
     // (only meaningful for the Anthropic direct provider)
     const isUltrathink = config.provider.type === "anthropic" && /\bultrathink\b/i.test(text);
 
+    const images = imageItems.map((img) => ({
+      data: img.dataUrl.split(",")[1] ?? img.dataUrl,
+      mimeType: img.mimeType,
+    }));
+    setImageItems([]);
+
     await invoke("blink_code_bridge_send", {
       line: JSON.stringify({
         type: "chat",
         assistantMsgId,
         text: bridgeText,
         ...(isUltrathink ? { thinking: true } : {}),
+        ...(images.length > 0 ? { images } : {}),
       }),
     });
   }
 
-  function handleSlashCommand(name: string, args: string) {
+  async function handleSlashCommand(name: string, args: string) {
     // Prompt-type commands: inject as a user message to the AI
     const promptText = getPromptCommand(name);
     if (promptText) {
@@ -658,16 +850,32 @@ function BlinkCodePanel() {
           },
         ]);
         break;
-      case "compact":
-        // For now, compact is implemented as "start fresh" in the bridge.
-        pendingTextDeltasRef.current.clear();
-        forceScrollToBottomRef.current = true;
-        setMessages([]);
-        invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "clear" }) }).catch(
-          () => {},
-        );
-        setStreaming(false);
+      case "compact": {
+        const convo = messages.filter((m) => m.role === "user" || m.role === "assistant");
+        if (convo.length === 0) break;
+        const transcript = convo
+          .map((m) => {
+            if (m.role === "user") return `User: ${m.content}`;
+            if (m.role === "assistant") {
+              const parts: string[] = [];
+              if (m.toolCalls.length > 0)
+                parts.push(`[Tools used: ${m.toolCalls.map((t) => t.name).join(", ")}]`);
+              if (m.content) parts.push(`Assistant: ${m.content}`);
+              return parts.join("\n");
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n\n");
+        const compactPrompt = getCompactPrompt() + `\n\nConversation to summarize:\n\n${transcript}`;
+        isCompactingRef.current = true;
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "system", content: "Compacting conversation…" },
+        ]);
+        await sendMessageToAI(compactPrompt);
         break;
+      }
       case "help":
         setMessages((prev) => [
           ...prev,
@@ -681,7 +889,128 @@ function BlinkCodePanel() {
     }
   }
 
+  async function handleApplyCode(code: string) {
+    if (!activeFile) return;
+    await invoke("write_file_content", { path: activeFile.path, content: code }).catch(() => {});
+  }
+
+  function exportConversation() {
+    const lines: string[] = [];
+    for (const msg of messages) {
+      if (msg.role === "user") {
+        lines.push(`## User\n\n${msg.content}`);
+      } else if (msg.role === "assistant") {
+        const parts: string[] = [];
+        if (msg.toolCalls.length > 0)
+          parts.push(msg.toolCalls.map((t) => `> Tool: \`${t.name}\``).join("\n"));
+        if (msg.content) parts.push(msg.content);
+        lines.push(`## Assistant\n\n${parts.join("\n\n")}`);
+      } else if (msg.role === "system") {
+        lines.push(`> ${msg.content}`);
+      }
+    }
+    const markdown = lines.join("\n\n---\n\n");
+    navigator.clipboard.writeText(markdown).catch(() => {});
+  }
+
+  function handleImagePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const imageFiles = Array.from(e.clipboardData.items).filter((item) =>
+      item.type.startsWith("image/"),
+    );
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    for (const item of imageFiles) {
+      const file = item.getAsFile();
+      if (!file) continue;
+      const mimeType = item.type;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string;
+        setImageItems((prev) => [...prev, { id: crypto.randomUUID(), dataUrl, mimeType }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value;
+    setInput(val);
+
+    // Detect @mention: find @word right before cursor
+    const cursor = e.target.selectionStart ?? val.length;
+    const before = val.slice(0, cursor);
+    const atMatch = before.match(/@([^\s@]*)$/);
+    if (atMatch) {
+      const query = atMatch[1].toLowerCase();
+      setAtMentionQuery(query);
+      setAtMentionIdx(0);
+      const filtered = workspaceFiles
+        .filter((f) => {
+          const name = f.split("/").pop() ?? f;
+          return name.toLowerCase().includes(query) || f.toLowerCase().includes(query);
+        })
+        .slice(0, 12);
+      setAtMentionFiles(filtered);
+    } else {
+      setAtMentionQuery(null);
+      setAtMentionFiles([]);
+    }
+  }
+
+  async function handleAtSelect(filePath: string) {
+    // Remove the @query from the input
+    const cursor = textareaRef.current?.selectionStart ?? input.length;
+    const before = input.slice(0, cursor);
+    const atMatch = before.match(/@([^\s@]*)$/);
+    if (atMatch) {
+      const start = cursor - atMatch[0].length;
+      setInput(input.slice(0, start) + input.slice(cursor));
+    }
+    setAtMentionQuery(null);
+    setAtMentionFiles([]);
+
+    // Add as context item if not already present
+    const name = filePath.split("/").pop() ?? filePath;
+    if (contextItems.some((c) => c.path === filePath)) {
+      textareaRef.current?.focus();
+      return;
+    }
+    const content = await invoke<string>("read_file_content", { path: filePath }).catch(
+      () => "(could not read file)",
+    );
+    setContextItems((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), path: filePath, name, content },
+    ]);
+    textareaRef.current?.focus();
+  }
+
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // @mention navigation
+    if (atMentionFiles.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setAtMentionIdx((i) => Math.min(i + 1, atMentionFiles.length - 1));
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setAtMentionIdx((i) => Math.max(i - 1, 0));
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const f = atMentionFiles[atMentionIdx];
+        if (f) handleAtSelect(f);
+        return;
+      }
+      if (e.key === "Escape") {
+        setAtMentionQuery(null);
+        setAtMentionFiles([]);
+        return;
+      }
+    }
+
     if (slashSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -757,25 +1086,111 @@ function BlinkCodePanel() {
     <div className="blink-panel">
       {/* Header */}
       <div className="blink-panel__header">
-        <span className="blink-panel__title">Blink</span>
-        <div className="blink-panel__header-actions">
+        <div className="blink-panel__thread-picker" ref={threadPickerRef}>
           <button
             type="button"
-            className="blink-panel__icon-btn"
-            title="New conversation"
-            onClick={() => {
-              pendingTextDeltasRef.current.clear();
-              invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "clear" }) }).catch(
-                () => {},
-              );
-              currentAssistantMsgIdRef.current = null;
-              forceScrollToBottomRef.current = true;
-              setMessages([]);
-              setStreaming(false);
-            }}
+            className={`blink-panel__thread-btn${threadPickerOpen ? " blink-panel__thread-btn--open" : ""}`}
+            onClick={() => { setThreadPickerOpen((v) => !v); setRenamingThreadId(null); }}
+            title="Switch conversation"
           >
-            <SquarePen size={14} />
+            <span className="blink-panel__thread-name">
+              {threads.find((t) => t.id === activeThreadId)?.name ?? "Blink"}
+            </span>
+            <ChevronRight size={12} className={`blink-panel__thread-chevron${threadPickerOpen ? " blink-panel__thread-chevron--open" : ""}`} />
           </button>
+
+          {threadPickerOpen && (
+            <div className="blink-panel__thread-dropdown">
+              <button
+                type="button"
+                className="blink-panel__thread-new"
+                onClick={() => {
+                  setThreadPickerOpen(false);
+                  pendingTextDeltasRef.current.clear();
+                  invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "new_thread" }) }).catch(() => {});
+                  currentAssistantMsgIdRef.current = null;
+                  forceScrollToBottomRef.current = true;
+                  setStreaming(false);
+                }}
+              >
+                <SquarePen size={13} />
+                New conversation
+              </button>
+              <div className="blink-panel__thread-divider" />
+              {threads.map((t) => (
+                <div
+                  key={t.id}
+                  className={`blink-panel__thread-item${t.id === activeThreadId ? " blink-panel__thread-item--active" : ""}`}
+                >
+                  {renamingThreadId === t.id ? (
+                    <input
+                      className="blink-panel__thread-rename-input"
+                      value={renameValue}
+                      autoFocus
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "rename_thread", threadId: t.id, name: renameValue }) }).catch(() => {});
+                          setRenamingThreadId(null);
+                        }
+                        if (e.key === "Escape") setRenamingThreadId(null);
+                      }}
+                      onBlur={() => {
+                        if (renameValue.trim()) {
+                          invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "rename_thread", threadId: t.id, name: renameValue }) }).catch(() => {});
+                        }
+                        setRenamingThreadId(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="blink-panel__thread-item-btn"
+                      onClick={() => {
+                        if (t.id === activeThreadId) { setThreadPickerOpen(false); return; }
+                        setThreadPickerOpen(false);
+                        pendingTextDeltasRef.current.clear();
+                        setStreaming(false);
+                        forceScrollToBottomRef.current = true;
+                        invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "switch_thread", threadId: t.id }) }).catch(() => {});
+                      }}
+                    >
+                      <span className="blink-panel__thread-item-name">{t.name}</span>
+                      <span className="blink-panel__thread-item-count">{t.messageCount > 0 ? `${Math.ceil(t.messageCount / 2)}` : ""}</span>
+                    </button>
+                  )}
+                  <div className="blink-panel__thread-item-actions">
+                    <button
+                      type="button"
+                      title="Rename"
+                      className="blink-panel__thread-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRenamingThreadId(t.id);
+                        setRenameValue(t.name);
+                      }}
+                    >
+                      <SquarePen size={11} />
+                    </button>
+                    <button
+                      type="button"
+                      title="Delete"
+                      className="blink-panel__thread-action-btn blink-panel__thread-action-btn--danger"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        invoke("blink_code_bridge_send", { line: JSON.stringify({ type: "delete_thread", threadId: t.id }) }).catch(() => {});
+                      }}
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="blink-panel__header-actions">
           <button
             type="button"
             className={`blink-panel__icon-btn${settingsOpen ? " blink-panel__icon-btn--active" : ""}`}
@@ -845,6 +1260,27 @@ function BlinkCodePanel() {
 
           {/* Input card */}
           <div className="blink-panel__input-wrap">
+            {atMentionFiles.length > 0 && (
+              <div className="blink-panel__at-menu">
+                {atMentionFiles.map((f, i) => {
+                  const name = f.split("/").pop() ?? f;
+                  const rel = workspacePath ? f.replace(workspacePath + "/", "") : f;
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`blink-panel__at-item${i === atMentionIdx ? " blink-panel__at-item--active" : ""}`}
+                      onMouseEnter={() => setAtMentionIdx(i)}
+                      onClick={() => handleAtSelect(f)}
+                    >
+                      <FileText size={12} />
+                      <span className="blink-panel__at-name">{name}</span>
+                      <span className="blink-panel__at-path">{rel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {slashSuggestions.length > 0 && (
               <div className="blink-panel__slash-menu">
                 {slashSuggestions.map((cmd, i) => (
@@ -866,17 +1302,107 @@ function BlinkCodePanel() {
               </div>
             )}
             <div className="blink-panel__input-card">
+              {(contextItems.length > 0 || imageItems.length > 0 || (autoContext && activeFile)) && (
+                <div className="blink-panel__context-files">
+                  {imageItems.map((img) => (
+                    <span key={img.id} className="blink-panel__context-chip blink-panel__context-chip--image">
+                      <img src={img.dataUrl} alt="pasted" className="blink-panel__img-thumb" />
+                      <button
+                        type="button"
+                        title="Remove"
+                        onClick={() => setImageItems((prev) => prev.filter((i) => i.id !== img.id))}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                  {autoContext && activeFile && (
+                    <span className="blink-panel__context-chip">
+                      <FileText size={11} />
+                      {activeFile.name}
+                      <button
+                        type="button"
+                        title="Remove"
+                        onClick={() => {
+                          setAutoContext(false);
+                          localStorage.setItem("blink-auto-context", "false");
+                        }}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  )}
+                  {contextItems.map((item) => (
+                    <span key={item.id} className="blink-panel__context-chip">
+                      {item.isFolder ? <Folder size={11} /> : <FileText size={11} />}
+                      {item.name}
+                      <button
+                        type="button"
+                        title="Remove"
+                        onClick={() => setContextItems((prev) => prev.filter((c) => c.id !== item.id))}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <textarea
                 ref={textareaRef}
                 className="blink-panel__textarea"
                 placeholder={streaming ? "" : "Message Blink…"}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
+                onPaste={handleImagePaste}
                 rows={1}
                 disabled={!bridgeReady && !streaming}
               />
               <div className="blink-panel__input-footer">
+                <div className="blink-panel__ctx-btn-wrap" ref={contextMenuRef}>
+                  <button
+                    type="button"
+                    className={`blink-panel__ctx-btn${contextMenuOpen ? " blink-panel__ctx-btn--active" : ""}`}
+                    title="Add context"
+                    onClick={() => setContextMenuOpen((v) => !v)}
+                  >
+                    <Plus size={13} />
+                  </button>
+                  {contextMenuOpen && (
+                    <div className="blink-panel__ctx-menu">
+                      <button
+                        type="button"
+                        className="blink-panel__ctx-menu-item"
+                        onClick={handleAddFiles}
+                      >
+                        <FileText size={13} />
+                        Files
+                      </button>
+                      <button
+                        type="button"
+                        className="blink-panel__ctx-menu-item"
+                        onClick={handleAddFolder}
+                      >
+                        <Folder size={13} />
+                        Folder
+                      </button>
+                      {activeFile && !autoContext && (
+                        <button
+                          type="button"
+                          className="blink-panel__ctx-menu-item"
+                          onClick={() => {
+                            setAutoContext(true);
+                            localStorage.setItem("blink-auto-context", "true");
+                            setContextMenuOpen(false);
+                          }}
+                        >
+                          <FileText size={13} />
+                          Active file
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <ModePill mode={mode} onChange={setMode} />
                 <ModelPill config={config} onChange={handleConfigChange} />
                 {config.provider.type === "anthropic" &&
@@ -1128,6 +1654,8 @@ function ContextCircle({ inputTokens, model }: { inputTokens: number; model: str
           ? "var(--c-warning, #f59e0b)"
           : "var(--c-accent)";
 
+  const label = total ? `${used} / ${total}` : used;
+
   return (
     <div className="blink-panel__ctx-ring">
       <svg width={SIZE} height={SIZE} style={{ transform: "rotate(-90deg)" }}>
@@ -1151,6 +1679,7 @@ function ContextCircle({ inputTokens, model }: { inputTokens: number; model: str
           strokeDashoffset={pct != null ? CIRC * (1 - pct) : CIRC * 0.85}
         />
       </svg>
+      <span className="blink-panel__ctx-label">{label}</span>
       <div className="blink-panel__ctx-tooltip">
         <strong>Context</strong>
         {pctStr && ` ${pctStr}`}

@@ -765,22 +765,193 @@
   // ── Header ──
   &__header {
     @include flex-between;
-    padding: 0 8px 0 14px;
+    padding: 0 6px 0 8px;
     height: var(--tab-bar-h);
     border-bottom: 1px solid var(--c-border);
     flex-shrink: 0;
+    gap: 4px;
+    overflow: visible;
   }
 
-  &__title {
+  // ── Thread picker ──
+  &__thread-picker {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__thread-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-fg);
     font-size: var(--font-size-sm);
     font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    max-width: 100%;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+    &--open {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__thread-name {
+    @include truncate;
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  &__thread-chevron {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+    @include transition(transform);
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+
+  &__thread-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 220px;
+    max-width: 300px;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    padding: 4px;
+    z-index: 200;
+    max-height: 360px;
+    overflow-y: auto;
+    @include scrollbar(3px);
+  }
+
+  &__thread-new {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(background);
+
+    svg { color: var(--c-muted-fg); flex-shrink: 0; }
+
+    &:hover { background: var(--c-surface-raised); }
+  }
+
+  &__thread-divider {
+    height: 1px;
+    background: var(--c-border);
+    margin: 3px 4px;
+  }
+
+  &__thread-item {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+
+      .blink-panel__thread-item-actions { opacity: 1; }
+    }
+
+    &--active {
+      background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+      .blink-panel__thread-item-name { color: var(--c-fg); }
+    }
+  }
+
+  &__thread-item-btn {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+  }
+
+  &__thread-item-name {
+    flex: 1;
+    min-width: 0;
+    @include truncate;
+    font-size: var(--font-size-sm);
+    color: var(--c-fg);
+  }
+
+  &__thread-item-count {
+    font-size: 10px;
+    color: var(--c-muted-fg);
+    flex-shrink: 0;
+  }
+
+  &__thread-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding-right: 4px;
+    opacity: 0;
+    @include transition(opacity);
+  }
+
+  &__thread-action-btn {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(background, color);
+
+    &:hover { background: var(--c-surface-raised); color: var(--c-fg); }
+    &--danger:hover { color: var(--c-danger); }
+  }
+
+  &__thread-rename-input {
+    flex: 1;
+    margin: 2px 4px;
+    padding: 3px 6px;
+    border: 1px solid var(--c-accent);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    outline: none;
   }
 
   &__header-actions {
     display: flex;
     align-items: center;
     gap: 2px;
+    flex-shrink: 0;
   }
 
   &__icon-btn {
@@ -853,8 +1024,8 @@
   &__textarea {
     display: block;
     width: 100%;
-    min-height: 40px;
-    max-height: 180px;
+    min-height: 72px;
+    max-height: 240px;
     padding: 10px 12px 6px;
     border: none;
     background: transparent;
@@ -876,6 +1047,7 @@
   }
 
   &__input-footer {
+    position: relative;
     display: flex;
     align-items: center;
     padding: 5px 8px 7px;
@@ -905,29 +1077,28 @@
 
   // ── Context circle ──
   &__ctx-ring {
-    position: relative;
     display: flex;
     align-items: center;
-    justify-content: center;
-    margin-left: auto;
-    margin-right: 2px;
+    gap: 4px;
     cursor: default;
 
     svg {
       display: block;
+      flex-shrink: 0;
     }
+  }
 
-    &:hover .blink-panel__ctx-tooltip {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
+  &__ctx-label {
+    font-size: 10px;
+    color: var(--c-muted-fg);
+    white-space: nowrap;
+    opacity: 0.8;
   }
 
   &__ctx-tooltip {
     position: absolute;
     bottom: calc(100% + 6px);
-    right: 0;
+    right: 8px;
     white-space: nowrap;
     background: var(--c-popover);
     border: 1px solid var(--c-border);
@@ -945,6 +1116,11 @@
     strong {
       color: var(--c-accent);
     }
+  }
+
+  &__ctx-ring:hover .blink-panel__ctx-tooltip {
+    opacity: 1;
+    transform: translateY(0);
   }
 
   &__send-btn {
@@ -967,6 +1143,61 @@
       opacity: 0.2;
       cursor: default;
     }
+  }
+
+  // ── @mention menu ──
+  &__at-menu {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: calc(100% - 6px);
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.3);
+    z-index: 11;
+    max-height: 220px;
+    overflow-y: auto;
+    @include scrollbar(3px);
+  }
+
+  &__at-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 12px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    @include transition(background);
+
+    &--active {
+      background: var(--c-hover);
+    }
+
+    svg {
+      flex-shrink: 0;
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__at-name {
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  &__at-path {
+    color: var(--c-muted-fg);
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
   }
 
   // ── Slash menu ──
@@ -1018,6 +1249,150 @@
     color: var(--c-muted);
     font-size: 12px;
     @include truncate;
+  }
+
+  // ── Context chips (attached files/folders) ──
+  &__context-files {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px 12px 0;
+  }
+
+  &__context-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 8px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--c-accent) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c-accent) 25%, var(--c-border));
+    font-size: 11px;
+    color: var(--c-fg);
+    max-width: 180px;
+    @include truncate;
+
+    button {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      border: none;
+      background: transparent;
+      color: var(--c-muted-fg);
+      cursor: pointer;
+      padding: 0;
+      margin-left: 2px;
+      &:hover {
+        color: var(--c-fg);
+      }
+    }
+
+    &--auto {
+      background: color-mix(in srgb, var(--c-muted-fg) 8%, transparent);
+      border-color: var(--c-border);
+      color: var(--c-muted-fg);
+    }
+  }
+
+  // ── Context picker button + menu ──
+  &__auto-ctx-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px 3px 6px;
+    border: 1px solid var(--c-border);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: 10px;
+    font-family: inherit;
+    cursor: pointer;
+    max-width: 120px;
+    @include transition(background, color, border-color);
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+
+    &--on {
+      border-color: color-mix(in srgb, var(--c-accent) 50%, var(--c-border));
+      color: var(--c-accent);
+      background: color-mix(in srgb, var(--c-accent) 8%, transparent);
+
+      &:hover {
+        background: color-mix(in srgb, var(--c-accent) 14%, transparent);
+        color: var(--c-accent);
+      }
+    }
+  }
+
+  &__ctx-btn-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  &__ctx-btn {
+    @include flex-center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--c-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(background, color, border-color);
+
+    &:hover,
+    &--active {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+      border-color: color-mix(in srgb, var(--c-muted) 50%, var(--c-border));
+    }
+  }
+
+  &__ctx-menu {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 160px;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
+    padding: 3px;
+    z-index: 30;
+  }
+
+  &__ctx-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(background);
+
+    svg {
+      color: var(--c-muted-fg);
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
   }
 }
 

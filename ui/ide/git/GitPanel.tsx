@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import MonacoDiffViewer from "./MonacoDiffViewer";
 import {
   RefreshCw,
   Plus,
@@ -76,18 +75,6 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   const [commitMsg, setCommitMsg] = useState("");
   const [generatingCommitMsg, setGeneratingCommitMsg] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [diffText, setDiffText] = useState<string | null>(null);
-  const [diffFile, setDiffFile] = useState<string | null>(null);
-  const [diffOriginal, setDiffOriginal] = useState<string>("");
-  const [diffModified, setDiffModified] = useState<string>("");
-  const [useMoncoDiff] = useState(() => {
-    try {
-      const s = localStorage.getItem("blink:diffEditor");
-      return s === null ? true : s === "true";
-    } catch {
-      return true;
-    }
-  });
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [pushPullStatus, setPushPullStatus] = useState<string | null>(null);
   const [stagedOpen, setStagedOpen] = useState(true);
@@ -228,41 +215,6 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
       setTimeout(() => setPushPullStatus(null), 4000);
     } finally {
       setGeneratingCommitMsg(false);
-    }
-  }
-
-  async function handleShowDiff(filePath: string) {
-    if (!workspacePath) return;
-    if (diffFile === filePath) {
-      setDiffText(null);
-      setDiffFile(null);
-      setDiffOriginal("");
-      setDiffModified("");
-      return;
-    }
-    try {
-      if (useMoncoDiff) {
-        const [original, modified] = await Promise.all([
-          invoke<string>("git_file_at_head", { path: workspacePath, filePath }),
-          invoke<string>("read_file_content", {
-            path: `${workspacePath}/${filePath}`,
-          }),
-        ]);
-        setDiffOriginal(original);
-        setDiffModified(modified);
-        setDiffText("monaco");
-        setDiffFile(filePath);
-      } else {
-        const diff = await invoke<string>("git_diff", {
-          path: workspacePath,
-          filePath,
-        });
-        setDiffText(diff);
-        setDiffFile(filePath);
-      }
-    } catch {
-      setDiffText("Failed to load diff");
-      setDiffFile(filePath);
     }
   }
 
@@ -463,8 +415,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
                 <button
                   type="button"
                   className="git-panel__file-info"
-                  onClick={() => handleShowDiff(f.path)}
-                  onDoubleClick={() => handleFileClick(f.path)}
+                  onClick={() => handleFileClick(f.path)}
                   title={f.path}
                 >
                   <span className={`git-panel__file-icon git-panel__file-icon--${f.status}`}>
@@ -532,8 +483,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
                 <button
                   type="button"
                   className="git-panel__file-info"
-                  onClick={() => handleShowDiff(f.path)}
-                  onDoubleClick={() => handleFileClick(f.path)}
+                  onClick={() => handleFileClick(f.path)}
                   title={f.path}
                 >
                   <span className={`git-panel__file-icon git-panel__file-icon--${f.status}`}>
@@ -570,49 +520,6 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
         )}
       </div>
 
-      {/* Inline diff viewer */}
-      {diffText && diffFile && (
-        <div className="git-panel__diff">
-          <div className="git-panel__diff-header">
-            <span>{diffFile}</span>
-            <button
-              type="button"
-              className="git-panel__diff-close"
-              onClick={() => {
-                setDiffText(null);
-                setDiffFile(null);
-                setDiffOriginal("");
-                setDiffModified("");
-              }}
-            >
-              ×
-            </button>
-          </div>
-          {useMoncoDiff && diffText === "monaco" ? (
-            <MonacoDiffViewer
-              original={diffOriginal}
-              modified={diffModified}
-              filename={diffFile.split("/").pop() ?? diffFile}
-            />
-          ) : (
-            <pre className="git-panel__diff-content">
-              {diffText.split("\n").map((line, i) => {
-                let cls = "";
-                if (line.startsWith("+") && !line.startsWith("+++"))
-                  cls = "git-panel__diff-line--add";
-                else if (line.startsWith("-") && !line.startsWith("---"))
-                  cls = "git-panel__diff-line--del";
-                else if (line.startsWith("@@")) cls = "git-panel__diff-line--hunk";
-                return (
-                  <div key={i} className={`git-panel__diff-line ${cls}`}>
-                    {line}
-                  </div>
-                );
-              })}
-            </pre>
-          )}
-        </div>
-      )}
     </div>
   );
 }

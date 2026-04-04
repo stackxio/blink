@@ -21,6 +21,14 @@ export type HistoryDisplayMessage =
   | { role: "user"; id: string; content: string }
   | { role: "assistant"; id: string; content: string; toolCalls: DisplayToolCall[] };
 
+export type ThreadMeta = {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+};
+
 // ── Bridge → UI (outgoing from ide-bridge.ts) ────────────────────────────────
 
 export type BridgeOutEvent =
@@ -41,8 +49,11 @@ export type BridgeOutEvent =
       resumed?: boolean;
       messageCount?: number;
       availableProviders?: string[];
+      threads?: ThreadMeta[];
+      activeThreadId?: string;
     }
   | { type: "history"; messages: HistoryDisplayMessage[] }
+  | { type: "threads_list"; threads: ThreadMeta[]; activeThreadId: string }
   | { type: "permission_request"; reqId: string; toolName: string; input: Record<string, unknown> }
   | { type: "error"; error: string; assistantMsgId?: string }
   | { type: "pong" };
@@ -61,7 +72,11 @@ export type BridgeInEvent =
       allowTools: boolean;
       persistSession: boolean;
     }
-  | { type: "chat"; assistantMsgId: string; text: string; thinking?: boolean }
+  | { type: "chat"; assistantMsgId: string; text: string; thinking?: boolean; images?: Array<{ data: string; mimeType: string }> }
   | { type: "abort"; assistantMsgId?: string }
   | { type: "permission_response"; reqId: string; allowed: boolean }
-  | { type: "clear" };
+  | { type: "clear" }
+  | { type: "new_thread" }
+  | { type: "switch_thread"; threadId: string }
+  | { type: "rename_thread"; threadId: string; name: string }
+  | { type: "delete_thread"; threadId: string };

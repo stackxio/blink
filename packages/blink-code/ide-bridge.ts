@@ -41,51 +41,173 @@ const pendingPermissions = new Map<string, (allowed: boolean) => void>();
 
 let engine: BlinkEngine | null = null;
 let providerBundle: ProviderBundle | null = null;
-let sessionFile: string | null = null;
 
 let currentAssistantMsgId: string | null = null;
 let chatInProgress = false;
 
-// ── Session persistence ──────────────────────────────────────────────────────
+// ── Thread + session persistence ─────────────────────────────────────────────
 
 type SessionData = {
   messages: BlinkMessage[];
-  cliSessionIds: Record<string, string>; // e.g. { "claude": "session-abc123" }
+  cliSessionIds: Record<string, string>;
 };
 
-function workspaceSessionFile(workspacePath: string): string {
-  const hash = workspacePath.replace(/[^a-zA-Z0-9]/g, "_").slice(-60);
-  const dir = path.join(os.homedir(), ".blink", "sessions", hash);
-  return path.join(dir, "history.json");
+type ThreadMeta = {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+  messageCount: number;
+};
+
+type ThreadsIndex = {
+  activeThreadId: string;
+  threads: ThreadMeta[];
+};
+
+// Module-level thread state
+let threadsDir: string | null = null;
+let currentThreadId: string | null = null;
+let threadsIndex: ThreadsIndex = { activeThreadId: "", threads: [] };
+
+function workspaceHash(workspacePath: string): string {
+  return workspacePath.replace(/[^a-zA-Z0-9]/g, "_").slice(-60);
 }
 
-async function loadSession(file: string): Promise<SessionData> {
+function workspaceThreadsDir(workspacePath: string): string {
+  const hash = workspaceHash(workspacePath);
+  return path.join(os.homedir(), ".blink", "sessions", hash, "threads");
+}
+
+function threadFilePath(id: string): string {
+  return path.join(threadsDir!, `${id}.json`);
+}
+
+function indexFilePath(): string {
+  return path.join(threadsDir!, "index.json");
+}
+
+async function loadThreadsIndex(): Promise<ThreadsIndex> {
   try {
-    const raw = await fs.readFile(file, "utf-8");
+    const raw = await fs.readFile(indexFilePath(), "utf-8");
+    return JSON.parse(raw) as ThreadsIndex;
+  } catch {
+    return { activeThreadId: "", threads: [] };
+  }
+}
+
+async function saveThreadsIndex(): Promise<void> {
+  try {
+    await fs.mkdir(threadsDir!, { recursive: true });
+    await fs.writeFile(indexFilePath(), JSON.stringify(threadsIndex, null, 2), "utf-8");
+  } catch {}
+}
+
+async function loadThreadData(id: string): Promise<SessionData> {
+  try {
+    const raw = await fs.readFile(threadFilePath(id), "utf-8");
     const parsed = JSON.parse(raw) as Partial<SessionData> | BlinkMessage[];
-    // Handle old format (plain array)
-    if (Array.isArray(parsed)) {
-      return { messages: parsed, cliSessionIds: {} };
-    }
-    return {
-      messages: parsed.messages ?? [],
-      cliSessionIds: parsed.cliSessionIds ?? {},
-    };
+    if (Array.isArray(parsed)) return { messages: parsed, cliSessionIds: {} };
+    return { messages: parsed.messages ?? [], cliSessionIds: parsed.cliSessionIds ?? {} };
   } catch {
     return { messages: [], cliSessionIds: {} };
   }
 }
 
-async function saveSession(file: string, data: SessionData): Promise<void> {
+async function saveThreadData(id: string, data: SessionData): Promise<void> {
   try {
-    await fs.mkdir(path.dirname(file), { recursive: true });
-    await fs.writeFile(file, JSON.stringify(data, null, 2), "utf-8");
-  } catch {
-    // Non-fatal — session just won't persist
-  }
+    await fs.mkdir(threadsDir!, { recursive: true });
+    await fs.writeFile(threadFilePath(id), JSON.stringify(data, null, 2), "utf-8");
+  } catch {}
 }
 
-// In-memory CLI session IDs for the current workspace (populated on init)
+function createThreadMeta(name = "New conversation"): ThreadMeta {
+  const now = Date.now();
+  return { id: crypto.randomUUID(), name, createdAt: now, updatedAt: now, messageCount: 0 };
+}
+
+/** Auto-name a thread from its first user message (max 50 chars). */
+function autoThreadName(messages: BlinkMessage[]): string {
+  const first = messages.find((m) => m.role === "user");
+  if (!first || typeof first.content !== "string") return "New conversation";
+  const text = first.content.replace(/\s+/g, " ").trim();
+  return text.length > 50 ? text.slice(0, 47) + "…" : text;
+}
+
+/** Initialize thread storage for a workspace, migrating legacy history.json if present. */
+async function initThreads(workspacePath: string): Promise<void> {
+  threadsDir = workspaceThreadsDir(workspacePath);
+  await fs.mkdir(threadsDir, { recursive: true });
+
+  threadsIndex = await loadThreadsIndex();
+
+  // Migrate legacy history.json → first thread
+  if (threadsIndex.threads.length === 0) {
+    const legacyFile = path.join(
+      os.homedir(),
+      ".blink",
+      "sessions",
+      workspaceHash(workspacePath),
+      "history.json",
+    );
+    let legacyData: SessionData = { messages: [], cliSessionIds: {} };
+    try {
+      const raw = await fs.readFile(legacyFile, "utf-8");
+      const parsed = JSON.parse(raw) as Partial<SessionData> | BlinkMessage[];
+      if (Array.isArray(parsed)) {
+        legacyData = { messages: parsed, cliSessionIds: {} };
+      } else {
+        legacyData = { messages: parsed.messages ?? [], cliSessionIds: parsed.cliSessionIds ?? {} };
+      }
+    } catch {}
+
+    const meta = createThreadMeta(
+      legacyData.messages.length > 0 ? autoThreadName(legacyData.messages) : "New conversation",
+    );
+    meta.messageCount = legacyData.messages.length;
+    if (legacyData.messages.length > 0) {
+      meta.updatedAt = Date.now();
+    }
+    threadsIndex = { activeThreadId: meta.id, threads: [meta] };
+    await saveThreadData(meta.id, legacyData);
+    await saveThreadsIndex();
+  }
+
+  // Ensure active thread still exists
+  const activeExists = threadsIndex.threads.some((t) => t.id === threadsIndex.activeThreadId);
+  if (!activeExists && threadsIndex.threads.length > 0) {
+    threadsIndex.activeThreadId = threadsIndex.threads[0].id;
+    await saveThreadsIndex();
+  }
+  if (threadsIndex.threads.length === 0) {
+    const meta = createThreadMeta();
+    threadsIndex = { activeThreadId: meta.id, threads: [meta] };
+    await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+    await saveThreadsIndex();
+  }
+
+  currentThreadId = threadsIndex.activeThreadId;
+}
+
+/** Save current thread state, update metadata, persist index. */
+async function persistCurrentThread(): Promise<void> {
+  if (!currentThreadId || !engine) return;
+  const data: SessionData = { messages: engine.messages, cliSessionIds };
+  await saveThreadData(currentThreadId, data);
+
+  const meta = threadsIndex.threads.find((t) => t.id === currentThreadId);
+  if (meta) {
+    meta.messageCount = data.messages.length;
+    meta.updatedAt = Date.now();
+    // Auto-name from first user message if still "New conversation"
+    if (meta.name === "New conversation" && data.messages.length > 0) {
+      meta.name = autoThreadName(data.messages);
+    }
+  }
+  await saveThreadsIndex();
+}
+
+// In-memory CLI session IDs for the current thread
 let cliSessionIds: Record<string, string> = {};
 
 function getCliSessionId(key: string): string | null {
@@ -369,32 +491,125 @@ rl.on("line", async (line) => {
       allowTools: msg.allowTools !== false,
       persistSession: msg.persistSession !== false,
     };
-    sessionFile = providerBundle.persistSession ? workspaceSessionFile(workspacePath) : null;
+
+    if (providerBundle.persistSession) {
+      await initThreads(workspacePath);
+    } else {
+      threadsDir = null;
+      currentThreadId = null;
+      threadsIndex = { activeThreadId: "", threads: [] };
+    }
+
     engine = ensureEngine();
 
-    // Restore previous session
-    const sessionData = sessionFile
-      ? await loadSession(sessionFile)
-      : { messages: [], cliSessionIds: {} };
-    cliSessionIds = sessionData.cliSessionIds ?? {};
-    if (sessionData.messages.length > 0) {
-      engine.setHistory(sessionData.messages);
+    // Load active thread data
+    const threadData =
+      currentThreadId ? await loadThreadData(currentThreadId) : { messages: [], cliSessionIds: {} };
+    cliSessionIds = threadData.cliSessionIds ?? {};
+    if (threadData.messages.length > 0) {
+      engine.setHistory(threadData.messages);
     }
 
     currentAssistantMsgId = null;
     chatInProgress = false;
 
-    // Detect installed CLI providers in parallel with init
     const availableProviders = await detectAvailableProviders();
 
     send("bridge_ready", {
-      resumed: sessionData.messages.length > 0,
-      messageCount: sessionData.messages.length,
+      resumed: threadData.messages.length > 0,
+      messageCount: threadData.messages.length,
       availableProviders,
+      threads: threadsIndex.threads,
+      activeThreadId: threadsIndex.activeThreadId,
     });
 
-    if (sessionData.messages.length > 0) {
-      send("history", { messages: buildDisplayHistory(sessionData.messages) });
+    if (threadData.messages.length > 0) {
+      send("history", { messages: buildDisplayHistory(threadData.messages) });
+    }
+    return;
+  }
+
+  if (msg.type === "new_thread") {
+    await persistCurrentThread();
+    const meta = createThreadMeta();
+    threadsIndex.threads.unshift(meta);
+    threadsIndex.activeThreadId = meta.id;
+    currentThreadId = meta.id;
+    cliSessionIds = {};
+    engine = ensureEngine();
+    engine.clearHistory();
+    await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+    await saveThreadsIndex();
+    send("threads_list", { threads: threadsIndex.threads, activeThreadId: meta.id });
+    return;
+  }
+
+  if (msg.type === "switch_thread") {
+    const targetId = String(msg.threadId);
+    if (targetId === currentThreadId) return;
+    if (!threadsIndex.threads.some((t) => t.id === targetId)) return;
+
+    await persistCurrentThread();
+    threadsIndex.activeThreadId = targetId;
+    currentThreadId = targetId;
+    await saveThreadsIndex();
+
+    const data = await loadThreadData(targetId);
+    cliSessionIds = data.cliSessionIds ?? {};
+    engine = ensureEngine();
+    engine.clearHistory();
+    if (data.messages.length > 0) engine.setHistory(data.messages);
+
+    send("threads_list", { threads: threadsIndex.threads, activeThreadId: targetId });
+    if (data.messages.length > 0) {
+      send("history", { messages: buildDisplayHistory(data.messages) });
+    } else {
+      send("history", { messages: [] });
+    }
+    return;
+  }
+
+  if (msg.type === "rename_thread") {
+    const meta = threadsIndex.threads.find((t) => t.id === String(msg.threadId));
+    if (meta) {
+      meta.name = String(msg.name).trim() || "New conversation";
+      await saveThreadsIndex();
+      send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
+    }
+    return;
+  }
+
+  if (msg.type === "delete_thread") {
+    const deleteId = String(msg.threadId);
+    threadsIndex.threads = threadsIndex.threads.filter((t) => t.id !== deleteId);
+
+    // Delete the file
+    try { await fs.unlink(threadFilePath(deleteId)); } catch {}
+
+    // If we deleted the active thread, switch to first remaining or create new
+    if (deleteId === currentThreadId) {
+      if (threadsIndex.threads.length === 0) {
+        const meta = createThreadMeta();
+        threadsIndex.threads.push(meta);
+        await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+      }
+      const next = threadsIndex.threads[0];
+      threadsIndex.activeThreadId = next.id;
+      currentThreadId = next.id;
+      const data = await loadThreadData(next.id);
+      cliSessionIds = data.cliSessionIds ?? {};
+      engine = ensureEngine();
+      engine.clearHistory();
+      if (data.messages.length > 0) engine.setHistory(data.messages);
+      send("threads_list", { threads: threadsIndex.threads, activeThreadId: next.id });
+      if (data.messages.length > 0) {
+        send("history", { messages: buildDisplayHistory(data.messages) });
+      } else {
+        send("history", { messages: [] });
+      }
+    } else {
+      await saveThreadsIndex();
+      send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
     }
     return;
   }
@@ -402,7 +617,13 @@ rl.on("line", async (line) => {
   if (msg.type === "clear") {
     engine?.clearHistory();
     cliSessionIds = {};
-    if (sessionFile) await saveSession(sessionFile, { messages: [], cliSessionIds: {} });
+    if (currentThreadId) {
+      await saveThreadData(currentThreadId, { messages: [], cliSessionIds: {} });
+      const meta = threadsIndex.threads.find((t) => t.id === currentThreadId);
+      if (meta) { meta.messageCount = 0; meta.name = "New conversation"; }
+      await saveThreadsIndex();
+      send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId });
+    }
     return;
   }
 
@@ -437,9 +658,12 @@ rl.on("line", async (line) => {
     currentAssistantMsgId = msg.assistantMsgId as string;
     const text = String(msg.text ?? "");
     const thinkingOverride = msg.thinking === true ? true : undefined;
+    const images = Array.isArray(msg.images)
+      ? (msg.images as Array<{ data: string; mimeType: string }>)
+      : undefined;
 
     try {
-      for await (const ev of engine.send(text, { thinking: thinkingOverride })) {
+      for await (const ev of engine.send(text, { thinking: thinkingOverride, images })) {
         switch (ev.type) {
           case "text_delta":
             send("text_delta", { assistantMsgId: currentAssistantMsgId, delta: ev.delta });
@@ -477,12 +701,11 @@ rl.on("line", async (line) => {
     } finally {
       chatInProgress = false;
       if (currentAssistantMsgId) send("turn_done", { assistantMsgId: currentAssistantMsgId });
-      // Persist session history + CLI session IDs after every turn
-      if (engine && sessionFile) {
-        await saveSession(sessionFile, {
-          messages: engine.messages,
-          cliSessionIds,
-        });
+      // Persist thread data + update thread metadata after every turn
+      if (threadsDir) {
+        await persistCurrentThread();
+        // Send updated thread list so UI can refresh name/count
+        send("threads_list", { threads: threadsIndex.threads, activeThreadId: currentThreadId ?? "" });
       }
     }
     return;
