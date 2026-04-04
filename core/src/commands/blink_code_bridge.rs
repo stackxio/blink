@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, Command};
 use tokio::sync::Mutex;
@@ -29,7 +29,15 @@ pub struct BridgeSession {
     stdin: tokio::process::ChildStdin,
 }
 
-fn default_bridge_script() -> PathBuf {
+fn default_bridge_script(app: &AppHandle) -> PathBuf {
+    // Production: bundled resource shipped with the app
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join("ide-bridge.js");
+        if bundled.is_file() {
+            return bundled;
+        }
+    }
+    // Dev fallback: source TypeScript file relative to the Cargo manifest
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../packages/blink-code/ide-bridge.ts")
         .canonicalize()
@@ -51,7 +59,7 @@ pub async fn blink_code_bridge_start(
 
     let script = match bridge_script {
         Some(s) if !s.trim().is_empty() => PathBuf::from(s.trim()),
-        _ => default_bridge_script(),
+        _ => default_bridge_script(&app),
     };
 
     if !script.is_file() {
@@ -163,7 +171,7 @@ pub async fn blink_code_bridge_start_with_init(
 
     let script = match bridge_script {
         Some(s) if !s.trim().is_empty() => PathBuf::from(s.trim()),
-        _ => default_bridge_script(),
+        _ => default_bridge_script(&app),
     };
 
     if !script.is_file() {

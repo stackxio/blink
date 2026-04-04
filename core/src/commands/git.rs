@@ -1,6 +1,7 @@
 use serde::Serialize;
 use serde_json::json;
 use std::process::Command;
+use tauri::{AppHandle, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio::time::{timeout, Duration};
@@ -38,12 +39,21 @@ fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn default_bridge_script() -> std::path::PathBuf {
+fn default_bridge_script(app: &AppHandle) -> std::path::PathBuf {
+    // Production: bundled resource shipped with the app
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let bundled = resource_dir.join("ide-bridge.js");
+        if bundled.is_file() {
+            return bundled;
+        }
+    }
+    // Dev fallback: source TypeScript file relative to the Cargo manifest
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../blink-code/ide-bridge.ts")
+        .join("../packages/blink-code/ide-bridge.ts")
         .canonicalize()
         .unwrap_or_else(|_| {
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../blink-code/ide-bridge.ts")
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../packages/blink-code/ide-bridge.ts")
         })
 }
 
@@ -504,12 +514,13 @@ pub fn git_commit(path: String, message: String) -> Result<String, String> {
 
 #[tauri::command]
 pub async fn git_generate_commit_message(
+    app: AppHandle,
     path: String,
     provider: serde_json::Value,
     staged_only: Option<bool>,
 ) -> Result<String, String> {
     let diff = build_commit_diff(&path, staged_only.unwrap_or(true))?;
-    let script = default_bridge_script();
+    let script = default_bridge_script(&app);
     if !script.is_file() {
         return Err(format!("Bridge script not found: {}", script.display()));
     }
