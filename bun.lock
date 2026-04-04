@@ -71,6 +71,14 @@
         "vite": "^7.3.1",
       },
     },
+    "packages/blink-code": {
+      "name": "@blink/blink-code",
+      "version": "0.0.1",
+    },
+    "packages/contracts": {
+      "name": "@blink/contracts",
+      "version": "0.0.1",
+    },
   },
   "trustedDependencies": [
     "sharp",
@@ -114,6 +122,10 @@
     "@babel/traverse": ["@babel/traverse@7.29.0", "", { "dependencies": { "@babel/code-frame": "7.29.0", "@babel/generator": "7.29.1", "@babel/helper-globals": "7.28.0", "@babel/parser": "7.29.0", "@babel/template": "7.28.6", "@babel/types": "7.29.0", "debug": "4.4.3" } }, "sha512-4HPiQr0X7+waHfyXPZpWPfWL/J7dcN1mx9gL6WdQVMbPnF3+ZhSMs8tCxN7oHddJE9fhNE7+lxdnlyemKfJRuA=="],
 
     "@babel/types": ["@babel/types@7.29.0", "", { "dependencies": { "@babel/helper-string-parser": "7.27.1", "@babel/helper-validator-identifier": "7.28.5" } }, "sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A=="],
+
+    "@blink/blink-code": ["@blink/blink-code@workspace:packages/blink-code"],
+
+    "@blink/contracts": ["@blink/contracts@workspace:packages/contracts"],
 
     "@codemirror/autocomplete": ["@codemirror/autocomplete@6.20.1", "", { "dependencies": { "@codemirror/language": "6.12.2", "@codemirror/state": "6.6.0", "@codemirror/view": "6.40.0", "@lezer/common": "1.5.1" } }, "sha512-1cvg3Vz1dSSToCNlJfRA2WSI4ht3K+WplO0UMOgmUYPivCyy2oueZY6Lx7M9wThm7SDUBViRmuT+OG/i8+ON9A=="],
 
