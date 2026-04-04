@@ -458,6 +458,13 @@ rl.on("line", async (line) => {
               is_error: ev.is_error,
             });
             break;
+          case "usage":
+            send("context_usage", {
+              assistantMsgId: currentAssistantMsgId,
+              inputTokens: ev.inputTokens,
+              outputTokens: ev.outputTokens,
+            });
+            break;
           case "error":
             send("error", { assistantMsgId: currentAssistantMsgId, error: ev.error });
             break;

@@ -97,6 +97,8 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
       let buffer = "";
       let fullText = "";
       const acc = new Map<number, { id: string; name: string; args: string }>();
+      let usageInputTokens = 0;
+      let usageOutputTokens = 0;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -120,11 +122,16 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
                 }>;
               };
             }>;
+            usage?: { prompt_tokens?: number; completion_tokens?: number };
           };
           try {
             json = JSON.parse(data) as typeof json;
           } catch {
             continue;
+          }
+          if (json.usage) {
+            usageInputTokens = json.usage.prompt_tokens ?? 0;
+            usageOutputTokens = json.usage.completion_tokens ?? 0;
           }
           const delta = json.choices?.[0]?.delta;
           if (delta?.content) {
@@ -157,6 +164,10 @@ export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
           type: "function",
           function: { name: v.name, arguments: v.args },
         });
+      }
+
+      if (usageInputTokens > 0) {
+        yield { kind: "usage", inputTokens: usageInputTokens, outputTokens: usageOutputTokens };
       }
 
       yield {

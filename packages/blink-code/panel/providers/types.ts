@@ -21,6 +21,7 @@ export type OpenAIToolSpec = {
 export type StreamChunk =
   | { kind: "text"; delta: string }
   | { kind: "error"; error: string }
+  | { kind: "usage"; inputTokens: number; outputTokens: number }
   | {
       kind: "assistant";
       message: {

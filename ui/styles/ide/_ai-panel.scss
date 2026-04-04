@@ -880,6 +880,16 @@
     align-items: center;
     padding: 5px 8px 7px;
     gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  &__context-usage {
+    font-size: 10px;
+    color: var(--c-muted);
+    white-space: nowrap;
+    margin-left: auto;
+    margin-right: 4px;
+    opacity: 0.7;
   }
 
   &__send-btn {
@@ -953,6 +963,37 @@
     color: var(--c-muted);
     font-size: 12px;
     @include truncate;
+  }
+}
+
+// ── Mode pills ────────────────────────────────────────────────────────────────
+
+.blink-mode-pills {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  &__pill {
+    padding: 3px 8px;
+    border: 1px solid transparent;
+    border-radius: 99px;
+    background: transparent;
+    color: var(--c-muted);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(background, color, border-color);
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-fg);
+      border-color: var(--c-border);
+      background: var(--c-surface-raised);
+    }
   }
 }
 

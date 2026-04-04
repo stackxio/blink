@@ -55,6 +55,50 @@ interface PermReq {
   input: Record<string, unknown>;
 }
 
+// ── Mode ──────────────────────────────────────────────────────────────────────
+
+type ChatMode = "agent" | "plan" | "debug" | "ask";
+
+const MODES: { value: ChatMode; label: string }[] = [
+  { value: "agent", label: "Agent" },
+  { value: "plan", label: "Plan" },
+  { value: "debug", label: "Debug" },
+  { value: "ask", label: "Ask" },
+];
+
+const MODE_PREFIXES: Record<ChatMode, string> = {
+  agent: "",
+  plan: "[Mode: Plan — analyze the codebase and create a detailed plan only. Do NOT write, edit, or execute anything.]\n\n",
+  debug:
+    "[Mode: Debug — diagnose and explain the issue only. Do NOT write, edit, or execute anything.]\n\n",
+  ask: "[Mode: Ask — answer questions only. Do NOT write, edit, or execute anything.]\n\n",
+};
+
+// ── Context window sizes (tokens) for known models ───────────────────────────
+
+const CONTEXT_WINDOWS: Record<string, number> = {
+  "claude-opus-4-5": 200_000,
+  "claude-sonnet-4-5": 200_000,
+  "claude-haiku-4-5-20251001": 200_000,
+  "gpt-4o": 128_000,
+  "gpt-4o-mini": 128_000,
+  "o3": 200_000,
+  "o4-mini": 200_000,
+  "codex-mini-latest": 200_000,
+};
+
+function contextUsageLabel(inputTokens: number, model: string): string {
+  const window = CONTEXT_WINDOWS[model];
+  if (window) {
+    const pct = ((inputTokens / window) * 100).toFixed(1);
+    return `${pct}% context used`;
+  }
+  if (inputTokens >= 1000) {
+    return `${(inputTokens / 1000).toFixed(1)}k tokens`;
+  }
+  return `${inputTokens} tokens`;
+}
+
 // ── Provider preset options ───────────────────────────────────────────────────
 
 const PRESETS = [
@@ -111,6 +155,11 @@ function BlinkCodePanel() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slashSuggestions, setSlashSuggestions] = useState<typeof SLASH_COMMANDS>([]);
   const [slashIdx, setSlashIdx] = useState(0);
+  const [mode, setMode] = useState<ChatMode>("agent");
+  const [contextUsage, setContextUsage] = useState<{
+    inputTokens: number;
+    outputTokens: number;
+  } | null>(null);
 
   const [bridgeReady, setBridgeReady] = useState(false);
   const [availableProviders, setAvailableProviders] = useState<string[]>(["ollama", "custom"]);
@@ -194,6 +243,7 @@ function BlinkCodePanel() {
       currentAssistantMsgIdRef.current = null;
       bridgeKeyRef.current = null;
       forceScrollToBottomRef.current = true;
+      setContextUsage(null);
       invoke("blink_code_bridge_stop").catch(() => {});
     });
   }, [workspacePath]);
@@ -358,6 +408,11 @@ function BlinkCodePanel() {
             break;
           }
 
+          case "context_usage": {
+            setContextUsage({ inputTokens: msg.inputTokens, outputTokens: msg.outputTokens });
+            break;
+          }
+
           case "turn_done": {
             flushPendingTextDeltas();
             const { assistantMsgId } = msg;
@@ -438,6 +493,11 @@ function BlinkCodePanel() {
   async function sendMessageToAI(text: string) {
     if (!bridgeReady || streaming) return;
 
+    forceScrollToBottomRef.current = true;
+
+    const prefix = MODE_PREFIXES[mode];
+    const bridgeText = prefix ? `${prefix}${text}` : text;
+
     const userMsgId = crypto.randomUUID();
     setMessages((prev) => [...prev, { id: userMsgId, role: "user", content: text }]);
 
@@ -449,7 +509,7 @@ function BlinkCodePanel() {
     ]);
     setStreaming(true);
     await invoke("blink_code_bridge_send", {
-      line: JSON.stringify({ type: "chat", assistantMsgId, text }),
+      line: JSON.stringify({ type: "chat", assistantMsgId, text: bridgeText }),
     });
   }
 
@@ -472,6 +532,7 @@ function BlinkCodePanel() {
         forceScrollToBottomRef.current = true;
         setMessages([]);
         setStreaming(false);
+        setContextUsage(null);
         break;
       case "model":
         if (args.trim()) {
@@ -735,6 +796,31 @@ function BlinkCodePanel() {
               />
               <div className="blink-panel__input-footer">
                 <ModelPill config={config} onChange={handleConfigChange} />
+                <div className="blink-mode-pills">
+                  {MODES.map((m) => (
+                    <button
+                      key={m.value}
+                      type="button"
+                      className={`blink-mode-pills__pill${mode === m.value ? " blink-mode-pills__pill--active" : ""}`}
+                      onClick={() => setMode(m.value)}
+                      title={
+                        m.value === "agent"
+                          ? "Can read, write, and execute"
+                          : "Read-only — analyzes without modifying files"
+                      }
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {contextUsage && (
+                  <span className="blink-panel__context-usage">
+                    {contextUsageLabel(
+                      contextUsage.inputTokens,
+                      "model" in config.provider ? (config.provider.model ?? "") : "",
+                    )}
+                  </span>
+                )}
                 <button
                   type="button"
                   className="blink-panel__send-btn"

@@ -5,6 +5,7 @@ export type EngineEvent =
   | { type: "text_delta"; delta: string }
   | { type: "tool_call_start"; callId: string; name: string }
   | { type: "tool_call_result"; callId: string; result: string; is_error: boolean }
+  | { type: "usage"; inputTokens: number; outputTokens: number }
   | { type: "error"; error: string };
 
 type EngineOpts = {
@@ -74,6 +75,8 @@ export class BlinkEngine {
           } else if (chunk.kind === "error") {
             yield { type: "error", error: chunk.error };
             return;
+          } else if (chunk.kind === "usage") {
+            yield { type: "usage", inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens };
           } else if (chunk.kind === "assistant") {
             assistant = chunk.message;
           }

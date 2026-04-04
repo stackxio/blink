@@ -34,6 +34,7 @@ export type BridgeOutEvent =
       is_error: boolean;
     }
   | { type: "turn_done"; assistantMsgId: string }
+  | { type: "context_usage"; assistantMsgId: string; inputTokens: number; outputTokens: number }
   | {
       type: "bridge_ready";
       resumed?: boolean;
