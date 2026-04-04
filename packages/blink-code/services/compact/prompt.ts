@@ -1,8 +1,6 @@
 // types/message.ts is not present in this repo — define inline
 export type PartialCompactDirection = "from" | "up_to";
 
-// PROACTIVE/KAIROS features removed — no CLI feature flags
-const proactiveModule = null;
 
 // Aggressive no-tools preamble. The cache-sharing fork path inherits the
 // parent's full tool set (required for cache-key match), and on Sonnet 4.6+
@@ -347,11 +345,6 @@ ${formattedSummary}`;
     let continuation = `${baseSummary}
 Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.`;
 
-    if (false && proactiveModule?.isProactiveActive()) {
-      continuation += `
-
-You are running in autonomous/proactive mode. This is NOT a first wake-up — you were already working autonomously before compaction. Continue your work loop: pick up where you left off based on the summary above. Do not greet the user or ask what to work on.`;
-    }
 
     return continuation;
   }

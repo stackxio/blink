@@ -19,8 +19,6 @@ import {
   Plus,
   FileText,
   Folder,
-  Copy,
-  Download,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -242,7 +240,7 @@ function BlinkCodePanel() {
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  const [_atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
   const [atMentionFiles, setAtMentionFiles] = useState<string[]>([]);
   const [atMentionIdx, setAtMentionIdx] = useState(0);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
@@ -896,12 +894,12 @@ function BlinkCodePanel() {
     }
   }
 
-  async function handleApplyCode(code: string) {
+  async function _handleApplyCode(code: string) {
     if (!activeFile) return;
     await invoke("write_file_content", { path: activeFile.path, content: code }).catch(() => {});
   }
 
-  function exportConversation() {
+  function _exportConversation() {
     const lines: string[] = [];
     for (const msg of messages) {
       if (msg.role === "user") {
