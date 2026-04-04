@@ -1,10 +1,11 @@
-import { Files, Search, GitBranch } from "lucide-react";
+import { Files, Search, GitBranch, History } from "lucide-react";
 import { useAppStore, type SidePanelView } from "@/store";
 
 const ITEMS: { id: SidePanelView; icon: typeof Files; label: string }[] = [
   { id: "explorer", icon: Files, label: "Explorer" },
   { id: "search", icon: Search, label: "Search" },
   { id: "git", icon: GitBranch, label: "Source Control" },
+  { id: "history", icon: History, label: "Local History" },
 ];
 
 export default function ActivityBar() {

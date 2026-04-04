@@ -18,6 +18,7 @@ import ProblemsPanel from "@/ide/problems/ProblemsPanel";
 import BlinkCodePanel from "@/ai/BlinkCodePanel";
 import GitPanel from "@/ide/git/GitPanel";
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
+import LocalHistoryPanel from "@/ide/history/LocalHistoryPanel";
 import CommandPalette from "./CommandPalette";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
 import MarkdownPreview from "@/ide/editor/MarkdownPreview";
@@ -264,6 +265,12 @@ export default function IdeLayout() {
       await invoke("write_file_content", { path: activeFile.path, content });
       fileContentCacheRef.current.set(activeFile.path, content);
       markModified(activeFile.path, false);
+      // Snapshot local history — fire and forget
+      invoke("create_local_history_entry", {
+        filePath: activeFile.path,
+        content,
+        maxSnapshots: 50,
+      }).catch(() => {});
     } catch {}
   }
 
@@ -514,6 +521,24 @@ export default function IdeLayout() {
                     ref={searchPanelRef}
                     workspacePath={workspacePath}
                     onOpenFile={(path, name) => handleFileSelect(path, name, false)}
+                  />
+                </div>
+              </>
+            ) : sidePanelView === "history" ? (
+              <>
+                <div className="side-panel__header">
+                  <span className="side-panel__title">Local History</span>
+                </div>
+                <div className="side-panel__body">
+                  <LocalHistoryPanel
+                    filePath={activeFile?.path ?? null}
+                    onRestore={(content, filePath) => {
+                      fileContentCacheRef.current.set(filePath, content);
+                      if (activeFile?.path === filePath) {
+                        setFileContent(content);
+                        markModified(filePath, false);
+                      }
+                    }}
                   />
                 </div>
               </>

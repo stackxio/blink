@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { changeTheme } from "@/lib/theme";
 
-export type SidePanelView = "explorer" | "chat" | "search" | "git";
+export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
 export type BottomPanelTab = "terminal" | "problems";
 
 export interface DiagnosticEntry {
@@ -520,9 +520,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       updateWs(s, (ws) => {
         const file = ws.openFiles[idx];
         if (!file || !file.pinned) return {};
-        const openFiles = ws.openFiles.map((f, i) =>
-          i === idx ? { ...f, pinned: false } : f,
-        );
+        const openFiles = ws.openFiles.map((f, i) => (i === idx ? { ...f, pinned: false } : f));
         return { openFiles };
       }),
     ),

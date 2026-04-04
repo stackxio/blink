@@ -1,0 +1,114 @@
+@use "../mixins" as *;
+
+.local-history {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+
+  &__empty {
+    @include flex-center;
+    padding: 24px 16px;
+    text-align: center;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(color, border-color);
+
+    &:hover {
+      color: var(--c-fg);
+      border-color: var(--c-muted);
+    }
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__entry {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    cursor: pointer;
+    gap: 8px;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__label {
+    @include truncate;
+    flex: 1;
+    font-size: var(--font-size-sm);
+    color: var(--c-fg);
+  }
+
+  &__restore-btn {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(color, border-color);
+
+    &:hover:not(:disabled) {
+      color: var(--c-fg);
+      border-color: var(--c-muted);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__preview {
+    margin: 0 12px 8px;
+    padding: 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-bg);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    overflow: auto;
+    max-height: 300px;
+    white-space: pre;
+    line-height: 1.5;
+    @include scrollbar;
+  }
+}
