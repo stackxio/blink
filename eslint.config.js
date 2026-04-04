@@ -8,7 +8,11 @@ import { defineConfig, globalIgnores } from "eslint/config";
 export default defineConfig([
   globalIgnores(["dist", "core"]),
   {
-    files: ["ui/**/*.{ts,tsx}", "blink-code/panel/**/*.{ts,tsx}"],
+    files: [
+      "ui/**/*.{ts,tsx}",
+      "packages/blink-code/panel/**/*.{ts,tsx}",
+      "packages/contracts/**/*.{ts,tsx}",
+    ],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommended,

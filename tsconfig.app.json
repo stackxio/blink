@@ -22,8 +22,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./ui/*"],
-      "@@/*": ["./blink-code/*"]
+      "@@/*": ["./packages/blink-code/*"],
+      "@contracts/*": ["./packages/contracts/*"]
     }
   },
-  "include": ["ui", "blink-code/panel"]
+  "include": ["ui", "packages/blink-code/panel"]
 }

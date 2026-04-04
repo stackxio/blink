@@ -24,6 +24,7 @@ import {
   getPromptCommand,
   SLASH_COMMANDS,
 } from "@@/panel/slash-commands";
+import type { BridgeOutEvent, HistoryDisplayMessage } from "@contracts/bridge-protocol";
 
 // ── Message types ─────────────────────────────────────────────────────────────
 
@@ -53,32 +54,6 @@ interface PermReq {
   toolName: string;
   input: Record<string, unknown>;
 }
-
-type DisplayToolCall = { id: string; name: string; result?: string; is_error?: boolean };
-type HistoryDisplayMessage =
-  | { role: "user"; id: string; content: string }
-  | { role: "assistant"; id: string; content: string; toolCalls: DisplayToolCall[] };
-
-type BridgeOutEvent =
-  | { type: "text_delta"; assistantMsgId: string; delta: string }
-  | { type: "tool_call_start"; assistantMsgId: string; callId: string; name: string }
-  | {
-      type: "tool_call_result";
-      assistantMsgId: string;
-      callId: string;
-      result: string;
-      is_error: boolean;
-    }
-  | { type: "turn_done"; assistantMsgId: string }
-  | {
-      type: "bridge_ready";
-      resumed?: boolean;
-      messageCount?: number;
-      availableProviders?: string[];
-    }
-  | { type: "history"; messages: HistoryDisplayMessage[] }
-  | { type: "permission_request"; reqId: string; toolName: string; input: Record<string, unknown> }
-  | { type: "error"; error: string; assistantMsgId?: string };
 
 // ── Provider preset options ───────────────────────────────────────────────────
 

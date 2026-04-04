@@ -31,10 +31,10 @@ pub struct BridgeSession {
 
 fn default_bridge_script() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../blink-code/ide-bridge.ts")
+        .join("../packages/blink-code/ide-bridge.ts")
         .canonicalize()
         .unwrap_or_else(|_| {
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../blink-code/ide-bridge.ts")
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../packages/blink-code/ide-bridge.ts")
         })
 }
 

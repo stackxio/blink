@@ -9,7 +9,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./ui"),
-      "@@": path.resolve(__dirname, "./blink-code"),
+      "@@": path.resolve(__dirname, "./packages/blink-code"),
+      "@contracts": path.resolve(__dirname, "./packages/contracts"),
     },
   },
   build: {
