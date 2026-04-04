@@ -45,9 +45,7 @@ export function createCodexProvider(opts: Opts): ChatProvider {
       let msgId = 0;
       function send(method: string, params: unknown, id?: number) {
         const msg =
-          id != null
-            ? { jsonrpc: "2.0", id, method, params }
-            : { jsonrpc: "2.0", method, params };
+          id != null ? { jsonrpc: "2.0", id, method, params } : { jsonrpc: "2.0", method, params };
         child.stdin.write(JSON.stringify(msg) + "\n");
       }
 

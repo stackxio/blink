@@ -32,7 +32,7 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
       const prompt = typeof lastUser?.content === "string" ? lastUser.content : "";
 
       // Build args — prompt is piped via stdin to avoid arg-length/quoting issues
-      const args: string[] = ["--output-format", "stream-json", "--print"];
+      const args: string[] = ["--output-format", "stream-json", "--verbose", "--print"];
 
       const sessionId = opts.getSessionId();
       if (sessionId) args.push("--resume", sessionId);

@@ -42,10 +42,7 @@ export class BlinkEngine {
     this.abortCtl?.abort();
   }
 
-  async *send(
-    userText: string,
-    opts?: { thinking?: boolean },
-  ): AsyncGenerator<EngineEvent> {
+  async *send(userText: string, opts?: { thinking?: boolean }): AsyncGenerator<EngineEvent> {
     this.abortCtl = new AbortController();
     const signal = this.abortCtl.signal;
     const openaiTools: OpenAIToolSpec[] = this.opts.tools.map((t) => ({

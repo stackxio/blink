@@ -583,8 +583,7 @@ function BlinkCodePanel() {
     setStreaming(true);
     // Detect "ultrathink" keyword — enables extended thinking for this turn
     // (only meaningful for the Anthropic direct provider)
-    const isUltrathink =
-      config.provider.type === "anthropic" && /\bultrathink\b/i.test(text);
+    const isUltrathink = config.provider.type === "anthropic" && /\bultrathink\b/i.test(text);
 
     await invoke("blink_code_bridge_send", {
       line: JSON.stringify({
@@ -971,7 +970,11 @@ function ThinkingBlock({ content, streaming }: { content: string; streaming?: bo
   const [expanded, setExpanded] = useState(false);
   return (
     <div className={`blink-thinking${streaming ? " blink-thinking--streaming" : ""}`}>
-      <button type="button" className="blink-thinking__header" onClick={() => setExpanded((v) => !v)}>
+      <button
+        type="button"
+        className="blink-thinking__header"
+        onClick={() => setExpanded((v) => !v)}
+      >
         <Brain size={11} className="blink-thinking__icon" />
         <span className="blink-thinking__label">
           {streaming ? "Thinking…" : "Extended thinking"}
@@ -1117,7 +1120,13 @@ function ContextCircle({ inputTokens, model }: { inputTokens: number; model: str
   const pctStr = pct != null ? `${(pct * 100).toFixed(0)}%` : null;
 
   const color =
-    pct == null ? "var(--c-muted-fg)" : pct > 0.85 ? "var(--c-danger)" : pct > 0.6 ? "var(--c-warning, #f59e0b)" : "var(--c-accent)";
+    pct == null
+      ? "var(--c-muted-fg)"
+      : pct > 0.85
+        ? "var(--c-danger)"
+        : pct > 0.6
+          ? "var(--c-warning, #f59e0b)"
+          : "var(--c-accent)";
 
   return (
     <div className="blink-panel__ctx-ring">
@@ -1208,7 +1217,7 @@ function ModelPill({
   const label = modelPillLabel(config);
   const currentModel =
     ptype === "claude-code" || ptype === "anthropic" || ptype === "codex"
-      ? config.provider.model ?? ""
+      ? (config.provider.model ?? "")
       : ptype === "openai-compat"
         ? config.provider.model
         : "";
@@ -1545,7 +1554,9 @@ function ProviderSettings({
                 className={`toggle ${config.provider.thinking ? "toggle--on" : ""}`}
                 onClick={() => {
                   if (config.provider.type !== "anthropic") return;
-                  onChange({ provider: { ...config.provider, thinking: !config.provider.thinking } });
+                  onChange({
+                    provider: { ...config.provider, thinking: !config.provider.thinking },
+                  });
                 }}
               >
                 <span className="toggle__thumb" />

@@ -108,7 +108,10 @@ export function createAnthropicProvider(opts: AnthropicOpts): ChatProvider {
       }
 
       if (!res.body) {
-        yield { kind: "assistant", message: { content: "(empty response)", tool_calls: undefined } };
+        yield {
+          kind: "assistant",
+          message: { content: "(empty response)", tool_calls: undefined },
+        };
         return;
       }
 
