@@ -42,7 +42,12 @@ const card = await sharp(TMP)
 
 // 3. Place masked card centred on transparent 1024×1024 canvas
 await sharp({
-  create: { width: CANVAS, height: CANVAS, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  create: {
+    width: CANVAS,
+    height: CANVAS,
+    channels: 4,
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  },
 })
   .composite([{ input: card, left: INSET, top: INSET }])
   .png()
