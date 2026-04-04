@@ -81,7 +81,10 @@ cat > "$APP/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# Force macOS to re-read the bundle (clears stale dock icon cache)
+# Ad-hoc code sign so macOS applies the squircle mask in the Dock
+codesign --force --deep --sign - "$APP" 2>/dev/null || true
+
+# Force macOS to re-read the bundle
 touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
 
