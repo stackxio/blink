@@ -36,26 +36,39 @@ curl -s -o /dev/null "$DEV_URL" || { echo "Dev server did not become ready."; ex
 
 # 3. Build Rust binary (debug) in dev mode so it uses devUrl instead of bundled assets
 echo "Building app (dev mode)..."
+touch "$CORE/build.rs"  # force icon re-embed on every dev launch
 (cd "$CORE" && export DEP_TAURI_DEV=true && cargo build)
 
-# 4. Create minimal .app bundle with icon so Dock shows it
+# 4. Create minimal .app bundle with a compiled Mach-O launcher (required for codesign)
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
-# Launcher: run binary from target/debug (so it finds config) as a child; we stay main process so Dock keeps our icon
-cat > "$APP/Contents/MacOS/Blink" << LAUNCHER
-#!/bin/bash
-CORE="$CORE"
-cd "\$CORE"
-export TAURI_DEV_URL="$DEV_URL"
-"\$CORE/target/debug/blink"
-LAUNCHER
-chmod +x "$APP/Contents/MacOS/Blink"
+# Compile a tiny C launcher so the bundle has a real Mach-O binary (not a shell script).
+# codesign requires a Mach-O main executable — shell scripts are not signable.
+LAUNCHER_C="$CORE/target/debug/blink_launcher.c"
+LAUNCHER_BIN="$APP/Contents/MacOS/Blink"
+
+cat > "$LAUNCHER_C" << 'CSRC'
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+int main(void) {
+    char *binary = getenv("BLINK_BINARY");
+    char *cwd    = getenv("BLINK_CWD");
+    if (!binary) { fprintf(stderr, "BLINK_BINARY not set\n"); return 1; }
+    if (cwd) chdir(cwd);
+    execl(binary, binary, (char *)0);
+    perror("execl"); return 1;
+}
+CSRC
+
+cc -o "$LAUNCHER_BIN" "$LAUNCHER_C" -mmacosx-version-min=11.0
 
 # Icon
 cp "$CORE/icons/icon.icns" "$APP/Contents/Resources/"
 
-# Info.plist — LSMinimumSystemVersion 11.0 so macOS applies the squircle mask
+# Info.plist — LSEnvironment passes paths to the C launcher
+# LSMinimumSystemVersion 11.0 + NSHighResolutionCapable trigger the dock squircle mask
 cat > "$APP/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -77,12 +90,22 @@ cat > "$APP/Contents/Info.plist" << PLIST
   <true/>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
+  <key>LSEnvironment</key>
+  <dict>
+    <key>BLINK_BINARY</key>
+    <string>$CORE/target/debug/blink</string>
+    <key>BLINK_CWD</key>
+    <string>$CORE</string>
+    <key>TAURI_DEV_URL</key>
+    <string>$DEV_URL</string>
+  </dict>
 </dict>
 </plist>
 PLIST
 
-# Ad-hoc code sign so macOS applies the squircle mask in the Dock
-codesign --force --deep --sign - "$APP" 2>/dev/null || true
+# Ad-hoc codesign — now works because the main executable is a proper Mach-O binary
+echo "Signing bundle..."
+codesign --force --deep --sign - "$APP"
 
 # Force macOS to re-read the bundle
 touch "$APP"
