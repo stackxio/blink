@@ -76,7 +76,11 @@ export class BlinkEngine {
             yield { type: "error", error: chunk.error };
             return;
           } else if (chunk.kind === "usage") {
-            yield { type: "usage", inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens };
+            yield {
+              type: "usage",
+              inputTokens: chunk.inputTokens,
+              outputTokens: chunk.outputTokens,
+            };
           } else if (chunk.kind === "assistant") {
             assistant = chunk.message;
           }

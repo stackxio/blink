@@ -82,7 +82,7 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "claude-haiku-4-5-20251001": 200_000,
   "gpt-4o": 128_000,
   "gpt-4o-mini": 128_000,
-  "o3": 200_000,
+  o3: 200_000,
   "o4-mini": 200_000,
   "codex-mini-latest": 200_000,
 };
