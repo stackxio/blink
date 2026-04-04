@@ -240,7 +240,8 @@ function BlinkCodePanel() {
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
 
-  const [_atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  const [atMentionQuery, setAtMentionQuery] = useState<string | null>(null);
+  void atMentionQuery; // used via setAtMentionQuery; read value reserved for dropdown UI
   const [atMentionFiles, setAtMentionFiles] = useState<string[]>([]);
   const [atMentionIdx, setAtMentionIdx] = useState(0);
   const [workspaceFiles, setWorkspaceFiles] = useState<string[]>([]);
@@ -892,30 +893,6 @@ function BlinkCodePanel() {
         ]);
         break;
     }
-  }
-
-  async function _handleApplyCode(code: string) {
-    if (!activeFile) return;
-    await invoke("write_file_content", { path: activeFile.path, content: code }).catch(() => {});
-  }
-
-  function _exportConversation() {
-    const lines: string[] = [];
-    for (const msg of messages) {
-      if (msg.role === "user") {
-        lines.push(`## User\n\n${msg.content}`);
-      } else if (msg.role === "assistant") {
-        const parts: string[] = [];
-        if (msg.toolCalls.length > 0)
-          parts.push(msg.toolCalls.map((t) => `> Tool: \`${t.name}\``).join("\n"));
-        if (msg.content) parts.push(msg.content);
-        lines.push(`## Assistant\n\n${parts.join("\n\n")}`);
-      } else if (msg.role === "system") {
-        lines.push(`> ${msg.content}`);
-      }
-    }
-    const markdown = lines.join("\n\n---\n\n");
-    navigator.clipboard.writeText(markdown).catch(() => {});
   }
 
   function handleImagePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
