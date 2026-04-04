@@ -9,16 +9,12 @@ type Opts = {
 };
 
 // Claude CLI stream-json event shapes (subset we care about)
-type ClaudeStreamEvent =
-  | { type: "assistant"; message: { content: Array<{ type: string; text?: string }> } }
-  | { type: "tool_use"; id: string; name: string }
-  | { type: "result"; subtype: string; session_id: string }
-  | { type: "system"; subtype: string; [k: string]: unknown }
-  | { type: string; [k: string]: unknown };
+type ClaudeAssistantEvent = { type: "assistant"; message: { content: Array<{ type: string; text?: string }> } };
+type ClaudeResultEvent = { type: "result"; subtype: string; session_id?: string; error?: string };
+type ClaudeSystemEvent = { type: "system"; subtype: string; error?: { message?: string } };
+type ClaudeStreamEvent = ClaudeAssistantEvent | ClaudeResultEvent | ClaudeSystemEvent | { type: string; [k: string]: unknown };
 
 export function createClaudeCodeProvider(opts: Opts): ChatProvider {
-  let abortChild: (() => void) | null = null;
-
   return {
     async *streamTurn(input): AsyncGenerator<StreamChunk> {
       const { messages, signal } = input;
@@ -39,7 +35,6 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
         env: { ...process.env },
       });
 
-      abortChild = () => child.kill("SIGTERM");
       signal?.addEventListener("abort", () => child.kill("SIGTERM"), { once: true });
 
       const rl = readline.createInterface({ input: child.stdout!, crlfDelay: Infinity });
@@ -58,7 +53,8 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
         }
 
         if (event.type === "assistant") {
-          for (const block of event.message.content ?? []) {
+          const e = event as ClaudeAssistantEvent;
+          for (const block of e.message.content ?? []) {
             if (block.type === "text" && block.text) {
               yield { kind: "text", delta: block.text };
             }
@@ -67,26 +63,20 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
           // Claude handles tool calls internally — surface as an opaque event
           yield { kind: "text", delta: "" };
         } else if (event.type === "result") {
-          if (event.session_id) {
-            opts.saveSessionId(event.session_id);
+          const e = event as ClaudeResultEvent;
+          if (e.session_id) {
+            opts.saveSessionId(e.session_id);
           }
-          if (event.subtype === "error") {
-            const errEvent = event as {
-              type: "result";
-              subtype: string;
-              error?: string;
-              session_id: string;
-            };
+          if (e.subtype === "error") {
             hadError = true;
-            yield { kind: "error", error: errEvent.error ?? "claude CLI returned an error" };
+            yield { kind: "error", error: e.error ?? "claude CLI returned an error" };
           }
-        } else if (
-          event.type === "system" &&
-          (event as { type: string; subtype?: string }).subtype === "error"
-        ) {
-          const sysEvent = event as { type: string; subtype: string; error?: { message?: string } };
-          hadError = true;
-          yield { kind: "error", error: sysEvent.error?.message ?? "claude CLI system error" };
+        } else if (event.type === "system") {
+          const e = event as ClaudeSystemEvent;
+          if (e.subtype === "error") {
+            hadError = true;
+            yield { kind: "error", error: e.error?.message ?? "claude CLI system error" };
+          }
         }
       }
 
@@ -101,7 +91,6 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
         };
       }
 
-      abortChild = null;
     },
   };
 }
