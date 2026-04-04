@@ -20,6 +20,7 @@ export type OpenAIToolSpec = {
 
 export type StreamChunk =
   | { kind: "text"; delta: string }
+  | { kind: "thinking_delta"; delta: string }
   | { kind: "error"; error: string }
   | { kind: "usage"; inputTokens: number; outputTokens: number }
   | {
@@ -36,5 +37,6 @@ export type ChatProvider = {
     messages: BlinkMessage[];
     tools: OpenAIToolSpec[];
     signal?: AbortSignal;
+    thinking?: boolean;
   }): AsyncGenerator<StreamChunk>;
 };

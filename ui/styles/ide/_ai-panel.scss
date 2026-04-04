@@ -892,6 +892,61 @@
     opacity: 0.7;
   }
 
+  &__thinking-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--c-accent) 12%, transparent);
+    color: var(--c-accent);
+    font-size: 10px;
+  }
+
+  // ── Context circle ──
+  &__ctx-ring {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: 2px;
+    cursor: default;
+
+    svg {
+      display: block;
+    }
+
+    &:hover .blink-panel__ctx-tooltip {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+  }
+
+  &__ctx-tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    right: 0;
+    white-space: nowrap;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    padding: 5px 9px;
+    font-size: 11px;
+    color: var(--c-fg);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(3px);
+    @include transition(opacity, transform);
+    z-index: 20;
+
+    strong {
+      color: var(--c-accent);
+    }
+  }
+
   &__send-btn {
     @include flex-center;
     width: 28px;
@@ -1009,8 +1064,8 @@
     position: absolute;
     bottom: calc(100% + 4px);
     left: 0;
-    min-width: 160px;
-    max-height: 200px;
+    min-width: 220px;
+    max-height: 300px;
     overflow-y: auto;
     background: var(--c-popover);
     border: 1px solid var(--c-border);
@@ -1049,6 +1104,42 @@
       gap: 8px;
       font-family: inherit;
     }
+    &--with-desc {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 10px;
+      @include truncate; // only truncates block, not children
+    }
+  }
+
+  &__option-label {
+    font-size: var(--font-size-sm);
+    color: var(--c-fg);
+    font-family: var(--font-mono);
+    font-weight: 500;
+  }
+
+  &__option-desc {
+    font-size: 10px;
+    color: var(--c-muted-fg);
+    font-family: inherit;
+    white-space: normal;
+  }
+
+  &__divider {
+    height: 1px;
+    background: var(--c-border);
+    margin: 4px 4px;
+  }
+
+  &__section-label {
+    padding: 4px 10px 2px;
+    font-size: 10px;
+    font-family: inherit;
+    color: var(--c-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
   }
 
   &__empty {
@@ -1340,6 +1431,79 @@
     border-top: 1px solid var(--c-border);
     max-height: 180px;
     overflow-y: auto;
+    @include scrollbar(3px);
+  }
+}
+
+// ── Thinking block ────────────────────────────────────────────────────────────
+
+.blink-thinking {
+  margin-bottom: 6px;
+  border: 1px solid color-mix(in srgb, var(--c-accent) 20%, var(--c-border));
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-accent) 4%, var(--c-surface));
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    padding: 5px 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--c-accent);
+    text-align: left;
+    @include transition(background);
+
+    &:hover {
+      background: color-mix(in srgb, var(--c-accent) 8%, transparent);
+    }
+  }
+
+  &__icon {
+    opacity: 0.8;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    flex: 1;
+    font-weight: 500;
+  }
+
+  &__spinner {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid color-mix(in srgb, var(--c-accent) 30%, var(--c-border));
+    border-top-color: var(--c-accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  &__chevron {
+    color: var(--c-accent);
+    opacity: 0.6;
+    transition: transform var(--transition-fast);
+    &--open {
+      transform: rotate(90deg);
+    }
+  }
+
+  &__content {
+    padding: 8px 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--c-muted-fg);
+    white-space: pre-wrap;
+    word-break: break-word;
+    border-top: 1px solid color-mix(in srgb, var(--c-accent) 15%, var(--c-border));
+    max-height: 300px;
+    overflow-y: auto;
+    line-height: 1.6;
     @include scrollbar(3px);
   }
 }

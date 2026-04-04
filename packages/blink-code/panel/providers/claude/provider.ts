@@ -4,6 +4,7 @@ import type { ChatProvider, StreamChunk } from "../types";
 
 type Opts = {
   model?: string;
+  effort?: string;
   getSessionId: () => string | null;
   saveSessionId: (id: string) => void;
 };
@@ -30,19 +31,31 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
       const lastUser = [...messages].reverse().find((m) => m.role === "user");
       const prompt = typeof lastUser?.content === "string" ? lastUser.content : "";
 
-      const args: string[] = ["--output-format", "stream-json", "--print", prompt, "--no-input"];
+      // Build args — prompt is piped via stdin to avoid arg-length/quoting issues
+      const args: string[] = ["--output-format", "stream-json", "--print"];
 
       const sessionId = opts.getSessionId();
       if (sessionId) args.push("--resume", sessionId);
       if (opts.model) args.push("--model", opts.model);
+      if (opts.effort) args.push("--effort", opts.effort);
 
       const child = spawn("claude", args, {
-        stdio: ["ignore", "pipe", "pipe"],
+        stdio: ["pipe", "pipe", "pipe"],
         // Pass through PATH so the binary resolves correctly
         env: { ...process.env },
       });
 
+      // Write prompt to stdin and close it
+      child.stdin.write(prompt);
+      child.stdin.end();
+
       signal?.addEventListener("abort", () => child.kill("SIGTERM"), { once: true });
+
+      // Drain stderr to prevent blocking; surface errors if stdout is empty
+      let stderrText = "";
+      child.stderr!.on("data", (chunk: Buffer) => {
+        stderrText += chunk.toString();
+      });
 
       const rl = readline.createInterface({ input: child.stdout!, crlfDelay: Infinity });
 
@@ -88,9 +101,11 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
       }
 
       // Wait for process exit
-      await new Promise<void>((resolve) => child.on("close", resolve));
+      const exitCode = await new Promise<number | null>((resolve) => child.on("close", resolve));
 
-      if (!hadError) {
+      if (!hadError && exitCode !== 0 && stderrText.trim()) {
+        yield { kind: "error", error: stderrText.trim().slice(0, 500) };
+      } else if (!hadError) {
         // Emit a no-op assistant chunk so engine records the turn
         yield {
           kind: "assistant",

@@ -15,6 +15,7 @@ import {
   Map as MapIcon,
   Bug,
   MessageCircle,
+  Brain,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -46,6 +47,7 @@ type PanelMessage =
       id: string;
       role: "assistant";
       content: string;
+      thinkingContent?: string;
       toolCalls: ToolCallEntry[];
       streaming?: boolean;
     }
@@ -81,6 +83,8 @@ const MODE_PREFIXES: Record<ChatMode, string> = {
 // ── Context window sizes (tokens) for known models ───────────────────────────
 
 const CONTEXT_WINDOWS: Record<string, number> = {
+  "claude-opus-4-6": 200_000,
+  "claude-sonnet-4-6": 200_000,
   "claude-opus-4-5": 200_000,
   "claude-sonnet-4-5": 200_000,
   "claude-haiku-4-5-20251001": 200_000,
@@ -91,38 +95,78 @@ const CONTEXT_WINDOWS: Record<string, number> = {
   "codex-mini-latest": 200_000,
 };
 
-function contextUsageLabel(inputTokens: number, model: string): string {
-  const window = CONTEXT_WINDOWS[model];
-  if (window) {
-    const pct = ((inputTokens / window) * 100).toFixed(1);
-    return `${pct}% context used`;
-  }
-  if (inputTokens >= 1000) {
-    return `${(inputTokens / 1000).toFixed(1)}k tokens`;
-  }
-  return `${inputTokens} tokens`;
-}
-
 // ── Provider preset options ───────────────────────────────────────────────────
 
 const PRESETS = [
   { label: "Ollama (local)", value: "ollama" },
+  { label: "Anthropic (direct)", value: "anthropic" },
   { label: "Claude Code", value: "claude-code" },
   { label: "Codex", value: "codex" },
   { label: "Custom…", value: "custom" },
 ];
 
 const CLAUDE_MODELS = [
-  { label: "Claude Opus 4.5", value: "claude-opus-4-5" },
-  { label: "Claude Sonnet 4.5", value: "claude-sonnet-4-5" },
-  { label: "Claude Haiku 4.5", value: "claude-haiku-4-5-20251001" },
+  {
+    label: "Opus 4.6",
+    value: "claude-opus-4-6",
+    description: "Most capable for ambitious work",
+  },
+  {
+    label: "Sonnet 4.6",
+    value: "claude-sonnet-4-6",
+    description: "Most efficient for everyday tasks",
+  },
+  {
+    label: "Haiku 4.5",
+    value: "claude-haiku-4-5-20251001",
+    description: "Fastest for quick answers",
+  },
+];
+
+const CLAUDE_EFFORT_LEVELS: Array<{ label: string; value: "low" | "medium" | "high" }> = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" },
+];
+
+const CODEX_EFFORT_LEVELS: Array<{ label: string; value: "low" | "medium" | "high" | "xhigh" }> = [
+  { label: "Low", value: "low" },
+  { label: "Medium", value: "medium" },
+  { label: "High", value: "high" },
+  { label: "X-High", value: "xhigh" },
+];
+
+const ANTHROPIC_MODELS = [
+  {
+    label: "Opus 4.6",
+    value: "claude-opus-4-6",
+    description: "Most capable for ambitious work",
+  },
+  {
+    label: "Sonnet 4.6",
+    value: "claude-sonnet-4-6",
+    description: "Most efficient for everyday tasks",
+  },
+  {
+    label: "Haiku 4.5",
+    value: "claude-haiku-4-5-20251001",
+    description: "Fastest for quick answers",
+  },
 ];
 
 const CODEX_MODELS = [
-  { label: "codex-mini-latest", value: "codex-mini-latest" },
-  { label: "o3", value: "o3" },
-  { label: "o4-mini", value: "o4-mini" },
-  { label: "GPT-4o", value: "gpt-4o" },
+  { label: "GPT-5.4", value: "gpt-5.4", description: "Flagship frontier model" },
+  { label: "GPT-5.4-Mini", value: "gpt-5.4-mini", description: "Fast, lower-cost option" },
+  { label: "GPT-5.3-Codex", value: "gpt-5.3-codex", description: "Industry-leading coding model" },
+  {
+    label: "GPT-5.3-Codex-Spark",
+    value: "gpt-5.3-codex-spark",
+    description: "Near-instant coding iteration",
+  },
+  { label: "GPT-5.2-Codex", value: "gpt-5.2-codex", description: "Previous generation codex" },
+  { label: "GPT-5.2", value: "gpt-5.2", description: "Previous generation" },
+  { label: "GPT-5.1-Codex-Max", value: "gpt-5.1-codex-max", description: "Max capacity model" },
+  { label: "GPT-5.1-Codex", value: "gpt-5.1-codex", description: "Earlier codex generation" },
 ];
 
 function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
@@ -135,10 +179,18 @@ function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
         apiKey: "ollama",
         maxTokens: 4096,
       };
+    case "anthropic":
+      return {
+        type: "anthropic",
+        model: ANTHROPIC_MODELS[0].value,
+        apiKey: "",
+        thinking: false,
+        thinkingBudget: 10000,
+      };
     case "claude-code":
-      return { type: "claude-code", model: CLAUDE_MODELS[0].value };
+      return { type: "claude-code", model: CLAUDE_MODELS[1].value, effort: "medium" }; // Sonnet 4.6
     case "codex":
-      return { type: "codex", model: CODEX_MODELS[0].value };
+      return { type: "codex", model: CODEX_MODELS[0].value, effort: "high" }; // GPT-5.4
     default:
       // "custom" is handled before calling this function — should never reach here
       return { type: "openai-compat", model: "", baseUrl: "", apiKey: "", maxTokens: 4096 };
@@ -168,6 +220,7 @@ function BlinkCodePanel() {
   const [bridgeReady, setBridgeReady] = useState(false);
   const [availableProviders, setAvailableProviders] = useState<string[]>(["ollama", "custom"]);
   const bridgeReadyRef = useRef(false);
+  const pendingThinkingDeltasRef = useRef(new Map<string, string>());
   const currentAssistantMsgIdRef = useRef<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
@@ -383,6 +436,22 @@ function BlinkCodePanel() {
             break;
           }
 
+          case "thinking_delta": {
+            const { assistantMsgId, delta } = msg;
+            const prev = pendingThinkingDeltasRef.current.get(assistantMsgId) ?? "";
+            pendingThinkingDeltasRef.current.set(assistantMsgId, prev + delta);
+            setMessages((prevMsgs) =>
+              prevMsgs.map((m) => {
+                if (m.id !== assistantMsgId || m.role !== "assistant") return m;
+                return {
+                  ...m,
+                  thinkingContent: (m.thinkingContent ?? "") + delta,
+                };
+              }),
+            );
+            break;
+          }
+
           case "tool_call_start": {
             const { assistantMsgId, callId, name } = msg;
             setMessages((prev) =>
@@ -512,8 +581,18 @@ function BlinkCodePanel() {
       { id: assistantMsgId, role: "assistant", content: "", toolCalls: [], streaming: true },
     ]);
     setStreaming(true);
+    // Detect "ultrathink" keyword — enables extended thinking for this turn
+    // (only meaningful for the Anthropic direct provider)
+    const isUltrathink =
+      config.provider.type === "anthropic" && /\bultrathink\b/i.test(text);
+
     await invoke("blink_code_bridge_send", {
-      line: JSON.stringify({ type: "chat", assistantMsgId, text: bridgeText }),
+      line: JSON.stringify({
+        type: "chat",
+        assistantMsgId,
+        text: bridgeText,
+        ...(isUltrathink ? { thinking: true } : {}),
+      }),
     });
   }
 
@@ -801,13 +880,17 @@ function BlinkCodePanel() {
               <div className="blink-panel__input-footer">
                 <ModePill mode={mode} onChange={setMode} />
                 <ModelPill config={config} onChange={handleConfigChange} />
+                {config.provider.type === "anthropic" &&
+                  (config.provider.thinking || /\bultrathink\b/i.test(input)) && (
+                    <span className="blink-panel__thinking-badge" title="Extended thinking enabled">
+                      <Brain size={11} />
+                    </span>
+                  )}
                 {contextUsage && (
-                  <span className="blink-panel__context-usage">
-                    {contextUsageLabel(
-                      contextUsage.inputTokens,
-                      "model" in config.provider ? (config.provider.model ?? "") : "",
-                    )}
-                  </span>
+                  <ContextCircle
+                    inputTokens={contextUsage.inputTokens}
+                    model={"model" in config.provider ? (config.provider.model ?? "") : ""}
+                  />
                 )}
                 <button
                   type="button"
@@ -859,6 +942,9 @@ function MessageRow({
   // Assistant
   return (
     <div className="blink-msg blink-msg--assistant">
+      {msg.thinkingContent && (
+        <ThinkingBlock content={msg.thinkingContent} streaming={msg.streaming && !msg.content} />
+      )}
       {msg.toolCalls.map((tc) => (
         <ToolCallRow key={tc.id} call={tc} onToggle={() => onToggleTool(tc.id)} />
       ))}
@@ -868,13 +954,35 @@ function MessageRow({
           {msg.streaming && <span className="blink-msg__cursor" />}
         </div>
       )}
-      {msg.streaming && !msg.content && !msg.toolCalls.length && (
+      {msg.streaming && !msg.content && !msg.toolCalls.length && !msg.thinkingContent && (
         <div className="blink-msg__thinking">
           <span className="blink-msg__dot" />
           <span className="blink-msg__dot" />
           <span className="blink-msg__dot" />
         </div>
       )}
+    </div>
+  );
+}
+
+// ── ThinkingBlock ─────────────────────────────────────────────────────────────
+
+function ThinkingBlock({ content, streaming }: { content: string; streaming?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className={`blink-thinking${streaming ? " blink-thinking--streaming" : ""}`}>
+      <button type="button" className="blink-thinking__header" onClick={() => setExpanded((v) => !v)}>
+        <Brain size={11} className="blink-thinking__icon" />
+        <span className="blink-thinking__label">
+          {streaming ? "Thinking…" : "Extended thinking"}
+        </span>
+        {streaming && <span className="blink-thinking__spinner" />}
+        <ChevronRight
+          size={10}
+          className={`blink-thinking__chevron${expanded ? " blink-thinking__chevron--open" : ""}`}
+        />
+      </button>
+      {expanded && <pre className="blink-thinking__content">{content}</pre>}
     </div>
   );
 }
@@ -993,7 +1101,71 @@ function ModePill({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) 
   );
 }
 
+// ── ContextCircle ─────────────────────────────────────────────────────────────
+
+function ContextCircle({ inputTokens, model }: { inputTokens: number; model: string }) {
+  const window = CONTEXT_WINDOWS[model];
+  const pct = window ? Math.min(inputTokens / window, 1) : null;
+
+  const SIZE = 18;
+  const STROKE = 2;
+  const R = (SIZE - STROKE) / 2;
+  const CIRC = 2 * Math.PI * R;
+
+  const used = inputTokens >= 1000 ? `${(inputTokens / 1000).toFixed(1)}k` : `${inputTokens}`;
+  const total = window ? (window >= 1000 ? `${window / 1000}k` : `${window}`) : null;
+  const pctStr = pct != null ? `${(pct * 100).toFixed(0)}%` : null;
+
+  const color =
+    pct == null ? "var(--c-muted-fg)" : pct > 0.85 ? "var(--c-danger)" : pct > 0.6 ? "var(--c-warning, #f59e0b)" : "var(--c-accent)";
+
+  return (
+    <div className="blink-panel__ctx-ring">
+      <svg width={SIZE} height={SIZE} style={{ transform: "rotate(-90deg)" }}>
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          fill="none"
+          stroke="var(--c-border)"
+          strokeWidth={STROKE}
+        />
+        <circle
+          cx={SIZE / 2}
+          cy={SIZE / 2}
+          r={R}
+          fill="none"
+          stroke={color}
+          strokeWidth={STROKE}
+          strokeLinecap="round"
+          strokeDasharray={CIRC}
+          strokeDashoffset={pct != null ? CIRC * (1 - pct) : CIRC * 0.85}
+        />
+      </svg>
+      <div className="blink-panel__ctx-tooltip">
+        <strong>Context</strong>
+        {pctStr && ` ${pctStr}`}
+        {total ? ` · ${used} / ${total}` : ` · ${used}`}
+      </div>
+    </div>
+  );
+}
+
 // ── ModelPill ─────────────────────────────────────────────────────────────────
+
+function modelPillLabel(config: BlinkCodeConfig): string {
+  const p = config.provider;
+  if (p.type === "claude-code") {
+    return CLAUDE_MODELS.find((m) => m.value === p.model)?.label ?? p.model ?? "claude";
+  }
+  if (p.type === "anthropic") {
+    return ANTHROPIC_MODELS.find((m) => m.value === p.model)?.label ?? p.model;
+  }
+  if (p.type === "codex") {
+    return CODEX_MODELS.find((m) => m.value === p.model)?.label ?? p.model ?? "codex";
+  }
+  return p.model || "—";
+}
 
 function ModelPill({
   config,
@@ -1003,14 +1175,13 @@ function ModelPill({
   onChange: (p: Partial<BlinkCodeConfig>) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [models, setModels] = useState<string[]>([]);
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
-  const baseUrl =
-    config.provider.type === "openai-compat"
-      ? (config.provider.baseUrl ?? "http://localhost:11434/v1")
-      : null;
+  const ptype = config.provider.type;
+  const baseUrl = ptype === "openai-compat" ? (config.provider.baseUrl ?? "") : null;
 
+  // Fetch model list for openai-compat endpoints
   useEffect(() => {
     if (!open || !baseUrl) return;
     const apiKey =
@@ -1020,10 +1191,10 @@ function ModelPill({
     })
       .then((r) => r.json())
       .then((d: { data?: Array<{ id: string }> }) =>
-        setModels((d.data ?? []).map((m) => m.id).sort()),
+        setFetchedModels((d.data ?? []).map((m) => m.id).sort()),
       )
-      .catch(() => setModels([]));
-  }, [open, baseUrl, config.provider.type === "openai-compat" ? config.provider.apiKey : ""]);
+      .catch(() => setFetchedModels([]));
+  }, [open, baseUrl]);
 
   useEffect(() => {
     if (!open) return;
@@ -1034,40 +1205,143 @@ function ModelPill({
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
+  const label = modelPillLabel(config);
+  const currentModel =
+    ptype === "claude-code" || ptype === "anthropic" || ptype === "codex"
+      ? config.provider.model ?? ""
+      : ptype === "openai-compat"
+        ? config.provider.model
+        : "";
+
+  const currentEffort =
+    ptype === "claude-code"
+      ? (config.provider.effort ?? "medium")
+      : ptype === "codex"
+        ? (config.provider.effort ?? "high")
+        : null;
+
   return (
     <div className="blink-model-pill" ref={ref}>
       <button type="button" className="blink-model-pill__btn" onClick={() => setOpen((v) => !v)}>
-        <span className="blink-model-pill__name">
-          {config.provider.type === "claude-code"
-            ? `claude · ${config.provider.model ?? "default"}`
-            : config.provider.type === "codex"
-              ? `codex · ${config.provider.model ?? "default"}`
-              : config.provider.model || "—"}
-        </span>
+        <span className="blink-model-pill__name">{label}</span>
         <ChevronRight
           size={10}
           className={`blink-model-pill__chevron${open ? " blink-model-pill__chevron--open" : ""}`}
         />
       </button>
-      {open && config.provider.type === "openai-compat" && (
+      {open && (
         <div className="blink-model-pill__dropdown">
-          {models.length > 0 ? (
-            models.map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`blink-model-pill__option${m === config.provider.model ? " blink-model-pill__option--active" : ""}`}
-                onClick={() => {
-                  onChange({ provider: { ...config.provider, model: m } });
-                  setOpen(false);
-                }}
-              >
-                {m}
-              </button>
-            ))
-          ) : (
-            <div className="blink-model-pill__empty">No models found</div>
+          {/* Static model list for claude-code */}
+          {ptype === "claude-code" && (
+            <>
+              {CLAUDE_MODELS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    onChange({ provider: { ...config.provider, model: m.value } });
+                    setOpen(false);
+                  }}
+                >
+                  <span className="blink-model-pill__option-label">{m.label}</span>
+                  <span className="blink-model-pill__option-desc">{m.description}</span>
+                </button>
+              ))}
+              <div className="blink-model-pill__divider" />
+              <div className="blink-model-pill__section-label">Effort</div>
+              {CLAUDE_EFFORT_LEVELS.map((e) => (
+                <button
+                  key={e.value}
+                  type="button"
+                  className={`blink-model-pill__option${currentEffort === e.value ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    if (config.provider.type === "claude-code")
+                      onChange({ provider: { ...config.provider, effort: e.value } });
+                    setOpen(false);
+                  }}
+                >
+                  {e.label}
+                </button>
+              ))}
+            </>
           )}
+
+          {/* Static model list for anthropic */}
+          {ptype === "anthropic" && (
+            <>
+              {ANTHROPIC_MODELS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    onChange({ provider: { ...config.provider, model: m.value } });
+                    setOpen(false);
+                  }}
+                >
+                  <span className="blink-model-pill__option-label">{m.label}</span>
+                  <span className="blink-model-pill__option-desc">{m.description}</span>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Static model list for codex */}
+          {ptype === "codex" && (
+            <>
+              {CODEX_MODELS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    onChange({ provider: { ...config.provider, model: m.value } });
+                    setOpen(false);
+                  }}
+                >
+                  <span className="blink-model-pill__option-label">{m.label}</span>
+                  <span className="blink-model-pill__option-desc">{m.description}</span>
+                </button>
+              ))}
+              <div className="blink-model-pill__divider" />
+              <div className="blink-model-pill__section-label">Effort</div>
+              {CODEX_EFFORT_LEVELS.map((e) => (
+                <button
+                  key={e.value}
+                  type="button"
+                  className={`blink-model-pill__option${currentEffort === e.value ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    if (config.provider.type === "codex")
+                      onChange({ provider: { ...config.provider, effort: e.value } });
+                    setOpen(false);
+                  }}
+                >
+                  {e.label}
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Fetched models for openai-compat */}
+          {ptype === "openai-compat" &&
+            (fetchedModels.length > 0 ? (
+              fetchedModels.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`blink-model-pill__option${m === currentModel ? " blink-model-pill__option--active" : ""}`}
+                  onClick={() => {
+                    onChange({ provider: { ...config.provider, model: m } });
+                    setOpen(false);
+                  }}
+                >
+                  {m}
+                </button>
+              ))
+            ) : (
+              <div className="blink-model-pill__empty">No models found</div>
+            ))}
         </div>
       )}
     </div>
@@ -1092,13 +1366,15 @@ function ProviderSettings({
 
   // Derive active preset from current config type
   const activePreset =
-    ptype === "claude-code"
-      ? "claude-code"
-      : ptype === "codex"
-        ? "codex"
-        : ptype === "openai-compat" && config.provider.baseUrl === "http://localhost:11434/v1"
-          ? "ollama"
-          : "custom";
+    ptype === "anthropic"
+      ? "anthropic"
+      : ptype === "claude-code"
+        ? "claude-code"
+        : ptype === "codex"
+          ? "codex"
+          : ptype === "openai-compat" && config.provider.baseUrl === "http://localhost:11434/v1"
+            ? "ollama"
+            : "custom";
 
   // Live Ollama / openai-compat model list
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -1136,9 +1412,13 @@ function ProviderSettings({
     onChange({ provider: presetToConfig(value) });
   }
 
-  // Visible presets: always show ollama + custom, show CLI options only if installed
+  // Visible presets: always show ollama + anthropic + custom, CLI options only if installed
   const visiblePresets = PRESETS.filter(
-    (p) => p.value === "ollama" || p.value === "custom" || availableProviders.includes(p.value),
+    (p) =>
+      p.value === "ollama" ||
+      p.value === "anthropic" ||
+      p.value === "custom" ||
+      availableProviders.includes(p.value),
   );
 
   const currentModel =
@@ -1176,7 +1456,20 @@ function ProviderSettings({
           {/* Model */}
           <div className="blink-settings-panel__field">
             <label>Model</label>
-            {ptype === "claude-code" ? (
+            {ptype === "anthropic" ? (
+              <select
+                value={config.provider.model}
+                onChange={(e) =>
+                  onChange({ provider: { ...config.provider, model: e.target.value } })
+                }
+              >
+                {ANTHROPIC_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label} — {m.description}
+                  </option>
+                ))}
+              </select>
+            ) : ptype === "claude-code" ? (
               <select
                 value={currentModel}
                 onChange={(e) =>
@@ -1185,7 +1478,7 @@ function ProviderSettings({
               >
                 {CLAUDE_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {m.label}
+                    {m.label} — {m.description}
                   </option>
                 ))}
               </select>
@@ -1198,7 +1491,7 @@ function ProviderSettings({
               >
                 {CODEX_MODELS.map((m) => (
                   <option key={m.value} value={m.value}>
-                    {m.label}
+                    {m.label} — {m.description}
                   </option>
                 ))}
               </select>
@@ -1229,6 +1522,54 @@ function ProviderSettings({
             )}
           </div>
         </div>
+
+        {/* Anthropic card — API key + thinking */}
+        {ptype === "anthropic" && (
+          <div className="blink-settings-panel__card">
+            <div className="blink-settings-panel__field">
+              <label>API Key</label>
+              <input
+                type="password"
+                value={config.provider.apiKey}
+                onChange={(e) => {
+                  if (config.provider.type !== "anthropic") return;
+                  onChange({ provider: { ...config.provider, apiKey: e.target.value } });
+                }}
+                placeholder="sk-ant-…"
+              />
+            </div>
+            <div className="blink-settings-panel__field blink-settings-panel__field--row">
+              <label>Extended thinking</label>
+              <button
+                type="button"
+                className={`toggle ${config.provider.thinking ? "toggle--on" : ""}`}
+                onClick={() => {
+                  if (config.provider.type !== "anthropic") return;
+                  onChange({ provider: { ...config.provider, thinking: !config.provider.thinking } });
+                }}
+              >
+                <span className="toggle__thumb" />
+              </button>
+            </div>
+            {config.provider.thinking && (
+              <div className="blink-settings-panel__field">
+                <label>Thinking budget (tokens)</label>
+                <input
+                  type="number"
+                  min={1024}
+                  max={100000}
+                  step={1000}
+                  value={config.provider.thinkingBudget}
+                  onChange={(e) => {
+                    if (config.provider.type !== "anthropic") return;
+                    const v = Math.max(1024, parseInt(e.target.value, 10) || 10000);
+                    onChange({ provider: { ...config.provider, thinkingBudget: v } });
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Connection card — only for openai-compat */}
         {ptype === "openai-compat" && (

@@ -25,6 +25,7 @@ export type HistoryDisplayMessage =
 
 export type BridgeOutEvent =
   | { type: "text_delta"; assistantMsgId: string; delta: string }
+  | { type: "thinking_delta"; assistantMsgId: string; delta: string }
   | { type: "tool_call_start"; assistantMsgId: string; callId: string; name: string }
   | {
       type: "tool_call_result";
@@ -60,7 +61,7 @@ export type BridgeInEvent =
       allowTools: boolean;
       persistSession: boolean;
     }
-  | { type: "chat"; assistantMsgId: string; text: string }
+  | { type: "chat"; assistantMsgId: string; text: string; thinking?: boolean }
   | { type: "abort"; assistantMsgId?: string }
   | { type: "permission_response"; reqId: string; allowed: boolean }
   | { type: "clear" };

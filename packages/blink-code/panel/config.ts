@@ -7,14 +7,24 @@ export type ProviderConfig =
       maxTokens?: number;
     }
   | {
+      /** Direct Anthropic Messages API with optional extended thinking. */
+      type: "anthropic";
+      model: string;
+      apiKey: string;
+      thinking: boolean;
+      thinkingBudget: number;
+    }
+  | {
       /** Bridges to the locally installed `claude` CLI. */
       type: "claude-code";
       model?: string;
+      effort?: "low" | "medium" | "high";
     }
   | {
       /** Bridges to the locally installed `codex` CLI. */
       type: "codex";
       model?: string;
+      effort?: "low" | "medium" | "high" | "xhigh";
     };
 
 export type BlinkCodeConfig = {

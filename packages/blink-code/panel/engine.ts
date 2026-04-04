@@ -3,6 +3,7 @@ import type { BlinkMessage, BlinkToolCall, ChatProvider, OpenAIToolSpec } from "
 
 export type EngineEvent =
   | { type: "text_delta"; delta: string }
+  | { type: "thinking_delta"; delta: string }
   | { type: "tool_call_start"; callId: string; name: string }
   | { type: "tool_call_result"; callId: string; result: string; is_error: boolean }
   | { type: "usage"; inputTokens: number; outputTokens: number }
@@ -41,7 +42,10 @@ export class BlinkEngine {
     this.abortCtl?.abort();
   }
 
-  async *send(userText: string): AsyncGenerator<EngineEvent> {
+  async *send(
+    userText: string,
+    opts?: { thinking?: boolean },
+  ): AsyncGenerator<EngineEvent> {
     this.abortCtl = new AbortController();
     const signal = this.abortCtl.signal;
     const openaiTools: OpenAIToolSpec[] = this.opts.tools.map((t) => ({
@@ -69,9 +73,12 @@ export class BlinkEngine {
           messages: this._messages,
           tools: openaiTools,
           signal,
+          thinking: opts?.thinking,
         })) {
           if (chunk.kind === "text") {
             yield { type: "text_delta", delta: chunk.delta };
+          } else if (chunk.kind === "thinking_delta") {
+            yield { type: "thinking_delta", delta: chunk.delta };
           } else if (chunk.kind === "error") {
             yield { type: "error", error: chunk.error };
             return;

@@ -1,5 +1,6 @@
 import type { ProviderConfig } from "../config";
 import { createOpenAICompatProvider } from "./openai-compat";
+import { createAnthropicProvider } from "./anthropic";
 import { createClaudeCodeProvider } from "./claude/provider";
 import { createCodexProvider } from "./codex/provider";
 import type { ChatProvider } from "./types";
@@ -23,16 +24,26 @@ export function createProvider(p: ProviderConfig, session?: SessionCallbacks): C
     });
   }
 
+  if (p.type === "anthropic") {
+    return createAnthropicProvider({
+      model: p.model,
+      apiKey: p.apiKey,
+      thinking: p.thinking,
+      thinkingBudget: p.thinkingBudget,
+    });
+  }
+
   if (p.type === "claude-code") {
     return createClaudeCodeProvider({
       model: p.model,
+      effort: p.effort,
       getSessionId: () => session?.getSessionId("claude") ?? null,
       saveSessionId: (id) => session?.saveSessionId("claude", id),
     });
   }
 
   if (p.type === "codex") {
-    return createCodexProvider({ model: p.model });
+    return createCodexProvider({ model: p.model, effort: p.effort });
   }
 
   // Exhaustive guard — should never reach here

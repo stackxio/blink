@@ -436,12 +436,16 @@ rl.on("line", async (line) => {
     chatInProgress = true;
     currentAssistantMsgId = msg.assistantMsgId as string;
     const text = String(msg.text ?? "");
+    const thinkingOverride = msg.thinking === true ? true : undefined;
 
     try {
-      for await (const ev of engine.send(text)) {
+      for await (const ev of engine.send(text, { thinking: thinkingOverride })) {
         switch (ev.type) {
           case "text_delta":
             send("text_delta", { assistantMsgId: currentAssistantMsgId, delta: ev.delta });
+            break;
+          case "thinking_delta":
+            send("thinking_delta", { assistantMsgId: currentAssistantMsgId, delta: ev.delta });
             break;
           case "tool_call_start":
             send("tool_call_start", {
