@@ -11,6 +11,10 @@ import {
   Settings2,
   Check,
   X,
+  Zap,
+  Map as MapIcon,
+  Bug,
+  MessageCircle,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -59,11 +63,11 @@ interface PermReq {
 
 type ChatMode = "agent" | "plan" | "debug" | "ask";
 
-const MODES: { value: ChatMode; label: string }[] = [
-  { value: "agent", label: "Agent" },
-  { value: "plan", label: "Plan" },
-  { value: "debug", label: "Debug" },
-  { value: "ask", label: "Ask" },
+const MODES: { value: ChatMode; label: string; icon: React.FC<{ size?: number }> }[] = [
+  { value: "agent", label: "Agent", icon: Zap },
+  { value: "plan", label: "Plan", icon: MapIcon },
+  { value: "debug", label: "Debug", icon: Bug },
+  { value: "ask", label: "Ask", icon: MessageCircle },
 ];
 
 const MODE_PREFIXES: Record<ChatMode, string> = {
@@ -952,10 +956,12 @@ function ModePill({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) 
   }, [open]);
 
   const current = MODES.find((m) => m.value === mode) ?? MODES[0];
+  const CurrentIcon = current.icon;
 
   return (
     <div className="blink-model-pill" ref={ref}>
       <button type="button" className="blink-model-pill__btn" onClick={() => setOpen((v) => !v)}>
+        <CurrentIcon size={11} />
         <span className="blink-model-pill__name">{current.label}</span>
         <ChevronRight
           size={10}
@@ -964,19 +970,23 @@ function ModePill({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) 
       </button>
       {open && (
         <div className="blink-model-pill__dropdown">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              className={`blink-model-pill__option${m.value === mode ? " blink-model-pill__option--active" : ""}`}
-              onClick={() => {
-                onChange(m.value);
-                setOpen(false);
-              }}
-            >
-              {m.label}
-            </button>
-          ))}
+          {MODES.map((m) => {
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.value}
+                type="button"
+                className={`blink-model-pill__option blink-model-pill__option--with-icon${m.value === mode ? " blink-model-pill__option--active" : ""}`}
+                onClick={() => {
+                  onChange(m.value);
+                  setOpen(false);
+                }}
+              >
+                <Icon size={12} />
+                {m.label}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

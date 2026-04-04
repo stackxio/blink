@@ -1043,6 +1043,12 @@
       background: var(--c-surface-raised);
       color: var(--c-accent);
     }
+    &--with-icon {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+    }
   }
 
   &__empty {
