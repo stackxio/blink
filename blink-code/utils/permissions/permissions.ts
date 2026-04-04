@@ -652,11 +652,7 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
       }
 
       // Notify ants when classifier error dumped prompts (will be in /share)
-      if (
-        false &&
-        classifierResult.errorDumpPath &&
-        context.addNotification
-      ) {
+      if (false && classifierResult.errorDumpPath && context.addNotification) {
         context.addNotification({
           key: "auto-mode-error-dump",
           text: `Auto mode classifier error — prompts dumped to ${classifierResult.errorDumpPath} (included in /share)`,

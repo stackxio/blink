@@ -56,9 +56,7 @@ export async function validateAttachmentPaths(rawPaths: string[]): Promise<Valid
   return { result: true };
 }
 
-export async function resolveAttachments(
-  rawPaths: string[],
-): Promise<ResolvedAttachment[]> {
+export async function resolveAttachments(rawPaths: string[]): Promise<ResolvedAttachment[]> {
   const stated: ResolvedAttachment[] = [];
   for (const rawPath of rawPaths) {
     const fullPath = expandPath(rawPath);

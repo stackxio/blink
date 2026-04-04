@@ -113,8 +113,8 @@ export function IdeOnboardingDialog(t0) {
   if ($[13] === Symbol.for("react.memo_cache_sentinel")) {
     t11 = (
       <Text>
-        • Review Blink's changes {t10} <Text color="diffRemovedWord">-22</Text> in the comfort
-        of your IDE
+        • Review Blink's changes {t10} <Text color="diffRemovedWord">-22</Text> in the comfort of
+        your IDE
       </Text>
     );
     $[13] = t11;

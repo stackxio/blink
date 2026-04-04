@@ -607,24 +607,23 @@ const externalTips: Tip[] = [
     },
   },
 ];
-const internalOnlyTips: Tip[] =
-  false
-    ? [
-        {
-          id: "important-claudemd",
-          content: async () => '[ANT-ONLY] Use "IMPORTANT:" prefix for must-follow BLINK.md rules',
-          cooldownSessions: 30,
-          isRelevant: async () => true,
-        },
-        {
-          id: "skillify",
-          content: async () =>
-            "[ANT-ONLY] Use /skillify at the end of a workflow to turn it into a reusable skill",
-          cooldownSessions: 15,
-          isRelevant: async () => true,
-        },
-      ]
-    : [];
+const internalOnlyTips: Tip[] = false
+  ? [
+      {
+        id: "important-claudemd",
+        content: async () => '[ANT-ONLY] Use "IMPORTANT:" prefix for must-follow BLINK.md rules',
+        cooldownSessions: 30,
+        isRelevant: async () => true,
+      },
+      {
+        id: "skillify",
+        content: async () =>
+          "[ANT-ONLY] Use /skillify at the end of a workflow to turn it into a reusable skill",
+        cooldownSessions: 15,
+        isRelevant: async () => true,
+      },
+    ]
+  : [];
 
 function getCustomTips(): Tip[] {
   const settings = getInitialSettings();

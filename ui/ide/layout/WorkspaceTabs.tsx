@@ -83,8 +83,8 @@ function WorkspaceTabButton({
 
 export default function WorkspaceTabs() {
   const workspaces = useAppStore((s) => s.workspaces);
-  const workspaceRecentKey = useAppStore(
-    (s) => s.workspaces.map((ws) => `${ws.path}::${ws.name}`).join("|"),
+  const workspaceRecentKey = useAppStore((s) =>
+    s.workspaces.map((ws) => `${ws.path}::${ws.name}`).join("|"),
   );
   const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
   const addWorkspace = useAppStore((s) => s.addWorkspace);

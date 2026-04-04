@@ -227,8 +227,7 @@ const command = {
   type: "prompt",
   name: "init",
   get description() {
-    return feature("NEW_INIT") &&
-      (false || isEnvTruthy(process.env.BLINK_CODE_NEW_INIT))
+    return feature("NEW_INIT") && (false || isEnvTruthy(process.env.BLINK_CODE_NEW_INIT))
       ? "Initialize new BLINK.md file(s) and optional skills/hooks with codebase documentation"
       : "Initialize a new BLINK.md file with codebase documentation";
   },
@@ -242,8 +241,7 @@ const command = {
       {
         type: "text",
         text:
-          feature("NEW_INIT") &&
-          (false || isEnvTruthy(process.env.BLINK_CODE_NEW_INIT))
+          feature("NEW_INIT") && (false || isEnvTruthy(process.env.BLINK_CODE_NEW_INIT))
             ? NEW_INIT_PROMPT
             : OLD_INIT_PROMPT,
       },

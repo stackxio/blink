@@ -726,11 +726,7 @@ export function getAssistantMessageFromError(
     // under the same source value, and in CCR mode OAuth stays active despite
     // the env var. The three guards ensure we only blame the env var when it's
     // actually set and actually on the wire.
-    if (
-      source === "BLINK_API_KEY" &&
-      process.env.BLINK_API_KEY &&
-      !isBlinkSubscriber()
-    ) {
+    if (source === "BLINK_API_KEY" && process.env.BLINK_API_KEY && !isBlinkSubscriber()) {
       const hasStoredOAuth = getBlinkOAuthTokens()?.accessToken != null;
       // Not 'authentication_failed' — that triggers VS Code's showLogin(), but
       // login can't fix this (approved env var keeps overriding OAuth). The fix

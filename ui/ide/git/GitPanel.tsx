@@ -87,30 +87,36 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
 
   const staged = useMemo(() => files.filter((f) => f.staged), [files]);
   const unstaged = useMemo(() => files.filter((f) => !f.staged), [files]);
-  const visibleStaged = useMemo(() => staged.slice(0, visibleStagedCount), [staged, visibleStagedCount]);
+  const visibleStaged = useMemo(
+    () => staged.slice(0, visibleStagedCount),
+    [staged, visibleStagedCount],
+  );
   const visibleUnstaged = useMemo(
     () => unstaged.slice(0, visibleUnstagedCount),
     [unstaged, visibleUnstagedCount],
   );
 
-  const refresh = useCallback(async (silent = false) => {
-    if (!workspacePath) return;
-    if (!silent) setLoading(true);
-    try {
-      const [statusResult, branchResult] = await Promise.all([
-        invoke<GitFileStatus[]>("git_status", { path: workspacePath }),
-        invoke<string>("git_branch", { path: workspacePath }),
-      ]);
-      setFiles(statusResult);
-      setBranch(branchResult);
-    } catch {
-      // Not a git repo or git not available
-      setFiles([]);
-      setBranch("");
-      setBranches([]);
-    }
-    if (!silent) setLoading(false);
-  }, [workspacePath]);
+  const refresh = useCallback(
+    async (silent = false) => {
+      if (!workspacePath) return;
+      if (!silent) setLoading(true);
+      try {
+        const [statusResult, branchResult] = await Promise.all([
+          invoke<GitFileStatus[]>("git_status", { path: workspacePath }),
+          invoke<string>("git_branch", { path: workspacePath }),
+        ]);
+        setFiles(statusResult);
+        setBranch(branchResult);
+      } catch {
+        // Not a git repo or git not available
+        setFiles([]);
+        setBranch("");
+        setBranches([]);
+      }
+      if (!silent) setLoading(false);
+    },
+    [workspacePath],
+  );
 
   useEffect(() => {
     refresh(); // eslint-disable-line react-hooks/set-state-in-effect -- trigger initial data load
@@ -122,7 +128,9 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   }, [workspacePath]);
 
   useEffect(() => {
-    setVisibleStagedCount((count) => Math.min(Math.max(FILE_RENDER_BATCH, count), staged.length || FILE_RENDER_BATCH));
+    setVisibleStagedCount((count) =>
+      Math.min(Math.max(FILE_RENDER_BATCH, count), staged.length || FILE_RENDER_BATCH),
+    );
   }, [staged.length]);
 
   useEffect(() => {
@@ -314,7 +322,12 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
         <button type="button" className="git-panel__refresh-btn" onClick={handlePush} title="Push">
           <ArrowUp size={14} />
         </button>
-        <button type="button" className="git-panel__refresh-btn" onClick={() => refresh()} title="Refresh">
+        <button
+          type="button"
+          className="git-panel__refresh-btn"
+          onClick={() => refresh()}
+          title="Refresh"
+        >
           <RefreshCw size={14} className={loading ? "git-panel__spin" : ""} />
         </button>
         <button

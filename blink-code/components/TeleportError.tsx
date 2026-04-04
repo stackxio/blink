@@ -136,11 +136,7 @@ export function TeleportError(t0) {
         let t9;
         if ($[14] !== handleLoginComplete) {
           t9 = (
-            <ConsoleOAuthFlow
-              onDone={handleLoginComplete}
-              mode="login"
-              forceLoginMethod="blink"
-            />
+            <ConsoleOAuthFlow onDone={handleLoginComplete} mode="login" forceLoginMethod="blink" />
           );
           $[14] = handleLoginComplete;
           $[15] = t9;
@@ -154,9 +150,7 @@ export function TeleportError(t0) {
         t9 = (
           <Box flexDirection="column">
             <Text dimColor={true}>Teleport requires a Claude.ai account.</Text>
-            <Text dimColor={true}>
-              Your Claude Pro/Max subscription will be used by Blink.
-            </Text>
+            <Text dimColor={true}>Your Claude Pro/Max subscription will be used by Blink.</Text>
           </Box>
         );
         $[16] = t9;
@@ -201,10 +195,7 @@ function _temp() {
 }
 export async function getTeleportErrors(): Promise<Set<TeleportLocalErrorType>> {
   const errors = new Set<TeleportLocalErrorType>();
-  const [needsLogin, isGitClean] = await Promise.all([
-    checkNeedsBlinkLogin(),
-    checkIsGitClean(),
-  ]);
+  const [needsLogin, isGitClean] = await Promise.all([checkNeedsBlinkLogin(), checkIsGitClean()]);
   if (needsLogin) {
     errors.add("needsLogin");
   }

@@ -121,9 +121,7 @@ export function DesktopUpsellStartup(t0) {
   if ($[8] === Symbol.for("react.memo_cache_sentinel")) {
     t6 = (
       <Box marginBottom={1}>
-        <Text>
-          Same Blink with visual diffs, live app preview, parallel sessions, and more.
-        </Text>
+        <Text>Same Blink with visual diffs, live app preview, parallel sessions, and more.</Text>
       </Box>
     );
     $[8] = t6;

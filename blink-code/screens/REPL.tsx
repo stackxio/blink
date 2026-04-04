@@ -5792,7 +5792,6 @@ export function REPL({
                           .forEach((item) => item.resolvePromise(allow));
                         return queue.filter((item) => item.hostPattern.host !== approvedHost);
                       });
-
                     }}
                   />
                 )}

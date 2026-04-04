@@ -55,13 +55,7 @@ function handleInteractivePermission(
   params: InteractivePermissionParams,
   resolve: (decision: PermissionDecision) => void,
 ): void {
-  const {
-    ctx,
-    description,
-    result,
-    awaitAutomatedChecksBeforeDialog,
-    channelCallbacks,
-  } = params;
+  const { ctx, description, result, awaitAutomatedChecksBeforeDialog, channelCallbacks } = params;
 
   const { resolve: resolveOnce, isResolved, claim } = createResolveOnce(resolve);
   let userInteracted = false;

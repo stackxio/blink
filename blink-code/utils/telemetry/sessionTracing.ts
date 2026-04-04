@@ -133,10 +133,7 @@ export function isEnhancedTelemetryEnabled(): boolean {
     if (isEnvDefinedFalsy(env)) {
       return false;
     }
-    return (
-      false ||
-      getFeatureValue_CACHED_MAY_BE_STALE("enhanced_telemetry_beta", false)
-    );
+    return false || getFeatureValue_CACHED_MAY_BE_STALE("enhanced_telemetry_beta", false);
   }
   return false;
 }

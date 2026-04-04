@@ -259,8 +259,7 @@ export async function update() {
     process.stderr.write("  • Check your internet connection\n");
     process.stderr.write("  • Run with --debug flag for more details\n");
     const packageName =
-      MACRO.PACKAGE_URL ||
-      (false ? "@anthropic-ai/claude-cli" : "@anthropic-ai/claude-code");
+      MACRO.PACKAGE_URL || (false ? "@anthropic-ai/claude-cli" : "@anthropic-ai/claude-code");
     process.stderr.write(`  • Manually check: npm view ${packageName} version\n`);
 
     process.stderr.write("  • Check if you need to login: npm whoami\n");

@@ -1,9 +1,6 @@
 import { feature } from "bun:bundle";
 import memoize from "lodash-es/memoize.js";
-import {
-  getAdditionalDirectoriesForBlinkMd,
-  setCachedClaudeMdContent,
-} from "./bootstrap/state.js";
+import { getAdditionalDirectoriesForBlinkMd, setCachedClaudeMdContent } from "./bootstrap/state.js";
 import { getLocalISODate } from "./constants/common.js";
 import { filterInjectedMemoryFiles, getClaudeMds, getMemoryFiles } from "./utils/claudemd.js";
 import { logForDiagnosticsNoPII } from "./utils/diagLogs.js";

@@ -52,8 +52,8 @@ function PermissionDescription() {
   if ($[0] === Symbol.for("react.memo_cache_sentinel")) {
     t0 = (
       <Text dimColor={true}>
-        Blink will be able to read files in this directory and make edits when auto-accept
-        edits is on.
+        Blink will be able to read files in this directory and make edits when auto-accept edits is
+        on.
       </Text>
     );
     $[0] = t0;

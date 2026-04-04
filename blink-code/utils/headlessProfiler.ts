@@ -30,8 +30,7 @@ const DETAILED_PROFILING = isEnvTruthy(getBlinkCodeEnv("BLINK_CODE_PROFILE_START
 // Decision made once at module load - non-sampled users pay no profiling cost
 const STATSIG_SAMPLE_RATE = 0.05;
 // eslint-disable-next-line custom-rules/no-process-env-top-level
-const STATSIG_LOGGING_SAMPLED =
-  false || Math.random() < STATSIG_SAMPLE_RATE;
+const STATSIG_LOGGING_SAMPLED = false || Math.random() < STATSIG_SAMPLE_RATE;
 
 // Enable profiling if either detailed mode OR sampled for Statsig
 const SHOULD_PROFILE = DETAILED_PROFILING || STATSIG_LOGGING_SAMPLED;

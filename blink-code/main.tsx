@@ -196,8 +196,7 @@ import {
 import type { LogOption } from "./types/logs.js";
 import type { Message as MessageType } from "./types/message.js";
 import { assertMinVersion } from "./utils/autoUpdater.js";
-import {
-} from "./utils/context.js";
+import {} from "./utils/context.js";
 import { getContextWindowForModel } from "./utils/context.js";
 import { loadConversationForResume } from "./utils/conversationRecovery.js";
 import { buildDeepLinkBanner } from "./utils/deepLink/banner.js";
@@ -1825,7 +1824,8 @@ async function run(): Promise<CommanderCommand> {
 
       // Allow env var to enable partial messages (used by sandbox gateway for baku)
       const effectiveIncludePartialMessages =
-        includePartialMessages || isEnvTruthy(getBlinkCodeEnv("BLINK_CODE_INCLUDE_PARTIAL_MESSAGES"));
+        includePartialMessages ||
+        isEnvTruthy(getBlinkCodeEnv("BLINK_CODE_INCLUDE_PARTIAL_MESSAGES"));
 
       // Enable all hook event types when explicitly requested via SDK option
       // or when running in BLINK_CODE_REMOTE mode (CCR needs them).
@@ -2490,7 +2490,10 @@ async function run(): Promise<CommanderCommand> {
 
       // Apply coordinator mode tool filtering for headless path
       // (mirrors useMergedTools.ts filtering for REPL/interactive path)
-      if (feature("COORDINATOR_MODE") && isEnvTruthy(getBlinkCodeEnv("BLINK_CODE_COORDINATOR_MODE"))) {
+      if (
+        feature("COORDINATOR_MODE") &&
+        isEnvTruthy(getBlinkCodeEnv("BLINK_CODE_COORDINATOR_MODE"))
+      ) {
         const { applyCoordinatorToolFilter } = await import("./utils/toolPool.js");
         tools = applyCoordinatorToolFilter(tools);
       }
@@ -3152,13 +3155,11 @@ async function run(): Promise<CommanderCommand> {
       // adds helper tools (ListMcpResourcesTool, ReadMcpResourceTool) via
       // local dedup flags, so merging two calls can yield duplicates. print.ts
       // already uniqBy's the final tool pool, but dedup here keeps appState clean.
-      const mcpPromise = Promise.all([localMcpPromise, blinkMcpPromise]).then(
-        ([local, blink]) => ({
-          clients: [...local.clients, ...blink.clients],
-          tools: uniqBy([...local.tools, ...blink.tools], "name"),
-          commands: uniqBy([...local.commands, ...blink.commands], "name"),
-        }),
-      );
+      const mcpPromise = Promise.all([localMcpPromise, blinkMcpPromise]).then(([local, blink]) => ({
+        clients: [...local.clients, ...blink.clients],
+        tools: uniqBy([...local.tools, ...blink.tools], "name"),
+        commands: uniqBy([...local.commands, ...blink.commands], "name"),
+      }));
 
       // Start hooks early so they run in parallel with MCP connections.
       // Skip for initOnly/init/maintenance (handled separately), non-interactive
@@ -3560,10 +3561,7 @@ async function run(): Promise<CommanderCommand> {
           // those (claude.ai wins); leaving them in suppresses the
           // connector too, and neither survives (gh-39974).
           const nonPluginConfigs = pickBy(regularMcpConfigs, (_, n) => !n.startsWith("plugin:"));
-          const { servers: dedupedBlink } = dedupBlinkMcpServers(
-            blinkConfigs,
-            nonPluginConfigs,
-          );
+          const { servers: dedupedBlink } = dedupBlinkMcpServers(blinkConfigs, nonPluginConfigs);
           return connectMcpBatch(dedupedBlink, "blink");
         });
         let blinkTimer: ReturnType<typeof setTimeout> | undefined;

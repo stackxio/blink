@@ -233,9 +233,7 @@ export const EnvironmentMetadata: MessageFns<EnvironmentMetadata> = {
       is_claude_code_action: isSet(object.is_claude_code_action)
         ? globalThis.Boolean(object.is_claude_code_action)
         : false,
-      is_blink_auth: isSet(object.is_blink_auth)
-        ? globalThis.Boolean(object.is_blink_auth)
-        : false,
+      is_blink_auth: isSet(object.is_blink_auth) ? globalThis.Boolean(object.is_blink_auth) : false,
       version: isSet(object.version) ? globalThis.String(object.version) : "",
       github_event_name: isSet(object.github_event_name)
         ? globalThis.String(object.github_event_name)

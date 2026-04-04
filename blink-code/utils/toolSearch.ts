@@ -609,10 +609,7 @@ export type DeferredToolsDeltaScanContext = {
  * header prepend (the attachment does not fire).
  */
 export function isDeferredToolsDeltaEnabled(): boolean {
-  return (
-    false ||
-    getFeatureValue_CACHED_MAY_BE_STALE("tengu_glacier_2xr", false)
-  );
+  return false || getFeatureValue_CACHED_MAY_BE_STALE("tengu_glacier_2xr", false);
 }
 
 /**

@@ -5,11 +5,7 @@ import {
   logEvent,
 } from "../../services/analytics/index.js";
 import { buildTool, type ToolDef } from "../../Tool.js";
-import {
-  type GlobalConfig,
-  getGlobalConfig,
-  saveGlobalConfig,
-} from "../../utils/config.js";
+import { type GlobalConfig, getGlobalConfig, saveGlobalConfig } from "../../utils/config.js";
 import { errorMessage } from "../../utils/errors.js";
 import { lazySchema } from "../../utils/lazySchema.js";
 import { logError } from "../../utils/log.js";

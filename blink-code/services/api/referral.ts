@@ -1,10 +1,6 @@
 import axios from "axios";
 import { getOauthConfig } from "../../constants/oauth.js";
-import {
-  getOauthAccountInfo,
-  getSubscriptionType,
-  isBlinkSubscriber,
-} from "../../utils/auth.js";
+import { getOauthAccountInfo, getSubscriptionType, isBlinkSubscriber } from "../../utils/auth.js";
 import { getGlobalConfig, saveGlobalConfig } from "../../utils/config.js";
 import { logForDebugging } from "../../utils/debug.js";
 import { logError } from "../../utils/log.js";

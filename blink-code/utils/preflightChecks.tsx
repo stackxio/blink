@@ -151,8 +151,7 @@ export function PreflightStep(t0) {
               <Box flexDirection="column" gap={1}>
                 <Text>Please check your internet connection and network settings.</Text>
                 <Text>
-                  Note: Blink might not be available in your country. Check supported
-                  countries at{" "}
+                  Note: Blink might not be available in your country. Check supported countries at{" "}
                   <Text color="suggestion">https://anthropic.com/supported-countries</Text>
                 </Text>
               </Box>

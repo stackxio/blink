@@ -27,11 +27,7 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
       const lastUser = [...messages].reverse().find((m) => m.role === "user");
       const prompt = typeof lastUser?.content === "string" ? lastUser.content : "";
 
-      const args: string[] = [
-        "--output-format", "stream-json",
-        "--print", prompt,
-        "--no-input",
-      ];
+      const args: string[] = ["--output-format", "stream-json", "--print", prompt, "--no-input"];
 
       const sessionId = opts.getSessionId();
       if (sessionId) args.push("--resume", sessionId);
@@ -75,11 +71,19 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
             opts.saveSessionId(event.session_id);
           }
           if (event.subtype === "error") {
-            const errEvent = event as { type: "result"; subtype: string; error?: string; session_id: string };
+            const errEvent = event as {
+              type: "result";
+              subtype: string;
+              error?: string;
+              session_id: string;
+            };
             hadError = true;
             yield { kind: "error", error: errEvent.error ?? "claude CLI returned an error" };
           }
-        } else if (event.type === "system" && (event as { type: string; subtype?: string }).subtype === "error") {
+        } else if (
+          event.type === "system" &&
+          (event as { type: string; subtype?: string }).subtype === "error"
+        ) {
           const sysEvent = event as { type: string; subtype: string; error?: { message?: string } };
           hadError = true;
           yield { kind: "error", error: sysEvent.error?.message ?? "claude CLI system error" };

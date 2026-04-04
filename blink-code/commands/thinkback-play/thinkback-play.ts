@@ -8,8 +8,7 @@ const INTERNAL_MARKETPLACE_NAME = "blink-code-marketplace";
 const SKILL_NAME = "thinkback";
 
 function getPluginId(): string {
-  const marketplaceName =
-    false ? INTERNAL_MARKETPLACE_NAME : OFFICIAL_MARKETPLACE_NAME;
+  const marketplaceName = false ? INTERNAL_MARKETPLACE_NAME : OFFICIAL_MARKETPLACE_NAME;
   return `thinkback@${marketplaceName}`;
 }
 

@@ -44,8 +44,7 @@ import status from "./commands/status/index.js";
 import tasks from "./commands/tasks/index.js";
 import teleport from "./commands/teleport/index.js";
 /* eslint-disable @typescript-eslint/no-require-imports */
-const agentsPlatform =
-  false ? require("./commands/agents-platform/index.js").default : null;
+const agentsPlatform = false ? require("./commands/agents-platform/index.js").default : null;
 /* eslint-enable @typescript-eslint/no-require-imports */
 import securityReview from "./commands/security-review.js";
 import bughunter from "./commands/bughunter/index.js";

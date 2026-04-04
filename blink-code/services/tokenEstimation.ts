@@ -248,8 +248,7 @@ export async function countTokensViaHaikuFallback(
     isEnvTruthy(process.env.BLINK_CODE_USE_VERTEX) &&
     getVertexRegionForModel(getSmallFastModel()) === "global";
   // If we're on Bedrock with thinking blocks, use Sonnet since Haiku 3.5 doesn't support thinking
-  const isBedrockWithThinking =
-    isEnvTruthy(process.env.BLINK_CODE_USE_BEDROCK) && containsThinking;
+  const isBedrockWithThinking = isEnvTruthy(process.env.BLINK_CODE_USE_BEDROCK) && containsThinking;
   // If we're on Vertex with thinking blocks, use Sonnet since Haiku 3.5 doesn't support thinking
   const isVertexWithThinking = isEnvTruthy(process.env.BLINK_CODE_USE_VERTEX) && containsThinking;
   // Otherwise always use Haiku - Haiku 4.5 supports thinking blocks.

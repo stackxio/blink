@@ -600,7 +600,9 @@ export default function Editor({
           editor.addAction({
             id: "blink.format",
             label: "Format Document",
-            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyMod.Shift | monacoApi.KeyCode.KeyF],
+            keybindings: [
+              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyMod.Shift | monacoApi.KeyCode.KeyF,
+            ],
             run: async () => {
               await editor.getAction("editor.action.formatDocument")?.run();
             },

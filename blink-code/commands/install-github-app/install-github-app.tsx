@@ -51,11 +51,10 @@ function InstallGitHubApp(props: { onDone: (message: string) => void }): React.R
   const [state, setState] = useState({
     ...INITIAL_STATE,
     useExistingKey: !!existingApiKey,
-    selectedApiKeyOption: (existingApiKey
-      ? "existing"
-      : isBlinkAuthEnabled()
-        ? "oauth"
-        : "new") as "existing" | "new" | "oauth",
+    selectedApiKeyOption: (existingApiKey ? "existing" : isBlinkAuthEnabled() ? "oauth" : "new") as
+      | "existing"
+      | "new"
+      | "oauth",
   });
   useExitOnCtrlCDWithKeybindings();
   React.useEffect(() => {

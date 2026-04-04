@@ -375,8 +375,7 @@ function should1hCacheTTL(querySource?: QuerySource): boolean {
   // would bust the server-side prompt cache (~20K tokens per flip).
   let userEligible = getPromptCache1hEligible();
   if (userEligible === null) {
-    userEligible =
-      false || (isBlinkSubscriber() && !currentLimits.isUsingOverage);
+    userEligible = false || (isBlinkSubscriber() && !currentLimits.isUsingOverage);
     setPromptCache1hEligible(userEligible);
   }
   if (!userEligible) return false;
@@ -1846,10 +1845,7 @@ async function* queryModel(
             usage = updateUsage(usage, part.message?.usage);
             // Capture research from message_start if available (internal only).
             // Always overwrite with the latest value.
-            if (
-              false &&
-              "research" in (part.message as unknown as Record<string, unknown>)
-            ) {
+            if (false && "research" in (part.message as unknown as Record<string, unknown>)) {
               research = (part.message as unknown as Record<string, unknown>).research;
             }
             break;
@@ -2063,10 +2059,7 @@ async function* queryModel(
             // Always overwrite with the latest value. Also write back to
             // already-yielded messages since message_delta arrives after
             // content_block_stop.
-            if (
-              false &&
-              "research" in (part as unknown as Record<string, unknown>)
-            ) {
+            if (false && "research" in (part as unknown as Record<string, unknown>)) {
               research = (part as unknown as Record<string, unknown>).research;
               for (const msg of newMessages) {
                 msg.research = research;

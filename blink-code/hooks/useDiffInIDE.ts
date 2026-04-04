@@ -50,10 +50,7 @@ export function useDiffInIDE({ onChange, toolUseContext, filePath, edits, editMo
   const [hasError, setHasError] = useState(false);
 
   const sha = useMemo(() => randomUUID().slice(0, 6), []);
-  const tabName = useMemo(
-    () => `✻ [Blink] ${basename(filePath)} (${sha}) ⧉`,
-    [filePath, sha],
-  );
+  const tabName = useMemo(() => `✻ [Blink] ${basename(filePath)} (${sha}) ⧉`, [filePath, sha]);
 
   const shouldShowDiffInIDE =
     hasAccessToIDEExtensionDiffFeature(toolUseContext.options.mcpClients) &&

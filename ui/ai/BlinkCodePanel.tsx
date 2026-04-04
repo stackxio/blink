@@ -70,7 +70,12 @@ type BridgeOutEvent =
       is_error: boolean;
     }
   | { type: "turn_done"; assistantMsgId: string }
-  | { type: "bridge_ready"; resumed?: boolean; messageCount?: number; availableProviders?: string[] }
+  | {
+      type: "bridge_ready";
+      resumed?: boolean;
+      messageCount?: number;
+      availableProviders?: string[];
+    }
   | { type: "history"; messages: HistoryDisplayMessage[] }
   | { type: "permission_request"; reqId: string; toolName: string; input: Record<string, unknown> }
   | { type: "error"; error: string; assistantMsgId?: string };
@@ -102,7 +107,7 @@ function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
     case "ollama":
       return {
         type: "openai-compat",
-        model: "",           // auto-filled from /models list
+        model: "", // auto-filled from /models list
         baseUrl: "http://localhost:11434/v1",
         apiKey: "ollama",
         maxTokens: 4096,
@@ -161,15 +166,18 @@ function BlinkCodePanel() {
     );
   }, []);
 
-  const queueTextDelta = useCallback((assistantMsgId: string, delta: string) => {
-    const next = (pendingTextDeltasRef.current.get(assistantMsgId) ?? "") + delta;
-    pendingTextDeltasRef.current.set(assistantMsgId, next);
-    if (textDeltaFrameRef.current != null) return;
-    textDeltaFrameRef.current = requestAnimationFrame(() => {
-      textDeltaFrameRef.current = null;
-      flushPendingTextDeltas();
-    });
-  }, [flushPendingTextDeltas]);
+  const queueTextDelta = useCallback(
+    (assistantMsgId: string, delta: string) => {
+      const next = (pendingTextDeltasRef.current.get(assistantMsgId) ?? "") + delta;
+      pendingTextDeltasRef.current.set(assistantMsgId, next);
+      if (textDeltaFrameRef.current != null) return;
+      textDeltaFrameRef.current = requestAnimationFrame(() => {
+        textDeltaFrameRef.current = null;
+        flushPendingTextDeltas();
+      });
+    },
+    [flushPendingTextDeltas],
+  );
 
   useEffect(() => {
     const container = messagesScrollRef.current;
@@ -179,10 +187,12 @@ function BlinkCodePanel() {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto", block: "end" });
       return;
     }
-    const nearBottom =
-      container.scrollHeight - (container.scrollTop + container.clientHeight) < 72;
+    const nearBottom = container.scrollHeight - (container.scrollTop + container.clientHeight) < 72;
     if (!nearBottom) return;
-    messagesEndRef.current?.scrollIntoView({ behavior: streaming ? "auto" : "smooth", block: "end" });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: streaming ? "auto" : "smooth",
+      block: "end",
+    });
   }, [messages, streaming]);
 
   useEffect(() => {
@@ -901,7 +911,8 @@ function ModelPill({
 
   useEffect(() => {
     if (!open || !baseUrl) return;
-    const apiKey = config.provider.type === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
+    const apiKey =
+      config.provider.type === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
     fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
     })
@@ -979,10 +990,13 @@ function ProviderSettings({
 
   // Derive active preset from current config type
   const activePreset =
-    ptype === "claude-code" ? "claude-code"
-    : ptype === "codex" ? "codex"
-    : ptype === "openai-compat" && config.provider.baseUrl === "http://localhost:11434/v1" ? "ollama"
-    : "custom";
+    ptype === "claude-code"
+      ? "claude-code"
+      : ptype === "codex"
+        ? "codex"
+        : ptype === "openai-compat" && config.provider.baseUrl === "http://localhost:11434/v1"
+          ? "ollama"
+          : "custom";
 
   // Live Ollama / openai-compat model list
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -990,8 +1004,12 @@ function ProviderSettings({
   const baseUrl = ptype === "openai-compat" ? (config.provider.baseUrl ?? "") : null;
 
   useEffect(() => {
-    if (!baseUrl) { setAvailableModels([]); return; }
-    const apiKey = config.provider.type === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
+    if (!baseUrl) {
+      setAvailableModels([]);
+      return;
+    }
+    const apiKey =
+      config.provider.type === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
     const url = `${baseUrl.replace(/\/+$/, "")}/models`;
     fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
       .then((r) => r.json())
@@ -999,12 +1017,16 @@ function ProviderSettings({
         const models = (data.data ?? []).map((m) => m.id).sort();
         setAvailableModels(models);
         // Auto-select first model when field is blank (e.g. fresh Ollama preset)
-        if (models.length > 0 && config.provider.type === "openai-compat" && !config.provider.model) {
+        if (
+          models.length > 0 &&
+          config.provider.type === "openai-compat" &&
+          !config.provider.model
+        ) {
           onChange({ provider: { ...config.provider, model: models[0] } });
         }
       })
       .catch(() => setAvailableModels([]));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
 
   function applyPreset(value: string) {
@@ -1018,10 +1040,13 @@ function ProviderSettings({
   );
 
   const currentModel =
-    ptype === "claude-code" ? (config.provider.model ?? "")
-    : ptype === "codex" ? (config.provider.model ?? "")
-    : ptype === "openai-compat" ? config.provider.model
-    : "";
+    ptype === "claude-code"
+      ? (config.provider.model ?? "")
+      : ptype === "codex"
+        ? (config.provider.model ?? "")
+        : ptype === "openai-compat"
+          ? config.provider.model
+          : "";
 
   return (
     <div className="blink-settings-panel">
@@ -1032,13 +1057,14 @@ function ProviderSettings({
         <span className="blink-settings-panel__title">Provider Settings</span>
       </div>
       <div className="blink-settings-panel__body">
-
         {/* Preset picker */}
         <div className="blink-settings-panel__field">
           <label>Preset</label>
           <select value={activePreset} onChange={(e) => applyPreset(e.target.value)}>
             {visiblePresets.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
             ))}
           </select>
         </div>
@@ -1049,19 +1075,27 @@ function ProviderSettings({
           {ptype === "claude-code" ? (
             <select
               value={currentModel}
-              onChange={(e) => onChange({ provider: { ...config.provider, model: e.target.value } })}
+              onChange={(e) =>
+                onChange({ provider: { ...config.provider, model: e.target.value } })
+              }
             >
               {CLAUDE_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
               ))}
             </select>
           ) : ptype === "codex" ? (
             <select
               value={currentModel}
-              onChange={(e) => onChange({ provider: { ...config.provider, model: e.target.value } })}
+              onChange={(e) =>
+                onChange({ provider: { ...config.provider, model: e.target.value } })
+              }
             >
               {CODEX_MODELS.map((m) => (
-                <option key={m.value} value={m.value}>{m.label}</option>
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
               ))}
             </select>
           ) : availableModels.length > 0 ? (
@@ -1075,7 +1109,9 @@ function ProviderSettings({
                 <option value={currentModel}>{currentModel}</option>
               )}
               {availableModels.map((m) => (
-                <option key={m} value={m}>{m}</option>
+                <option key={m} value={m}>
+                  {m}
+                </option>
               ))}
             </select>
           ) : (
@@ -1123,8 +1159,8 @@ function ProviderSettings({
         {/* CLI notice */}
         {isCLI && (
           <p className="blink-settings-panel__notice">
-            Uses your locally installed <code>{ptype === "claude-code" ? "claude" : "codex"}</code> CLI.
-            Authentication is managed by the CLI itself.
+            Uses your locally installed <code>{ptype === "claude-code" ? "claude" : "codex"}</code>{" "}
+            CLI. Authentication is managed by the CLI itself.
           </p>
         )}
 

@@ -801,8 +801,7 @@ export function hasAccessToIDEExtensionDiffFeature(mcpClients: MCPServerConnecti
   return mcpClients.some((client) => client.type === "connected" && client.name === "ide");
 }
 
-const EXTENSION_ID =
-  false ? "anthropic.claude-code-internal" : "anthropic.claude-code";
+const EXTENSION_ID = false ? "anthropic.claude-code-internal" : "anthropic.claude-code";
 
 export async function isIDEExtensionInstalled(ideType: IdeType): Promise<boolean> {
   if (isVSCodeIde(ideType)) {

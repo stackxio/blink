@@ -307,14 +307,7 @@ async function doInitialize(): Promise<void> {
   // Any Blink instance spawned on this socket will inherit this env var,
   // preventing test/verification sessions from polluting the user's real
   // command history and --resume session list.
-  await execTmux([
-    "-L",
-    socket,
-    "set-environment",
-    "-g",
-    "BLINK_CODE_SKIP_PROMPT_HISTORY",
-    "true",
-  ]);
+  await execTmux(["-L", socket, "set-environment", "-g", "BLINK_CODE_SKIP_PROMPT_HISTORY", "true"]);
 
   // Same WSL_INTEROP pin as the new-session -e above, but in the GLOBAL env
   // so sessions created by TungstenTool inherit it too. The -e on new-session

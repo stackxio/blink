@@ -29,8 +29,7 @@ const DETAILED_PROFILING = isEnvTruthy(process.env.BLINK_CODE_PROFILE_STARTUP);
 // Decision made once at startup - non-sampled users pay no profiling cost
 const STATSIG_SAMPLE_RATE = 0.005;
 // eslint-disable-next-line custom-rules/no-process-env-top-level
-const STATSIG_LOGGING_SAMPLED =
-  false || Math.random() < STATSIG_SAMPLE_RATE;
+const STATSIG_LOGGING_SAMPLED = false || Math.random() < STATSIG_SAMPLE_RATE;
 
 // Enable profiling if either detailed mode OR sampled for Statsig
 const SHOULD_PROFILE = DETAILED_PROFILING || STATSIG_LOGGING_SAMPLED;

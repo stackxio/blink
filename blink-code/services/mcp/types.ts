@@ -132,9 +132,7 @@ export type McpWebSocketIDEServerConfig = z.infer<
 export type McpHTTPServerConfig = z.infer<ReturnType<typeof McpHTTPServerConfigSchema>>;
 export type McpWebSocketServerConfig = z.infer<ReturnType<typeof McpWebSocketServerConfigSchema>>;
 export type McpSdkServerConfig = z.infer<ReturnType<typeof McpSdkServerConfigSchema>>;
-export type McpBlinkProxyServerConfig = z.infer<
-  ReturnType<typeof McpBlinkProxyServerConfigSchema>
->;
+export type McpBlinkProxyServerConfig = z.infer<ReturnType<typeof McpBlinkProxyServerConfigSchema>>;
 export type McpServerConfig = z.infer<ReturnType<typeof McpServerConfigSchema>>;
 
 export type ScopedMcpServerConfig = McpServerConfig & {

@@ -13,12 +13,10 @@ import { TaskStopTool } from "./tools/TaskStopTool/TaskStopTool.js";
 import { BriefTool } from "./tools/BriefTool/BriefTool.js";
 // Dead code elimination: conditional import for ant-only tools
 /* eslint-disable custom-rules/no-process-env-top-level, @typescript-eslint/no-require-imports */
-const REPLTool =
-  false ? require("./tools/REPLTool/REPLTool.js").REPLTool : null;
-const SuggestBackgroundPRTool =
-  false
-    ? require("./tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.js").SuggestBackgroundPRTool
-    : null;
+const REPLTool = false ? require("./tools/REPLTool/REPLTool.js").REPLTool : null;
+const SuggestBackgroundPRTool = false
+  ? require("./tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.js").SuggestBackgroundPRTool
+  : null;
 const SleepTool =
   feature("PROACTIVE") || feature("KAIROS")
     ? require("./tools/SleepTool/SleepTool.js").SleepTool

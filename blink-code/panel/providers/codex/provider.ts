@@ -39,7 +39,12 @@ export function createCodexProvider(opts: Opts): ChatProvider {
 
         // Try to parse as JSON first (codex may output structured events)
         try {
-          const event = JSON.parse(trimmed) as { type?: string; text?: string; delta?: string; content?: string };
+          const event = JSON.parse(trimmed) as {
+            type?: string;
+            text?: string;
+            delta?: string;
+            content?: string;
+          };
           if (event.delta) {
             fullText += event.delta;
             yield { kind: "text", delta: event.delta };

@@ -42,10 +42,7 @@ export type RateLimitMessage = {
  * Get the appropriate rate limit message based on limit state
  * Returns null if no message should be shown
  */
-export function getRateLimitMessage(
-  limits: BlinkLimits,
-  model: string,
-): RateLimitMessage | null {
+export function getRateLimitMessage(limits: BlinkLimits, model: string): RateLimitMessage | null {
   // Check overage scenarios first (when subscription is rejected but overage is available)
   // getUsingOverageText is rendered separately from warning.
   if (limits.isUsingOverage) {

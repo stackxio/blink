@@ -5,6 +5,7 @@
 Make the donor runtime Blink-owned and local-first.
 
 That means:
+
 - no required claude.ai / Anthropic web dependencies for normal operation
 - local tools and local-compatible providers first
 - remote/cloud-only features removed or isolated behind explicit Blink-owned adapters

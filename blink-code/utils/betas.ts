@@ -283,8 +283,7 @@ export const getAllModelBetas = memoize((model: string): string[] => {
   }
 
   // Add context management beta for tool clearing (ant opt-in) or thinking preservation
-  const antOptedIntoToolClearing =
-    isEnvTruthy(process.env.USE_API_CONTEXT_MANAGEMENT) && false;
+  const antOptedIntoToolClearing = isEnvTruthy(process.env.USE_API_CONTEXT_MANAGEMENT) && false;
 
   const thinkingPreservationEnabled = modelSupportsContextManagement(model);
 

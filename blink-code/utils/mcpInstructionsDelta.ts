@@ -34,10 +34,7 @@ export type ClientSideInstruction = {
 export function isMcpInstructionsDeltaEnabled(): boolean {
   if (isEnvTruthy(process.env.BLINK_CODE_MCP_INSTR_DELTA)) return true;
   if (isEnvDefinedFalsy(process.env.BLINK_CODE_MCP_INSTR_DELTA)) return false;
-  return (
-    false ||
-    getFeatureValue_CACHED_MAY_BE_STALE("tengu_basalt_3kr", false)
-  );
+  return false || getFeatureValue_CACHED_MAY_BE_STALE("tengu_basalt_3kr", false);
 }
 
 /**

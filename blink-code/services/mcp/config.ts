@@ -1209,10 +1209,7 @@ export async function getAllMcpConfigs(): Promise<{
   // Suppress claude.ai connectors that duplicate an enabled manual server.
   // Keys never collide (`slack` vs `claude.ai Slack`) so the merge below
   // won't catch this — need content-based dedup by URL signature.
-  const { servers: dedupedBlink } = dedupBlinkMcpServers(
-    blinkMcpServers,
-    blinkCodeServers,
-  );
+  const { servers: dedupedBlink } = dedupBlinkMcpServers(blinkMcpServers, blinkCodeServers);
 
   // Merge with claude.ai having lowest precedence
   const servers = Object.assign({}, dedupedBlink, blinkCodeServers);

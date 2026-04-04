@@ -198,9 +198,7 @@ export function localCommandOutputToSDKAssistantMessage(
  * Maps internal BlinkLimits to the SDK-facing SDKRateLimitInfo type,
  * stripping internal-only fields like unifiedRateLimitFallbackAvailable.
  */
-export function toSDKRateLimitInfo(
-  limits: BlinkLimits | undefined,
-): SDKRateLimitInfo | undefined {
+export function toSDKRateLimitInfo(limits: BlinkLimits | undefined): SDKRateLimitInfo | undefined {
   if (!limits) {
     return undefined;
   }

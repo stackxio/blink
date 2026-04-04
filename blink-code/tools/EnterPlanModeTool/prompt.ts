@@ -160,7 +160,5 @@ User: "Fix the typo in the README"
 }
 
 export function getEnterPlanModeToolPrompt(): string {
-  return false
-    ? getEnterPlanModeToolPromptAnt()
-    : getEnterPlanModeToolPromptExternal();
+  return false ? getEnterPlanModeToolPromptAnt() : getEnterPlanModeToolPromptExternal();
 }

@@ -16,11 +16,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_PII_TAGGED,
   logEvent,
 } from "../../services/analytics/index.js";
-import {
-  type ClaudeCodeHint,
-  hasShownHintThisSession,
-  setPendingHint,
-} from "../blinkCodeHints.js";
+import { type ClaudeCodeHint, hasShownHintThisSession, setPendingHint } from "../blinkCodeHints.js";
 import { getGlobalConfig, saveGlobalConfig } from "../config.js";
 import { logForDebugging } from "../debug.js";
 import { isPluginInstalled } from "./installedPluginsManager.js";

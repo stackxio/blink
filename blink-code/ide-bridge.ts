@@ -260,8 +260,7 @@ function ensureEngine(): BlinkEngine {
   }
 
   const isCLIProvider =
-    providerBundle.provider.type === "claude-code" ||
-    providerBundle.provider.type === "codex";
+    providerBundle.provider.type === "claude-code" || providerBundle.provider.type === "codex";
 
   const provider = createProvider(providerBundle.provider, {
     getSessionId: getCliSessionId,
@@ -374,7 +373,9 @@ rl.on("line", async (line) => {
     engine = ensureEngine();
 
     // Restore previous session
-    const sessionData = sessionFile ? await loadSession(sessionFile) : { messages: [], cliSessionIds: {} };
+    const sessionData = sessionFile
+      ? await loadSession(sessionFile)
+      : { messages: [], cliSessionIds: {} };
     cliSessionIds = sessionData.cliSessionIds ?? {};
     if (sessionData.messages.length > 0) {
       engine.setHistory(sessionData.messages);

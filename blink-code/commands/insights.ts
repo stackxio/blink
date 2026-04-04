@@ -45,158 +45,154 @@ type RemoteHostInfo = {
 };
 
 /* eslint-disable custom-rules/no-process-env-top-level */
-const getRunningRemoteHosts: () => Promise<string[]> =
-  false
-    ? async () => {
-        const { stdout, code } = await execFileNoThrow("coder", ["list", "-o", "json"], {
-          timeout: 30000,
-        });
-        if (code !== 0) return [];
-        try {
-          const workspaces = jsonParse(stdout) as Array<{
-            name: string;
-            latest_build?: { status?: string };
-          }>;
-          return workspaces.filter((w) => w.latest_build?.status === "running").map((w) => w.name);
-        } catch {
-          return [];
-        }
+const getRunningRemoteHosts: () => Promise<string[]> = false
+  ? async () => {
+      const { stdout, code } = await execFileNoThrow("coder", ["list", "-o", "json"], {
+        timeout: 30000,
+      });
+      if (code !== 0) return [];
+      try {
+        const workspaces = jsonParse(stdout) as Array<{
+          name: string;
+          latest_build?: { status?: string };
+        }>;
+        return workspaces.filter((w) => w.latest_build?.status === "running").map((w) => w.name);
+      } catch {
+        return [];
       }
-    : async () => [];
+    }
+  : async () => [];
 
-const getRemoteHostSessionCount: (hs: string) => Promise<number> =
-  false
-    ? async (homespace: string) => {
-        const { stdout, code } = await execFileNoThrow(
-          "ssh",
-          [`${homespace}.coder`, 'find /root/.blink/projects -name "*.jsonl" 2>/dev/null | wc -l'],
-          { timeout: 30000 },
-        );
-        if (code !== 0) return 0;
-        return parseInt(stdout.trim(), 10) || 0;
-      }
-    : async () => 0;
+const getRemoteHostSessionCount: (hs: string) => Promise<number> = false
+  ? async (homespace: string) => {
+      const { stdout, code } = await execFileNoThrow(
+        "ssh",
+        [`${homespace}.coder`, 'find /root/.blink/projects -name "*.jsonl" 2>/dev/null | wc -l'],
+        { timeout: 30000 },
+      );
+      if (code !== 0) return 0;
+      return parseInt(stdout.trim(), 10) || 0;
+    }
+  : async () => 0;
 
 const collectFromRemoteHost: (
   hs: string,
   destDir: string,
-) => Promise<{ copied: number; skipped: number }> =
-  false
-    ? async (homespace: string, destDir: string) => {
-        const result = { copied: 0, skipped: 0 };
+) => Promise<{ copied: number; skipped: number }> = false
+  ? async (homespace: string, destDir: string) => {
+      const result = { copied: 0, skipped: 0 };
 
-        // Create temp directory
-        const tempDir = await mkdtemp(join(tmpdir(), "claude-hs-"));
+      // Create temp directory
+      const tempDir = await mkdtemp(join(tmpdir(), "claude-hs-"));
 
-        try {
-          // SCP the projects folder
-          const scpResult = await execFileNoThrow(
-            "scp",
-            ["-rq", `${homespace}.coder:/root/.blink/projects/`, tempDir],
-            { timeout: 300000 },
-          );
-          if (scpResult.code !== 0) {
-            // SCP failed
-            return result;
-          }
-
-          const projectsDir = join(tempDir, "projects");
-          let projectDirents: Awaited<ReturnType<typeof readdir>>;
-          try {
-            projectDirents = await readdir(projectsDir, { withFileTypes: true });
-          } catch {
-            return result;
-          }
-
-          // Merge into destination (parallel per project directory)
-          await Promise.all(
-            projectDirents.map(async (dirent) => {
-              const projectName = dirent.name;
-              const projectPath = join(projectsDir, projectName);
-
-              // Skip if not a directory
-              if (!dirent.isDirectory()) return;
-
-              const destProjectName = `${projectName}__${homespace}`;
-              const destProjectPath = join(destDir, destProjectName);
-
-              try {
-                await mkdir(destProjectPath, { recursive: true });
-              } catch {
-                // Directory may already exist
-              }
-
-              // Copy session files (skip existing)
-              let files: Awaited<ReturnType<typeof readdir>>;
-              try {
-                files = await readdir(projectPath, { withFileTypes: true });
-              } catch {
-                return;
-              }
-              await Promise.all(
-                files.map(async (fileDirent) => {
-                  const fileName = fileDirent.name;
-                  if (!fileName.endsWith(".jsonl")) return;
-
-                  const srcFile = join(projectPath, fileName);
-                  const destFile = join(destProjectPath, fileName);
-
-                  try {
-                    await copyFile(srcFile, destFile, fsConstants.COPYFILE_EXCL);
-                    result.copied++;
-                  } catch {
-                    // EEXIST from COPYFILE_EXCL means dest already exists
-                    result.skipped++;
-                  }
-                }),
-              );
-            }),
-          );
-        } finally {
-          try {
-            await rm(tempDir, { recursive: true, force: true });
-          } catch {
-            // Ignore cleanup errors
-          }
+      try {
+        // SCP the projects folder
+        const scpResult = await execFileNoThrow(
+          "scp",
+          ["-rq", `${homespace}.coder:/root/.blink/projects/`, tempDir],
+          { timeout: 300000 },
+        );
+        if (scpResult.code !== 0) {
+          // SCP failed
+          return result;
         }
 
-        return result;
+        const projectsDir = join(tempDir, "projects");
+        let projectDirents: Awaited<ReturnType<typeof readdir>>;
+        try {
+          projectDirents = await readdir(projectsDir, { withFileTypes: true });
+        } catch {
+          return result;
+        }
+
+        // Merge into destination (parallel per project directory)
+        await Promise.all(
+          projectDirents.map(async (dirent) => {
+            const projectName = dirent.name;
+            const projectPath = join(projectsDir, projectName);
+
+            // Skip if not a directory
+            if (!dirent.isDirectory()) return;
+
+            const destProjectName = `${projectName}__${homespace}`;
+            const destProjectPath = join(destDir, destProjectName);
+
+            try {
+              await mkdir(destProjectPath, { recursive: true });
+            } catch {
+              // Directory may already exist
+            }
+
+            // Copy session files (skip existing)
+            let files: Awaited<ReturnType<typeof readdir>>;
+            try {
+              files = await readdir(projectPath, { withFileTypes: true });
+            } catch {
+              return;
+            }
+            await Promise.all(
+              files.map(async (fileDirent) => {
+                const fileName = fileDirent.name;
+                if (!fileName.endsWith(".jsonl")) return;
+
+                const srcFile = join(projectPath, fileName);
+                const destFile = join(destProjectPath, fileName);
+
+                try {
+                  await copyFile(srcFile, destFile, fsConstants.COPYFILE_EXCL);
+                  result.copied++;
+                } catch {
+                  // EEXIST from COPYFILE_EXCL means dest already exists
+                  result.skipped++;
+                }
+              }),
+            );
+          }),
+        );
+      } finally {
+        try {
+          await rm(tempDir, { recursive: true, force: true });
+        } catch {
+          // Ignore cleanup errors
+        }
       }
-    : async () => ({ copied: 0, skipped: 0 });
+
+      return result;
+    }
+  : async () => ({ copied: 0, skipped: 0 });
 
 const collectAllRemoteHostData: (destDir: string) => Promise<{
   hosts: RemoteHostInfo[];
   totalCopied: number;
   totalSkipped: number;
-}> =
-  false
-    ? async (destDir: string) => {
-        const rHosts = await getRunningRemoteHosts();
-        const result: RemoteHostInfo[] = [];
-        let totalCopied = 0;
-        let totalSkipped = 0;
+}> = false
+  ? async (destDir: string) => {
+      const rHosts = await getRunningRemoteHosts();
+      const result: RemoteHostInfo[] = [];
+      let totalCopied = 0;
+      let totalSkipped = 0;
 
-        // Collect from all hosts in parallel (SCP per host can take seconds)
-        const hostResults = await Promise.all(
-          rHosts.map(async (hs) => {
-            const sessionCount = await getRemoteHostSessionCount(hs);
-            if (sessionCount > 0) {
-              const { copied, skipped } = await collectFromRemoteHost(hs, destDir);
-              return { name: hs, sessionCount, copied, skipped };
-            }
-            return { name: hs, sessionCount, copied: 0, skipped: 0 };
-          }),
-        );
+      // Collect from all hosts in parallel (SCP per host can take seconds)
+      const hostResults = await Promise.all(
+        rHosts.map(async (hs) => {
+          const sessionCount = await getRemoteHostSessionCount(hs);
+          if (sessionCount > 0) {
+            const { copied, skipped } = await collectFromRemoteHost(hs, destDir);
+            return { name: hs, sessionCount, copied, skipped };
+          }
+          return { name: hs, sessionCount, copied: 0, skipped: 0 };
+        }),
+      );
 
-        for (const hr of hostResults) {
-          result.push({ name: hr.name, sessionCount: hr.sessionCount });
-          totalCopied += hr.copied;
-          totalSkipped += hr.skipped;
-        }
-
-        return { hosts: result, totalCopied, totalSkipped };
+      for (const hr of hostResults) {
+        result.push({ name: hr.name, sessionCount: hr.sessionCount });
+        totalCopied += hr.copied;
+        totalSkipped += hr.skipped;
       }
-    : async () => ({ hosts: [], totalCopied: 0, totalSkipped: 0 });
+
+      return { hosts: result, totalCopied, totalSkipped };
+    }
+  : async () => ({ hosts: [], totalCopied: 0, totalSkipped: 0 });
 /* eslint-enable custom-rules/no-process-env-top-level */
 
 // ============================================================================
@@ -2131,10 +2127,8 @@ function generateHtmlReport(data: AggregatedData, insights: InsightResults): str
       : "";
 
   // Build Team Feedback section (collapsible, ant-only)
-  const ccImprovements =
-    false ? insights.cc_team_improvements?.improvements || [] : [];
-  const modelImprovements =
-    false ? insights.model_behavior_improvements?.improvements || [] : [];
+  const ccImprovements = false ? insights.cc_team_improvements?.improvements || [] : [];
+  const modelImprovements = false ? insights.model_behavior_improvements?.improvements || [] : [];
   const teamFeedbackHtml =
     ccImprovements.length > 0 || modelImprovements.length > 0
       ? `
