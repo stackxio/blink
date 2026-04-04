@@ -24,6 +24,60 @@ interface LspLocation {
   };
 }
 
+interface LspRange {
+  start: { line: number; character: number };
+  end: { line: number; character: number };
+}
+
+interface LspWorkspaceEdit {
+  changes?: Record<string, Array<{ range: LspRange; newText: string }>>;
+  documentChanges?: Array<{
+    textDocument: { uri: string };
+    edits: Array<{ range: LspRange; newText: string }>;
+  }>;
+}
+
+function convertWorkspaceEdit(monacoApi: any, lspEdit: LspWorkspaceEdit): any {
+  const edits: any[] = [];
+  for (const [uri, textEdits] of Object.entries(lspEdit.changes ?? {})) {
+    const resource = monacoApi.Uri.parse(uri);
+    for (const edit of textEdits) {
+      edits.push({
+        resource,
+        textEdit: {
+          range: new monacoApi.Range(
+            edit.range.start.line + 1,
+            edit.range.start.character + 1,
+            edit.range.end.line + 1,
+            edit.range.end.character + 1,
+          ),
+          text: edit.newText,
+        },
+        versionId: undefined,
+      });
+    }
+  }
+  for (const change of lspEdit.documentChanges ?? []) {
+    const resource = monacoApi.Uri.parse(change.textDocument.uri);
+    for (const edit of change.edits) {
+      edits.push({
+        resource,
+        textEdit: {
+          range: new monacoApi.Range(
+            edit.range.start.line + 1,
+            edit.range.start.character + 1,
+            edit.range.end.line + 1,
+            edit.range.end.character + 1,
+          ),
+          text: edit.newText,
+        },
+        versionId: undefined,
+      });
+    }
+  }
+  return { edits };
+}
+
 // Numeric enum values copied into plain objects so this module stays safe
 // before Monaco is dynamically imported.
 const MONACO_COMPLETION_KIND: Record<number, number> = {
@@ -220,6 +274,129 @@ export function registerLspProviders(
     },
   });
 
+  // ── Code actions (lightbulb / Ctrl+.) ────────────────────────────────────────
+
+  const codeActionDisposable = monacoApi.languages.registerCodeActionProvider(selector, {
+    provideCodeActions: async (_model: any, range: any, context: any) => {
+      try {
+        const lspRange = {
+          start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+          end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+        };
+        const lspDiagnostics = (context.markers ?? []).map((m: any) => ({
+          range: {
+            start: { line: m.startLineNumber - 1, character: m.startColumn - 1 },
+            end: { line: m.endLineNumber - 1, character: m.endColumn - 1 },
+          },
+          severity: ({ 8: 1, 4: 2, 2: 3, 1: 4 } as Record<number, number>)[m.severity] ?? 2,
+          message: m.message as string,
+          source: m.source as string | undefined,
+        }));
+        const rawActions = (await client.codeAction(fileUri, lspRange, {
+          diagnostics: lspDiagnostics,
+        })) as any[] | null;
+        const actions = (rawActions ?? []).map((a: any) => ({
+          title: a.title as string,
+          kind: a.kind as string | undefined,
+          edit: a.edit ? convertWorkspaceEdit(monacoApi, a.edit as LspWorkspaceEdit) : undefined,
+          command: a.command,
+          isPreferred: a.isPreferred as boolean | undefined,
+          diagnostics: [],
+        }));
+        return { actions, dispose() {} };
+      } catch {
+        return { actions: [], dispose() {} };
+      }
+    },
+  });
+
+  // ── Rename symbol (F2) ────────────────────────────────────────────────────────
+
+  const renameDisposable = monacoApi.languages.registerRenameProvider(selector, {
+    provideRenameEdits: async (_model: any, position: any, newName: string) => {
+      try {
+        const result = (await client.rename(
+          fileUri,
+          position.lineNumber - 1,
+          position.column - 1,
+          newName,
+        )) as LspWorkspaceEdit | null;
+        if (!result) return { edits: [] };
+        return convertWorkspaceEdit(monacoApi, result);
+      } catch {
+        return { edits: [] };
+      }
+    },
+  });
+
+  // ── Find references (Shift+F12) ───────────────────────────────────────────────
+
+  const referencesDisposable = monacoApi.languages.registerReferenceProvider(selector, {
+    provideReferences: async (_model: any, position: any) => {
+      try {
+        const result = (await client.references(
+          fileUri,
+          position.lineNumber - 1,
+          position.column - 1,
+        )) as LspLocation[] | null;
+        return (result ?? []).map((loc) => ({
+          uri: monacoApi.Uri.parse(loc.uri),
+          range: new monacoApi.Range(
+            loc.range.start.line + 1,
+            loc.range.start.character + 1,
+            (loc.range.end?.line ?? loc.range.start.line) + 1,
+            (loc.range.end?.character ?? loc.range.start.character) + 1,
+          ),
+        }));
+      } catch {
+        return [];
+      }
+    },
+  });
+
+  // ── Inlay hints ───────────────────────────────────────────────────────────────
+
+  const inlayHintsDisposable = monacoApi.languages.registerInlayHintsProvider(selector, {
+    provideInlayHints: async (_model: any, range: any) => {
+      try {
+        const lspRange = {
+          start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
+          end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
+        };
+        const raw = (await client.inlayHints(fileUri, lspRange)) as
+          | any[]
+          | { items: any[] }
+          | null;
+        const hints: any[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
+        return {
+          hints: hints.map((h: any) => ({
+            position: {
+              lineNumber: (h.position.line as number) + 1,
+              column: (h.position.character as number) + 1,
+            },
+            label:
+              typeof h.label === "string"
+                ? h.label
+                : (h.label as Array<{ value: string }>).map((p) => p.value).join(""),
+            kind:
+              h.kind === 1
+                ? monacoApi.languages.InlayHintKind?.Type
+                : h.kind === 2
+                  ? monacoApi.languages.InlayHintKind?.Parameter
+                  : undefined,
+            paddingLeft: h.paddingLeft as boolean | undefined,
+            paddingRight: h.paddingRight as boolean | undefined,
+          })),
+          dispose() {},
+        };
+      } catch {
+        return { hints: [], dispose() {} };
+      }
+    },
+  });
+
+  // ── Definition action (F12) ───────────────────────────────────────────────────
+
   const definitionAction = (editor: any) =>
     editor.addAction({
       id: `blink.go-to-definition.${fileUri}`,
@@ -254,6 +431,10 @@ export function registerLspProviders(
       hoverDisposable.dispose();
       formatDisposable.dispose();
       definitionDisposable.dispose();
+      codeActionDisposable.dispose();
+      renameDisposable.dispose();
+      referencesDisposable.dispose();
+      inlayHintsDisposable.dispose();
     },
   };
 }

@@ -148,6 +148,49 @@ class LspClient {
     return this.request("workspace/symbol", { query });
   }
 
+  async codeAction(
+    uri: string,
+    range: { start: { line: number; character: number }; end: { line: number; character: number } },
+    context: { diagnostics: unknown[]; only?: string[] },
+  ): Promise<unknown> {
+    return this.request("textDocument/codeAction", {
+      textDocument: { uri },
+      range,
+      context,
+    });
+  }
+
+  async rename(
+    uri: string,
+    line: number,
+    character: number,
+    newName: string,
+  ): Promise<unknown> {
+    return this.request("textDocument/rename", {
+      textDocument: { uri },
+      position: { line, character },
+      newName,
+    });
+  }
+
+  async references(uri: string, line: number, character: number): Promise<unknown> {
+    return this.request("textDocument/references", {
+      textDocument: { uri },
+      position: { line, character },
+      context: { includeDeclaration: true },
+    });
+  }
+
+  async inlayHints(
+    uri: string,
+    range: { start: { line: number; character: number }; end: { line: number; character: number } },
+  ): Promise<unknown> {
+    return this.request("textDocument/inlayHint", {
+      textDocument: { uri },
+      range,
+    });
+  }
+
   // ── Diagnostics ──
 
   onDiagnostics(callback: DiagnosticCallback) {
