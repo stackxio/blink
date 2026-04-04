@@ -795,24 +795,8 @@ function BlinkCodePanel() {
                 disabled={!bridgeReady && !streaming}
               />
               <div className="blink-panel__input-footer">
+                <ModePill mode={mode} onChange={setMode} />
                 <ModelPill config={config} onChange={handleConfigChange} />
-                <div className="blink-mode-pills">
-                  {MODES.map((m) => (
-                    <button
-                      key={m.value}
-                      type="button"
-                      className={`blink-mode-pills__pill${mode === m.value ? " blink-mode-pills__pill--active" : ""}`}
-                      onClick={() => setMode(m.value)}
-                      title={
-                        m.value === "agent"
-                          ? "Can read, write, and execute"
-                          : "Read-only — analyzes without modifying files"
-                      }
-                    >
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
                 {contextUsage && (
                   <span className="blink-panel__context-usage">
                     {contextUsageLabel(
@@ -948,6 +932,53 @@ function PermissionDialog({
           <Check size={12} /> Allow
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── ModePill ──────────────────────────────────────────────────────────────────
+
+function ModePill({ mode, onChange }: { mode: ChatMode; onChange: (m: ChatMode) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const current = MODES.find((m) => m.value === mode) ?? MODES[0];
+
+  return (
+    <div className="blink-model-pill" ref={ref}>
+      <button type="button" className="blink-model-pill__btn" onClick={() => setOpen((v) => !v)}>
+        <span className="blink-model-pill__name">{current.label}</span>
+        <ChevronRight
+          size={10}
+          className={`blink-model-pill__chevron${open ? " blink-model-pill__chevron--open" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="blink-model-pill__dropdown">
+          {MODES.map((m) => (
+            <button
+              key={m.value}
+              type="button"
+              className={`blink-model-pill__option${m.value === mode ? " blink-model-pill__option--active" : ""}`}
+              onClick={() => {
+                onChange(m.value);
+                setOpen(false);
+              }}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

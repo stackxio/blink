@@ -966,37 +966,6 @@
   }
 }
 
-// ── Mode pills ────────────────────────────────────────────────────────────────
-
-.blink-mode-pills {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-
-  &__pill {
-    padding: 3px 8px;
-    border: 1px solid transparent;
-    border-radius: 99px;
-    background: transparent;
-    color: var(--c-muted);
-    font-size: 11px;
-    font-family: inherit;
-    cursor: pointer;
-    @include transition(background, color, border-color);
-
-    &:hover {
-      color: var(--c-fg);
-      background: var(--c-surface-raised);
-    }
-
-    &--active {
-      color: var(--c-fg);
-      border-color: var(--c-border);
-      background: var(--c-surface-raised);
-    }
-  }
-}
-
 // ── Model pill ────────────────────────────────────────────────────────────────
 
 .blink-model-pill {
