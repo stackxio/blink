@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import MonacoDiffViewer from "./MonacoDiffViewer";
 import {
   RefreshCw,
   Plus,
@@ -77,6 +78,16 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   const [loading, setLoading] = useState(false);
   const [diffText, setDiffText] = useState<string | null>(null);
   const [diffFile, setDiffFile] = useState<string | null>(null);
+  const [diffOriginal, setDiffOriginal] = useState<string>("");
+  const [diffModified, setDiffModified] = useState<string>("");
+  const [useMoncoDiff] = useState(() => {
+    try {
+      const s = localStorage.getItem("blink:diffEditor");
+      return s === null ? true : s === "true";
+    } catch {
+      return true;
+    }
+  });
   const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
   const [pushPullStatus, setPushPullStatus] = useState<string | null>(null);
   const [stagedOpen, setStagedOpen] = useState(true);
@@ -225,15 +236,30 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
     if (diffFile === filePath) {
       setDiffText(null);
       setDiffFile(null);
+      setDiffOriginal("");
+      setDiffModified("");
       return;
     }
     try {
-      const diff = await invoke<string>("git_diff", {
-        path: workspacePath,
-        filePath,
-      });
-      setDiffText(diff);
-      setDiffFile(filePath);
+      if (useMoncoDiff) {
+        const [original, modified] = await Promise.all([
+          invoke<string>("git_file_at_head", { path: workspacePath, filePath }),
+          invoke<string>("read_file_content", {
+            path: `${workspacePath}/${filePath}`,
+          }),
+        ]);
+        setDiffOriginal(original);
+        setDiffModified(modified);
+        setDiffText("monaco");
+        setDiffFile(filePath);
+      } else {
+        const diff = await invoke<string>("git_diff", {
+          path: workspacePath,
+          filePath,
+        });
+        setDiffText(diff);
+        setDiffFile(filePath);
+      }
     } catch {
       setDiffText("Failed to load diff");
       setDiffFile(filePath);
@@ -555,26 +581,36 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
               onClick={() => {
                 setDiffText(null);
                 setDiffFile(null);
+                setDiffOriginal("");
+                setDiffModified("");
               }}
             >
               ×
             </button>
           </div>
-          <pre className="git-panel__diff-content">
-            {diffText.split("\n").map((line, i) => {
-              let cls = "";
-              if (line.startsWith("+") && !line.startsWith("+++"))
-                cls = "git-panel__diff-line--add";
-              else if (line.startsWith("-") && !line.startsWith("---"))
-                cls = "git-panel__diff-line--del";
-              else if (line.startsWith("@@")) cls = "git-panel__diff-line--hunk";
-              return (
-                <div key={i} className={`git-panel__diff-line ${cls}`}>
-                  {line}
-                </div>
-              );
-            })}
-          </pre>
+          {useMoncoDiff && diffText === "monaco" ? (
+            <MonacoDiffViewer
+              original={diffOriginal}
+              modified={diffModified}
+              filename={diffFile.split("/").pop() ?? diffFile}
+            />
+          ) : (
+            <pre className="git-panel__diff-content">
+              {diffText.split("\n").map((line, i) => {
+                let cls = "";
+                if (line.startsWith("+") && !line.startsWith("+++"))
+                  cls = "git-panel__diff-line--add";
+                else if (line.startsWith("-") && !line.startsWith("---"))
+                  cls = "git-panel__diff-line--del";
+                else if (line.startsWith("@@")) cls = "git-panel__diff-line--hunk";
+                return (
+                  <div key={i} className={`git-panel__diff-line ${cls}`}>
+                    {line}
+                  </div>
+                );
+              })}
+            </pre>
+          )}
         </div>
       )}
     </div>

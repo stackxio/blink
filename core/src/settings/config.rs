@@ -83,6 +83,8 @@ pub struct EditorSettings {
     pub inlay_hints: bool,
     #[serde(default = "default_true")]
     pub code_actions: bool,
+    #[serde(default = "default_true")]
+    pub diff_editor: bool,
 }
 
 fn default_auto_save() -> bool {
@@ -116,6 +118,7 @@ impl Default for EditorSettings {
             sticky_scroll: true,
             inlay_hints: true,
             code_actions: true,
+            diff_editor: true,
         }
     }
 }

@@ -744,3 +744,22 @@ pub fn git_blame_line(
 pub fn git_show(path: String, hash: String) -> Result<String, String> {
     run_git(&path, &["show", "--stat", "-p", &hash])
 }
+
+/// Get the content of a file as it exists at HEAD (before any local modifications).
+/// Returns empty string for untracked files.
+#[tauri::command]
+pub fn git_file_at_head(path: String, file_path: String) -> Result<String, String> {
+    let rev_path = format!("HEAD:{}", file_path);
+    let output = Command::new("git")
+        .args(["show", &rev_path])
+        .current_dir(&path)
+        .output()
+        .map_err(|e| format!("Failed to run git: {}", e))?;
+
+    if !output.status.success() {
+        // Untracked or new file — no HEAD version
+        return Ok(String::new());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}

@@ -414,8 +414,14 @@
 
   &__diff {
     border-bottom: 1px solid var(--c-border);
-    max-height: 300px;
+    max-height: 400px;
     @include flex-col;
+  }
+
+  &__diff-monaco {
+    flex: 1;
+    min-height: 300px;
+    height: 360px;
   }
 
   &__diff-header {

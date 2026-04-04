@@ -252,6 +252,7 @@ pub fn run() {
             commands::git::git_create_branch,
             commands::git::git_blame_line,
             commands::git::git_show,
+            commands::git::git_file_at_head,
             commands::watcher::start_watching,
             commands::watcher::stop_watching,
             commands::tools::tool_list,

@@ -21,6 +21,7 @@ interface EditorSettings {
   sticky_scroll: boolean;
   inlay_hints: boolean;
   code_actions: boolean;
+  diff_editor: boolean;
 }
 
 interface Settings {
@@ -136,6 +137,15 @@ export default function SettingsGeneral() {
         new StorageEvent("storage", {
           key: "blink:codeActions",
           newValue: String(patch.code_actions),
+        }),
+      );
+    }
+    if ("diff_editor" in patch) {
+      localStorage.setItem("blink:diffEditor", String(patch.diff_editor));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:diffEditor",
+          newValue: String(patch.diff_editor),
         }),
       );
     }
@@ -298,6 +308,22 @@ export default function SettingsGeneral() {
             type="button"
             className={`toggle ${editor.code_actions ? "toggle--on" : ""}`}
             onClick={() => updateEditor({ code_actions: !editor.code_actions })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Monaco diff editor</div>
+            <div className="settings-row__hint">
+              Use the Monaco side-by-side diff editor in the Git panel instead of the plain text diff.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.diff_editor ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ diff_editor: !editor.diff_editor })}
           >
             <span className="toggle__thumb" />
           </button>
