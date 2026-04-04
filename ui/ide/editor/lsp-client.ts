@@ -160,12 +160,7 @@ class LspClient {
     });
   }
 
-  async rename(
-    uri: string,
-    line: number,
-    character: number,
-    newName: string,
-  ): Promise<unknown> {
+  async rename(uri: string, line: number, character: number, newName: string): Promise<unknown> {
     return this.request("textDocument/rename", {
       textDocument: { uri },
       position: { line, character },

@@ -363,10 +363,7 @@ export function registerLspProviders(
           start: { line: range.startLineNumber - 1, character: range.startColumn - 1 },
           end: { line: range.endLineNumber - 1, character: range.endColumn - 1 },
         };
-        const raw = (await client.inlayHints(fileUri, lspRange)) as
-          | any[]
-          | { items: any[] }
-          | null;
+        const raw = (await client.inlayHints(fileUri, lspRange)) as any[] | { items: any[] } | null;
         const hints: any[] = Array.isArray(raw) ? raw : (raw?.items ?? []);
         return {
           hints: hints.map((h: any) => ({
