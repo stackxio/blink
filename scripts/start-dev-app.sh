@@ -55,7 +55,7 @@ chmod +x "$APP/Contents/MacOS/Blink"
 # Icon
 cp "$CORE/icons/icon.icns" "$APP/Contents/Resources/"
 
-# Info.plist
+# Info.plist — LSMinimumSystemVersion 11.0 so macOS applies the squircle mask
 cat > "$APP/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -72,10 +72,18 @@ cat > "$APP/Contents/Info.plist" << PLIST
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
-  <string>10.13</string>
+  <string>11.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSPrincipalClass</key>
+  <string>NSApplication</string>
 </dict>
 </plist>
 PLIST
+
+# Force macOS to re-read the bundle (clears stale dock icon cache)
+touch "$APP"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
 
 # 5. Open the .app (keeps running; trap will kill vite on script exit)
 echo "Opening Blink.app (dev)..."
