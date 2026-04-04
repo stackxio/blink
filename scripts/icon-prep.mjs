@@ -17,9 +17,9 @@ const SRC = join(ROOT, "core/app-icon.png");
 const TMP = "/tmp/blink-icon-src.png";
 
 const CANVAS = 1024;
-const CARD = Math.round(CANVAS * 0.9);     // 922 — squircle size
+const CARD = Math.round(CANVAS * 0.9); // 922 — squircle size
 const INSET = Math.round((CANVAS - CARD) / 2); // 51 — margin on each side
-const RADIUS = Math.round(CARD * 0.2237);  // 206 — matches Apple's squircle curve
+const RADIUS = Math.round(CARD * 0.2237); // 206 — matches Apple's squircle curve
 
 // 1. Squircle mask at card size
 const maskSvg = `<svg width="${CARD}" height="${CARD}" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +38,12 @@ const card = await sharp(TMP)
 
 // 3. Place masked card on a transparent 1024x1024 canvas with the correct inset
 await sharp({
-  create: { width: CANVAS, height: CANVAS, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  create: {
+    width: CANVAS,
+    height: CANVAS,
+    channels: 4,
+    background: { r: 0, g: 0, b: 0, alpha: 0 },
+  },
 })
   .composite([{ input: card, left: INSET, top: INSET }])
   .png()
