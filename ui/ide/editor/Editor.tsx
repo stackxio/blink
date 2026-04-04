@@ -74,6 +74,9 @@ function getStoredEditorOptions() {
     fontSize: parseInt(localStorage.getItem("blink:fontSize") || "13", 10),
     wordWrap: localStorage.getItem("blink:wordWrap") === "true",
     indentGuides: localStorage.getItem("blink:indentGuides") !== "false",
+    stickyScroll: localStorage.getItem("blink:stickyScroll") !== "false",
+    inlayHints: localStorage.getItem("blink:inlayHints") !== "false",
+    codeActions: localStorage.getItem("blink:codeActions") !== "false",
   };
 }
 
@@ -511,9 +514,9 @@ export default function Editor({
             },
             suggest: { preview: true, showWords: false },
             quickSuggestions: true,
-            stickyScroll: { enabled: true },
-            lightbulb: { enabled: "on" as const },
-            inlayHints: { enabled: "on" as const },
+            stickyScroll: { enabled: opts.stickyScroll },
+            lightbulb: { enabled: opts.codeActions ? ("on" as const) : ("off" as const) },
+            inlayHints: { enabled: opts.inlayHints ? ("on" as const) : ("off" as const) },
           });
           editorRef.current = editor;
           const bootModel = editor.getModel();
@@ -646,6 +649,22 @@ export default function Editor({
               const tabSize = parseInt(e.newValue ?? "2", 10);
               modelRef.current.updateOptions({ tabSize, insertSpaces: true });
               editorRef.current.updateOptions({ tabSize });
+            } else if (e.key === "blink:stickyScroll") {
+              editorRef.current.updateOptions({
+                stickyScroll: { enabled: e.newValue !== "false" },
+              });
+            } else if (e.key === "blink:inlayHints") {
+              editorRef.current.updateOptions({
+                inlayHints: {
+                  enabled: e.newValue !== "false" ? ("on" as const) : ("off" as const),
+                },
+              });
+            } else if (e.key === "blink:codeActions") {
+              editorRef.current.updateOptions({
+                lightbulb: {
+                  enabled: e.newValue !== "false" ? ("on" as const) : ("off" as const),
+                },
+              });
             }
           };
           window.addEventListener("storage", onStorageChange);

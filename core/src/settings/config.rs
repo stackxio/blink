@@ -77,6 +77,12 @@ pub struct EditorSettings {
     pub minimap: bool,
     #[serde(default = "default_indent_guides")]
     pub indent_guides: bool,
+    #[serde(default = "default_true")]
+    pub sticky_scroll: bool,
+    #[serde(default = "default_true")]
+    pub inlay_hints: bool,
+    #[serde(default = "default_true")]
+    pub code_actions: bool,
 }
 
 fn default_auto_save() -> bool {
@@ -94,6 +100,9 @@ fn default_minimap() -> bool {
 fn default_indent_guides() -> bool {
     true
 }
+fn default_true() -> bool {
+    true
+}
 
 impl Default for EditorSettings {
     fn default() -> Self {
@@ -104,6 +113,9 @@ impl Default for EditorSettings {
             word_wrap: false,
             minimap: true,
             indent_guides: true,
+            sticky_scroll: true,
+            inlay_hints: true,
+            code_actions: true,
         }
     }
 }

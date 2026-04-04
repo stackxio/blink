@@ -18,6 +18,9 @@ interface EditorSettings {
   word_wrap: boolean;
   minimap: boolean;
   indent_guides: boolean;
+  sticky_scroll: boolean;
+  inlay_hints: boolean;
+  code_actions: boolean;
 }
 
 interface Settings {
@@ -107,6 +110,33 @@ export default function SettingsGeneral() {
       localStorage.setItem("blink:fontSize", String(patch.font_size));
       window.dispatchEvent(
         new StorageEvent("storage", { key: "blink:fontSize", newValue: String(patch.font_size) }),
+      );
+    }
+    if ("sticky_scroll" in patch) {
+      localStorage.setItem("blink:stickyScroll", String(patch.sticky_scroll));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:stickyScroll",
+          newValue: String(patch.sticky_scroll),
+        }),
+      );
+    }
+    if ("inlay_hints" in patch) {
+      localStorage.setItem("blink:inlayHints", String(patch.inlay_hints));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:inlayHints",
+          newValue: String(patch.inlay_hints),
+        }),
+      );
+    }
+    if ("code_actions" in patch) {
+      localStorage.setItem("blink:codeActions", String(patch.code_actions));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:codeActions",
+          newValue: String(patch.code_actions),
+        }),
       );
     }
     try {
@@ -220,6 +250,54 @@ export default function SettingsGeneral() {
             type="button"
             className={`toggle ${editor.indent_guides ? "toggle--on" : ""}`}
             onClick={() => updateEditor({ indent_guides: !editor.indent_guides })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Sticky scroll</div>
+            <div className="settings-row__hint">
+              Pin the current scope header at the top of the editor while scrolling.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.sticky_scroll ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ sticky_scroll: !editor.sticky_scroll })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Inlay hints</div>
+            <div className="settings-row__hint">
+              Show inline type and parameter hints from the language server.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.inlay_hints ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ inlay_hints: !editor.inlay_hints })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Code actions</div>
+            <div className="settings-row__hint">
+              Show the lightbulb and quick-fix menu when the cursor is on a diagnostic.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.code_actions ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ code_actions: !editor.code_actions })}
           >
             <span className="toggle__thumb" />
           </button>
