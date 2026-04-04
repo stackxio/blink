@@ -511,6 +511,9 @@ export default function Editor({
             },
             suggest: { preview: true, showWords: false },
             quickSuggestions: true,
+            stickyScroll: { enabled: true },
+            lightbulb: { enabled: "on" as const },
+            inlayHints: { enabled: "on" as const },
           });
           editorRef.current = editor;
           const bootModel = editor.getModel();
