@@ -22,6 +22,7 @@ interface EditorSettings {
   inlay_hints: boolean;
   code_actions: boolean;
   diff_editor: boolean;
+  inline_completions: boolean;
 }
 
 interface Settings {
@@ -146,6 +147,15 @@ export default function SettingsGeneral() {
         new StorageEvent("storage", {
           key: "blink:diffEditor",
           newValue: String(patch.diff_editor),
+        }),
+      );
+    }
+    if ("inline_completions" in patch) {
+      localStorage.setItem("blink:inlineCompletions", String(patch.inline_completions));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:inlineCompletions",
+          newValue: String(patch.inline_completions),
         }),
       );
     }
@@ -317,13 +327,31 @@ export default function SettingsGeneral() {
           <div className="settings-row__info">
             <div className="settings-row__label">Monaco diff editor</div>
             <div className="settings-row__hint">
-              Use the Monaco side-by-side diff editor in the Git panel instead of the plain text diff.
+              Use the Monaco side-by-side diff editor in the Git panel instead of the plain text
+              diff.
             </div>
           </div>
           <button
             type="button"
             className={`toggle ${editor.diff_editor ? "toggle--on" : ""}`}
             onClick={() => updateEditor({ diff_editor: !editor.diff_editor })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Inline AI completions</div>
+            <div className="settings-row__hint">
+              Show AI-powered ghost text suggestions as you type (requires an openai-compatible
+              provider to be configured).
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.inline_completions ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ inline_completions: !editor.inline_completions })}
           >
             <span className="toggle__thumb" />
           </button>

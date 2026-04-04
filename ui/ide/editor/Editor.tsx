@@ -7,6 +7,7 @@ import { LspClient } from "./lsp-client";
 import { parseDiff } from "./git-gutter";
 import { type ConflictRegion, findConflicts } from "./merge-conflicts";
 import { applyLspDiagnostics, registerLspProviders } from "./monaco-lsp";
+import { registerInlineCompletions } from "./monaco-inline-completions";
 import {
   getLanguageId,
   getLspLanguageId,
@@ -78,6 +79,7 @@ function getStoredEditorOptions() {
     stickyScroll: localStorage.getItem("blink:stickyScroll") !== "false",
     inlayHints: localStorage.getItem("blink:inlayHints") !== "false",
     codeActions: localStorage.getItem("blink:codeActions") !== "false",
+    inlineCompletions: localStorage.getItem("blink:inlineCompletions") === "true",
   };
 }
 
@@ -153,6 +155,7 @@ export default function Editor({
   const themeCleanupRef = useRef<(() => void) | null>(null);
   const lspCleanupRef = useRef<(() => void) | null>(null);
   const staticCleanupRef = useRef<(() => void) | null>(null);
+  const inlineCompletionDisposablesRef = useRef<Array<() => void>>([]);
   const currentFileUriRef = useRef<string | null>(null);
   const filePathRef = useRef(filePath);
   const workspacePathRef = useRef<string | null>(null);
@@ -626,6 +629,10 @@ export default function Editor({
             editor.updateOptions({});
           });
 
+          if (opts.inlineCompletions) {
+            inlineCompletionDisposablesRef.current = registerInlineCompletions(monacoApi);
+          }
+
           const onStorageChange = (e: StorageEvent) => {
             if (!editorRef.current || !modelRef.current) return;
             if (e.key === "blink:wordWrap") {
@@ -666,6 +673,15 @@ export default function Editor({
                   enabled: e.newValue !== "false" ? ("on" as const) : ("off" as const),
                 },
               });
+            } else if (e.key === "blink:inlineCompletions") {
+              const enable = e.newValue === "true";
+              // Dispose existing
+              for (const dispose of inlineCompletionDisposablesRef.current) dispose();
+              inlineCompletionDisposablesRef.current = [];
+              // Register if enabling
+              if (enable && monacoRef.current) {
+                inlineCompletionDisposablesRef.current = registerInlineCompletions(monacoRef.current);
+              }
             }
           };
           window.addEventListener("storage", onStorageChange);
@@ -675,6 +691,8 @@ export default function Editor({
             if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
             if (scrollFrameRef.current != null) window.cancelAnimationFrame(scrollFrameRef.current);
             themeCleanupRef.current?.();
+            for (const dispose of inlineCompletionDisposablesRef.current) dispose();
+            inlineCompletionDisposablesRef.current = [];
             cursorDisposable.dispose();
             scrollDisposable.dispose();
             blurDisposable.dispose();
