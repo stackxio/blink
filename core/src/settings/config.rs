@@ -87,6 +87,8 @@ pub struct EditorSettings {
     pub diff_editor: bool,
     #[serde(default)]
     pub inline_completions: bool,
+    #[serde(default = "default_true")]
+    pub semantic_highlighting: bool,
 }
 
 fn default_auto_save() -> bool {
@@ -122,6 +124,7 @@ impl Default for EditorSettings {
             code_actions: true,
             diff_editor: true,
             inline_completions: false,
+            semantic_highlighting: true,
         }
     }
 }

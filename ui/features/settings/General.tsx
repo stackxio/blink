@@ -23,6 +23,7 @@ interface EditorSettings {
   code_actions: boolean;
   diff_editor: boolean;
   inline_completions: boolean;
+  semantic_highlighting: boolean;
 }
 
 interface Settings {
@@ -158,6 +159,9 @@ export default function SettingsGeneral() {
           newValue: String(patch.inline_completions),
         }),
       );
+    }
+    if ("semantic_highlighting" in patch) {
+      localStorage.setItem("blink:semanticHighlighting", String(patch.semantic_highlighting));
     }
     try {
       await invoke("save_settings", { settings: updated });
@@ -352,6 +356,23 @@ export default function SettingsGeneral() {
             type="button"
             className={`toggle ${editor.inline_completions ? "toggle--on" : ""}`}
             onClick={() => updateEditor({ inline_completions: !editor.inline_completions })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Semantic highlighting</div>
+            <div className="settings-row__hint">
+              Use LSP semantic tokens to colour identifiers by their type (variable, function, class,
+              etc.) when a language server is active.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.semantic_highlighting ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ semantic_highlighting: !editor.semantic_highlighting })}
           >
             <span className="toggle__thumb" />
           </button>

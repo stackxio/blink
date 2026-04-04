@@ -166,11 +166,16 @@ export function applyLspDiagnostics(
   onStoreUpdate?.(filteredDiagnostics);
 }
 
+export interface LspProviderOptions {
+  semanticHighlighting?: boolean;
+}
+
 export function registerLspProviders(
   monacoApi: any,
   model: any,
   client: LspClient,
   onNavigate?: (filePath: string, line: number, col: number) => void,
+  options?: LspProviderOptions,
 ) {
   const selector = modelLanguageSelector(model);
   const fileUri = model.uri.toString();
@@ -354,6 +359,76 @@ export function registerLspProviders(
     },
   });
 
+  // ── Semantic tokens ───────────────────────────────────────────────────────────
+  // Uses the standard LSP token types / modifiers (LSP 3.17 spec).
+  // Most language servers follow this ordering.
+
+  const SEMANTIC_TOKEN_TYPES = [
+    "namespace",
+    "type",
+    "class",
+    "enum",
+    "interface",
+    "struct",
+    "typeParameter",
+    "parameter",
+    "variable",
+    "property",
+    "enumMember",
+    "event",
+    "function",
+    "method",
+    "macro",
+    "keyword",
+    "modifier",
+    "comment",
+    "string",
+    "number",
+    "regexp",
+    "operator",
+    "decorator",
+  ];
+
+  const SEMANTIC_TOKEN_MODIFIERS = [
+    "declaration",
+    "definition",
+    "readonly",
+    "static",
+    "deprecated",
+    "abstract",
+    "async",
+    "modification",
+    "documentation",
+    "defaultLibrary",
+  ];
+
+  const semanticHighlightingEnabled = options?.semanticHighlighting !== false;
+  const semanticTokensDisposable = semanticHighlightingEnabled
+    ? monacoApi.languages.registerDocumentSemanticTokensProvider(selector, {
+        getLegend() {
+          return {
+            tokenTypes: SEMANTIC_TOKEN_TYPES,
+            tokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
+          };
+        },
+        async provideDocumentSemanticTokens() {
+          try {
+            const result = (await client.semanticTokensFull(fileUri)) as {
+              data?: number[];
+              resultId?: string;
+            } | null;
+            if (!result?.data) return null;
+            return { data: new Uint32Array(result.data), resultId: result.resultId };
+          } catch {
+            return null;
+          }
+        },
+        releaseDocumentSemanticTokens() {
+          // nothing to release
+        },
+      })
+    : null;
+
   // ── Inlay hints ───────────────────────────────────────────────────────────────
 
   const inlayHintsDisposable = monacoApi.languages.registerInlayHintsProvider(selector, {
@@ -431,6 +506,7 @@ export function registerLspProviders(
       codeActionDisposable.dispose();
       renameDisposable.dispose();
       referencesDisposable.dispose();
+      semanticTokensDisposable?.dispose();
       inlayHintsDisposable.dispose();
     },
   };

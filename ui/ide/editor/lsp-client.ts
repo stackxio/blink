@@ -186,6 +186,12 @@ class LspClient {
     });
   }
 
+  async semanticTokensFull(uri: string): Promise<unknown> {
+    return this.request("textDocument/semanticTokens/full", {
+      textDocument: { uri },
+    });
+  }
+
   // ── Diagnostics ──
 
   onDiagnostics(callback: DiagnosticCallback) {

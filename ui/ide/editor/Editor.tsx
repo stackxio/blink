@@ -80,6 +80,7 @@ function getStoredEditorOptions() {
     inlayHints: localStorage.getItem("blink:inlayHints") !== "false",
     codeActions: localStorage.getItem("blink:codeActions") !== "false",
     inlineCompletions: localStorage.getItem("blink:inlineCompletions") === "true",
+    semanticHighlighting: localStorage.getItem("blink:semanticHighlighting") !== "false",
   };
 }
 
@@ -680,7 +681,9 @@ export default function Editor({
               inlineCompletionDisposablesRef.current = [];
               // Register if enabling
               if (enable && monacoRef.current) {
-                inlineCompletionDisposablesRef.current = registerInlineCompletions(monacoRef.current);
+                inlineCompletionDisposablesRef.current = registerInlineCompletions(
+                  monacoRef.current,
+                );
               }
             }
           };
@@ -767,6 +770,7 @@ export default function Editor({
                 (path, line, col) => {
                   onNavigateRef.current?.(path, line, col);
                 },
+                { semanticHighlighting: getStoredEditorOptions().semanticHighlighting },
               );
               providersRef.current = providers;
               definitionActionRef.current = providers.definitionAction(editor);
