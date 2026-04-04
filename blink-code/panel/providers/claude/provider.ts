@@ -9,10 +9,17 @@ type Opts = {
 };
 
 // Claude CLI stream-json event shapes (subset we care about)
-type ClaudeAssistantEvent = { type: "assistant"; message: { content: Array<{ type: string; text?: string }> } };
+type ClaudeAssistantEvent = {
+  type: "assistant";
+  message: { content: Array<{ type: string; text?: string }> };
+};
 type ClaudeResultEvent = { type: "result"; subtype: string; session_id?: string; error?: string };
 type ClaudeSystemEvent = { type: "system"; subtype: string; error?: { message?: string } };
-type ClaudeStreamEvent = ClaudeAssistantEvent | ClaudeResultEvent | ClaudeSystemEvent | { type: string; [k: string]: unknown };
+type ClaudeStreamEvent =
+  | ClaudeAssistantEvent
+  | ClaudeResultEvent
+  | ClaudeSystemEvent
+  | { type: string; [k: string]: unknown };
 
 export function createClaudeCodeProvider(opts: Opts): ChatProvider {
   return {
@@ -90,7 +97,6 @@ export function createClaudeCodeProvider(opts: Opts): ChatProvider {
           message: { content: null, tool_calls: undefined },
         };
       }
-
     },
   };
 }
