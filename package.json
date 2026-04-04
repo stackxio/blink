@@ -21,10 +21,7 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "preview": "vite preview",
     "tauri": "TAURI_DIR=core tauri",
-    "icon:generate": "bun run tauri icon core/app-icon.png",
-    "icon:prune-mobile": "node scripts/prune-mobile-icons.mjs",
-    "icon": "bun run icon:generate && bun run icon:prune-mobile",
-    "icon:fix": "node scripts/icon-squircle.mjs",
+    "icon": "node scripts/icon-prep.mjs && bun run tauri icon core/app-icon.png && node scripts/prune-mobile-icons.mjs",
     "app": "bash scripts/start-dev-app.sh",
     "app:build": "bun run tauri build",
     "db:reset": "rm -f ~/.blink/blink.db && echo 'Database reset. It will be recreated on next app launch.'"
