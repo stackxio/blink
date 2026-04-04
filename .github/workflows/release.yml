@@ -159,7 +159,7 @@ jobs:
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
-          name: Caret ${{ needs.preflight.outputs.tag }}
+          name: Blink ${{ needs.preflight.outputs.tag }}
           generate_release_notes: true
           draft: false
           prerelease: false
