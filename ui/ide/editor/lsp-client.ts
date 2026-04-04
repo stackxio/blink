@@ -192,6 +192,13 @@ class LspClient {
     });
   }
 
+  async linkedEditingRange(uri: string, line: number, character: number): Promise<unknown> {
+    return this.request("textDocument/linkedEditingRange", {
+      textDocument: { uri },
+      position: { line, character },
+    });
+  }
+
   // ── Diagnostics ──
 
   onDiagnostics(callback: DiagnosticCallback) {

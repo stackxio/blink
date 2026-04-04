@@ -522,6 +522,7 @@ export default function Editor({
             stickyScroll: { enabled: opts.stickyScroll },
             lightbulb: { enabled: opts.codeActions ? ("on" as const) : ("off" as const) },
             inlayHints: { enabled: opts.inlayHints ? ("on" as const) : ("off" as const) },
+            linkedEditing: true,
           });
           editorRef.current = editor;
           const bootModel = editor.getModel();

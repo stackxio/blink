@@ -365,8 +365,8 @@ export default function SettingsGeneral() {
           <div className="settings-row__info">
             <div className="settings-row__label">Semantic highlighting</div>
             <div className="settings-row__hint">
-              Use LSP semantic tokens to colour identifiers by their type (variable, function, class,
-              etc.) when a language server is active.
+              Use LSP semantic tokens to colour identifiers by their type (variable, function,
+              class, etc.) when a language server is active.
             </div>
           </div>
           <button

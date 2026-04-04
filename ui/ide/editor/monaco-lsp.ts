@@ -359,6 +359,39 @@ export function registerLspProviders(
     },
   });
 
+  // ── Linked editing (rename matching tag pair) ─────────────────────────────────
+
+  const linkedEditingDisposable = monacoApi.languages.registerLinkedEditingRangeProvider
+    ? monacoApi.languages.registerLinkedEditingRangeProvider(selector, {
+        provideLinkedEditingRanges: async (_model: any, position: any) => {
+          try {
+            const result = (await client.linkedEditingRange(
+              fileUri,
+              position.lineNumber - 1,
+              position.column - 1,
+            )) as { ranges: LspRange[]; wordPattern?: string } | null;
+            if (!result?.ranges?.length) return null;
+            return {
+              ranges: result.ranges.map(
+                (r) =>
+                  new monacoApi.Range(
+                    r.start.line + 1,
+                    r.start.character + 1,
+                    r.end.line + 1,
+                    r.end.character + 1,
+                  ),
+              ),
+              wordPattern: result.wordPattern
+                ? new RegExp(result.wordPattern)
+                : undefined,
+            };
+          } catch {
+            return null;
+          }
+        },
+      })
+    : null;
+
   // ── Semantic tokens ───────────────────────────────────────────────────────────
   // Uses the standard LSP token types / modifiers (LSP 3.17 spec).
   // Most language servers follow this ordering.
@@ -506,6 +539,7 @@ export function registerLspProviders(
       codeActionDisposable.dispose();
       renameDisposable.dispose();
       referencesDisposable.dispose();
+      linkedEditingDisposable?.dispose();
       semanticTokensDisposable?.dispose();
       inlayHintsDisposable.dispose();
     },

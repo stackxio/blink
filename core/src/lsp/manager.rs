@@ -116,6 +116,7 @@ pub fn ensure_server(
                     },
                     "definition": {},
                     "references": {},
+                    "linkedEditingRange": {},
                     "semanticTokens": {
                         "requests": { "full": true },
                         "tokenTypes": [
