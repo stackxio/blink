@@ -7,7 +7,11 @@ const MenuCtx = React.createContext<{
 }>({ close: () => {} });
 
 // ── Root ──
-function DropdownMenu({ children, open, onOpenChange }: {
+function DropdownMenu({
+  children,
+  open,
+  onOpenChange,
+}: {
   children: React.ReactNode;
   open?: boolean;
   onOpenChange?: (v: boolean) => void;
@@ -18,9 +22,7 @@ function DropdownMenu({ children, open, onOpenChange }: {
 
   return (
     <MenuCtx.Provider value={{ close: () => setOpen(false) }}>
-      <DropdownOpenCtx.Provider value={{ isOpen, setOpen }}>
-        {children}
-      </DropdownOpenCtx.Provider>
+      <DropdownOpenCtx.Provider value={{ isOpen, setOpen }}>{children}</DropdownOpenCtx.Provider>
     </MenuCtx.Provider>
   );
 }
@@ -31,13 +33,21 @@ const DropdownOpenCtx = React.createContext<{
 }>({ isOpen: false, setOpen: () => {} });
 
 // ── Trigger ──
-function DropdownMenuTrigger({ children, asChild: _ }: { children: React.ReactNode; asChild?: boolean }) {
+function DropdownMenuTrigger({
+  children,
+  asChild: _,
+}: {
+  children: React.ReactNode;
+  asChild?: boolean;
+}) {
   const { isOpen, setOpen } = React.useContext(DropdownOpenCtx);
 
   if (React.isValidElement(children)) {
     return React.cloneElement(children as React.ReactElement<Record<string, unknown>>, {
       onClick: (e: React.MouseEvent) => {
-        (children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>).props.onClick?.(e);
+        (
+          children as React.ReactElement<{ onClick?: (e: React.MouseEvent) => void }>
+        ).props.onClick?.(e);
         setOpen(!isOpen);
       },
     });
@@ -94,7 +104,12 @@ function DropdownMenuContent({
   if (!isOpen) return null;
 
   return createPortal(
-    <div ref={ref} className={["menu", className].filter(Boolean).join(" ")} style={{ position: "fixed", zIndex: 200 }} {...props}>
+    <div
+      ref={ref}
+      className={["menu", className].filter(Boolean).join(" ")}
+      style={{ position: "fixed", zIndex: 200 }}
+      {...props}
+    >
       {children}
     </div>,
     document.body,
@@ -117,11 +132,9 @@ function DropdownMenuItem({
   return (
     <button
       type="button"
-      className={[
-        "menu__item",
-        variant === "destructive" && "menu__item--danger",
-        className,
-      ].filter(Boolean).join(" ")}
+      className={["menu__item", variant === "destructive" && "menu__item--danger", className]
+        .filter(Boolean)
+        .join(" ")}
       onClick={(e) => {
         onClick?.(e);
         onSelect?.();
@@ -135,8 +148,16 @@ function DropdownMenuItem({
 }
 
 // ── Label ──
-function DropdownMenuLabel({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={["menu__label", className].filter(Boolean).join(" ")} {...props}>{children}</div>;
+function DropdownMenuLabel({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div className={["menu__label", className].filter(Boolean).join(" ")} {...props}>
+      {children}
+    </div>
+  );
 }
 
 // ── Separator ──
@@ -147,11 +168,7 @@ function DropdownMenuSeparator({ className, ...props }: React.HTMLAttributes<HTM
 // ── Sub menu (simplified — opens inline) ──
 function DropdownMenuSub({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
-  return (
-    <DropdownSubCtx.Provider value={{ open, setOpen }}>
-      {children}
-    </DropdownSubCtx.Provider>
-  );
+  return <DropdownSubCtx.Provider value={{ open, setOpen }}>{children}</DropdownSubCtx.Provider>;
 }
 
 const DropdownSubCtx = React.createContext<{ open: boolean; setOpen: (v: boolean) => void }>({
@@ -159,7 +176,11 @@ const DropdownSubCtx = React.createContext<{ open: boolean; setOpen: (v: boolean
   setOpen: () => {},
 });
 
-function DropdownMenuSubTrigger({ children, className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+function DropdownMenuSubTrigger({
+  children,
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const { open, setOpen } = React.useContext(DropdownSubCtx);
   return (
     <button
@@ -173,11 +194,19 @@ function DropdownMenuSubTrigger({ children, className, ...props }: React.ButtonH
   );
 }
 
-function DropdownMenuSubContent({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function DropdownMenuSubContent({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   const { open } = React.useContext(DropdownSubCtx);
   if (!open) return null;
   return (
-    <div className={["menu", className].filter(Boolean).join(" ")} style={{ position: "relative", boxShadow: "none", border: "none", padding: "0 0 0 8px" }} {...props}>
+    <div
+      className={["menu", className].filter(Boolean).join(" ")}
+      style={{ position: "relative", boxShadow: "none", border: "none", padding: "0 0 0 8px" }}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -217,12 +246,13 @@ function DropdownMenuRadioItem({
   return (
     <button
       type="button"
-      className={[
-        "menu__radio-item",
-        checked && "menu__radio-item--checked",
-        className,
-      ].filter(Boolean).join(" ")}
-      onClick={() => { onValueChange(value); close(); }}
+      className={["menu__radio-item", checked && "menu__radio-item--checked", className]
+        .filter(Boolean)
+        .join(" ")}
+      onClick={() => {
+        onValueChange(value);
+        close();
+      }}
       {...props}
     >
       {children}
@@ -233,8 +263,18 @@ function DropdownMenuRadioItem({
 // ── Exports (matching shadcn API) ──
 const DropdownMenuGroup = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 const DropdownMenuPortal = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-const DropdownMenuShortcut = ({ children, className, ...props }: React.HTMLAttributes<HTMLSpanElement>) => (
-  <span className={className} style={{ marginLeft: "auto", fontSize: "11px", opacity: 0.6 }} {...props}>{children}</span>
+const DropdownMenuShortcut = ({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) => (
+  <span
+    className={className}
+    style={{ marginLeft: "auto", fontSize: "11px", opacity: 0.6 }}
+    {...props}
+  >
+    {children}
+  </span>
 );
 const DropdownMenuCheckboxItem = DropdownMenuItem;
 

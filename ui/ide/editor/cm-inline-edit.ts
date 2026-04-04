@@ -56,11 +56,13 @@ const inlineEditField = StateField.define<InlineEditState>({
 // ── Widget ──
 
 class InlineEditWidget extends WidgetType {
-  constructor(
-    readonly from: number,
-    readonly to: number,
-  ) {
+  readonly from: number;
+  readonly to: number;
+
+  constructor(from: number, to: number) {
     super();
+    this.from = from;
+    this.to = to;
   }
 
   eq(other: InlineEditWidget) {

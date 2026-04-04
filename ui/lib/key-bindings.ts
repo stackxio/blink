@@ -47,14 +47,22 @@ export function formatKey(key: string): string {
     .split("+")
     .map((p) => {
       switch (p) {
-        case "Meta": return "⌘";
-        case "Ctrl": return "⌃";
-        case "Alt": return "⌥";
-        case "Shift": return "⇧";
-        case ",": return ",";
-        case "`": return "`";
-        case "Tab": return "Tab";
-        default: return p.toUpperCase();
+        case "Meta":
+          return "⌘";
+        case "Ctrl":
+          return "⌃";
+        case "Alt":
+          return "⌥";
+        case "Shift":
+          return "⇧";
+        case ",":
+          return ",";
+        case "`":
+          return "`";
+        case "Tab":
+          return "Tab";
+        default:
+          return p.toUpperCase();
       }
     })
     .join("");

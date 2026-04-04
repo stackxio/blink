@@ -7,7 +7,9 @@ interface Props {
 
 export default function PanelResizer({ direction = "horizontal", onResize }: Props) {
   const onResizeRef = useRef(onResize);
-  useEffect(() => { onResizeRef.current = onResize; });
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  });
 
   function handleMouseDown(e: React.MouseEvent) {
     e.preventDefault();

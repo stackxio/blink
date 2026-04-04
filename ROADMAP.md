@@ -8,58 +8,16 @@
 
 ## v0.1.x
 
-- [ ] Code signing + notarization (Apple Developer account)
-- [ ] Auto-updater: TAURI signing keys in CI (`TAURI_SIGNING_PRIVATE_KEY` / pubkey in `tauri.conf.json`) if not already configured
 - [ ] Debugger integration (DAP)
 - [ ] Windows + Linux builds
 
 ---
 
-## Phase 0 — Foundation
-
-- [ ] Scrollbar styling (SCSS)
-- [ ] Migrate remaining `useState` / `useOutletContext` to stores (e.g. ChatArea still uses context)
-
----
-
 ## Phase 1 — File tree + Editor (remaining)
 
-
 ### File tree
-- [ ] Drag-drop to move files in the tree
+
 - [ ] Filter/search within the tree (sidebar search panel exists; in-tree filter still optional)
-
-### Editor
-- [ ] Editor splits (split right / split down)
-- [ ] Breadcrumbs bar
-
-### Theming
-- [ ] CodeMirror theme reads from CSS variables
-- [ ] Theme JSON schema
-- [ ] VS Code theme import adapter
-
----
-
-## Phase 2 — Terminal (remaining)
-
-- [ ] Split terminal UI
-- [ ] WebGL renderer for xterm (addon present, not enabled)
-
----
-
-## Phase 3 — Multi-workspace (remaining)
-
-- [ ] Keyboard shortcuts to switch workspace by index (e.g. ⌘1–⌘9) — palette/quick-open exists; numeric workspace switching does not
-- [ ] Confirm before **closing a workspace tab** if any open editor tabs in that workspace are **modified** (closing a *file* tab already prompts; workspace close does not)
-- [ ] (Optional) multiple Zustand store *instances* vs one store + `workspaces[]` — current design is fine; only revisit if isolation/testing needs it
-
----
-
-## Phase 4 — LSP integration (remaining)
-
-### Still open
-- [ ] **Wire LSP into the editor UX** beyond diagnostics: completion (today `Editor.tsx` uses CodeMirror’s built-in `autocompletion()`, not `textDocument/completion`), **hover** tooltips, **go-to-definition** (and keybinding), **references**, **formatting**, **signature help**
-- [ ] **Workspace / document symbol** search (Cmd+Shift+O / Cmd+T) once definition + symbol requests are wired
 
 ---
 
@@ -166,21 +124,21 @@ interface BlinkProvider {
   name: string;
   chat(req: ChatRequest): Promise<ChatResponse>;
   chatStream(req: ChatRequest, onChunk: (delta: string) => void): Promise<void>;
-  listModels?(): Promise<string[]>;   // Ollama needs this
+  listModels?(): Promise<string[]>; // Ollama needs this
 }
 ```
 
 ### What is dropped from the current panel
 
-| Current | Replaced by |
-|---|---|
-| `AiPanel.tsx` (large monolith) | `BlinkCodePanel.tsx` + `QueryEngine` |
-| Provider dropdown in chat | `/model` slash command + settings |
-| Local React state for threads/messages | `BlinkCodeState` store |
-| Agentic loop only for Custom provider | Full agentic loop for **all** providers |
-| No slash commands | `/clear`, `/memory`, `/mcp`, `/model`, `/context` |
-| No project memory | `BLINK.md` auto-injected into every prompt |
-| No git/system context | Auto-prepended on every turn |
+| Current                                | Replaced by                                       |
+| -------------------------------------- | ------------------------------------------------- |
+| `AiPanel.tsx` (large monolith)         | `BlinkCodePanel.tsx` + `QueryEngine`              |
+| Provider dropdown in chat              | `/model` slash command + settings                 |
+| Local React state for threads/messages | `BlinkCodeState` store                            |
+| Agentic loop only for Custom provider  | Full agentic loop for **all** providers           |
+| No slash commands                      | `/clear`, `/memory`, `/mcp`, `/model`, `/context` |
+| No project memory                      | `BLINK.md` auto-injected into every prompt        |
+| No git/system context                  | Auto-prepended on every turn                      |
 
 ### What is NOT included
 
@@ -193,58 +151,83 @@ interface BlinkProvider {
 
 ### Implementation phases
 
-#### 5.1 — Engine + Providers *(highest value)*
-- [ ] Create `blink-code/` directory structure
-- [ ] Adapt `QueryEngine.ts` + `query.ts` with provider interface (remove Anthropic hard-coding)
-- [ ] Implement `providers/ollama.ts`, `providers/openai-compat.ts`, `providers/anthropic.ts`
-- [ ] New `BlinkCodePanel.tsx` wired to the engine
-- [ ] Drop `AiPanel.tsx`
+#### 5.1 — Engine + Providers ✅
 
-#### 5.2 — Full tool suite
-- [ ] Port all tools from `dummy/tools/` bridged to Tauri commands
-- [ ] Full agentic loop active for all providers (not just Custom)
-- [ ] Add `grep` Tauri command (Rust + ripgrep)
-- [ ] Tool permission callbacks wired to UI (approve/deny dialog)
+- `blink-code/` directory + `providers/` (anthropic, openai-compat, factory)
+- `BlinkEngine` agentic loop (stream → tool calls → loop)
+- `BlinkCodePanel.tsx` replaces `AiPanel.tsx`
 
-#### 5.3 — Memory + context
-- [ ] Port `memdir/` → `BLINK.md` project memory scanner + loader
-- [ ] Port `context.ts` → git diff + system info auto-injected into prompts
-- [ ] `MemoryBadge` in UI showing active context size
+#### 5.2 — Tools ✅
 
-#### 5.4 — Slash commands
-- [ ] Port slash command system from `dummy/commands/`
-- [ ] `/memory` — view/edit `BLINK.md`
-- [ ] `/mcp` — manage MCP servers inline
-- [ ] `/model` — switch provider without leaving chat
-- [ ] `/clear` — reset conversation
-- [ ] `/context` — show current context token budget
+- Full tool suite: `read_file`, `write_file`, `list_dir`, `search_files`, `run_command`, `git_status`, `git_diff`, `create_dir`, `delete_path`, `rename_path`
+- Permission dialog for destructive tool calls
 
-#### 5.5 — Coordinator mode *(multi-agent)*
-- [ ] Port `coordinator/` — orchestrator/worker mode
-- [ ] Orchestrator sends sub-tasks to worker agents with scoped tool allowlists
-- [ ] Exposed in UI as a toggle: "agent mode"
+#### 5.3 — Memory + context ✅
+
+- `BLINK.md` scanner — global (`~/.blink/`) + workspace
+- `context.ts` — workspace path, branch, active file in every system prompt
+
+#### 5.4 — Slash commands ✅
+
+- `/clear`, `/model`, `/memory`, `/context`, `/compact`, `/help`
+
+#### 5.5 — Coordinator mode _(multi-agent)_
+
+- [ ] Orchestrator/worker sub-agent mode
+- [ ] Worker agents with scoped tool allowlists
+- [ ] UI toggle: "agent mode"
 
 ---
 
 ## Phase 6 — Git integration (remaining)
 
-**Shipped:** Git **via `git` subprocess** (not `git2`): status, diff, stage, unstage, commit, push, pull, branches, log, blame; **Git panel** with file lists, diff view, commit, push/pull, collapsible **recent commits** (`git_log`).
-
-### Still open
-- [ ] Richer **log / history** UI (e.g. dedicated log viewer, graph), if desired beyond the panel’s commit list
-- [ ] **Merge conflict** resolution UX (still deferred from earlier planning)
-- [ ] (Optional) migrate to **`git2`** crate for in-process git — only if we need it for performance or embedding
+- [ ] (Optional) migrate to **`git2`** crate for in-process git — only if needed for performance
 
 ---
 
 ## Phase 7 — Command palette + Search (remaining)
 
-**Shipped:** **⌘⇧P** command palette (fixed command list + filter), **⌘P** quick file open, **⌘⇧F** sidebar **Search** (`search_in_files` + replace), batch replace backend exists.
-
-### Still open
-- [ ] Command palette: **recent commands**, **fuzzy** scoring, dynamic registration as commands grow
 - [ ] **Symbol** search: Cmd+Shift+O (current file), Cmd+T (workspace) — depends on Phase 4 LSP symbol requests
 - [ ] Deeper integration (e.g. search exclude globs UI polish) as needed
+
+---
+
+## Monorepo restructure — `packages/`
+
+**Goal:** Treat `blink-code` and any future shared modules as proper packages alongside `ui/` and `core/`.
+
+### Target layout
+
+```
+blink/
+├── core/          ← Rust/Tauri backend (unchanged)
+├── ui/            ← React frontend (unchanged)
+├── packages/
+│   ├── blink-code/      ← moved from root blink-code/
+│   │   ├── panel/           ← runtime: engine, providers, ide-bridge
+│   │   └── ...              ← rest of forked CLI code (being cleaned)
+│   └── contracts/       ← NEW: shared type contracts
+│       ├── bridge-protocol.ts   ← all bridge in/out message types
+│       ├── provider-config.ts   ← ProviderConfig union (openai-compat | claude-code | codex)
+│       └── index.ts
+├── package.json   ← workspace root (add packages/* to workspaces)
+└── Cargo.toml
+```
+
+### Why
+
+- `blink-code` is a proper package — it has its own entry point (`ide-bridge.ts`), its own dependencies, and is spawned as a subprocess. It belongs in `packages/`, not at root.
+- `contracts/` gives us a single source of truth for types that cross process boundaries (UI ↔ bridge ↔ Rust). Currently `BridgeOutEvent` is duplicated between `ide-bridge.ts` and `BlinkCodePanel.tsx`. `ProviderConfig` is imported via a `@@` path alias hack.
+- Any future package (e.g. a VSCode extension, a CLI wrapper, a test harness) can import from `@blink/contracts` cleanly.
+
+### Migration steps
+
+- [ ] Add `"workspaces": ["packages/*"]` to root `package.json`
+- [ ] Move `blink-code/` → `packages/blink-code/`, add its own `package.json` with `"name": "@blink/engine"`
+- [ ] Create `packages/contracts/` with `bridge-protocol.ts` and `provider-config.ts`
+- [ ] Update `@@` path alias in `ui/` vite config to point at `packages/blink-code/`
+- [ ] Update `blink_code_bridge.rs` spawn path to `packages/blink-code/ide-bridge.ts`
+- [ ] Import `BridgeOutEvent` / `BridgeInMessage` from `@blink/contracts` in both `ide-bridge.ts` and `BlinkCodePanel.tsx`
 
 ---
 
@@ -255,26 +238,26 @@ interface BlinkProvider {
 - [ ] Remote workspaces (SSH)
 - [ ] Snippet system
 - [ ] Settings sync across devices
+
 ---
 
 ## Tech stack
 
-| Layer | Choice |
-|---|---|
-| Desktop | Tauri v2 |
-| Backend | Rust |
-| Frontend | React + TypeScript |
-| Styling | SCSS + CSS custom properties |
-| Components | Full custom (no shadcn/Radix) |
-| State | Zustand — multi-workspace as `workspaces[]` + `activeWorkspaceId` |
-| Editor | CodeMirror 6 |
-| Syntax | Lezer (built-in) → Tree-sitter (later) |
-| Terminal | xterm.js + portable-pty (Tauri commands) |
-| LSP | Rust broker → stdio → Tauri IPC (`lsp-client.ts`) |
-| Git | `git` CLI from Rust (optional `git2` later) |
-| Database | SQLite (rusqlite) |
-| AI engine | blink-code (planned; `dummy/` donor) |
-| AI providers | Ollama, OpenAI-compatible, Anthropic, Codex paths (existing) |
-| Build | Vite |
-| Package manager | pnpm |
-
+| Layer           | Choice                                                            |
+| --------------- | ----------------------------------------------------------------- |
+| Desktop         | Tauri v2                                                          |
+| Backend         | Rust                                                              |
+| Frontend        | React + TypeScript                                                |
+| Styling         | SCSS + CSS custom properties                                      |
+| Components      | Full custom (no shadcn/Radix)                                     |
+| State           | Zustand — multi-workspace as `workspaces[]` + `activeWorkspaceId` |
+| Editor          | CodeMirror 6                                                      |
+| Syntax          | Lezer (built-in) → Tree-sitter (later)                            |
+| Terminal        | xterm.js + portable-pty (Tauri commands)                          |
+| LSP             | Rust broker → stdio → Tauri IPC (`lsp-client.ts`)                 |
+| Git             | `git` CLI from Rust (optional `git2` later)                       |
+| Database        | SQLite (rusqlite)                                                 |
+| AI engine       | blink-code (CLI/agent tree + `panel/` IDE adapter)                |
+| AI providers    | Ollama, OpenAI-compatible, Anthropic, Codex paths (existing)      |
+| Build           | Vite                                                              |
+| Package manager | Bun                                                               |

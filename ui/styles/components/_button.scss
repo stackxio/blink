@@ -28,21 +28,27 @@
     background: var(--c-accent);
     color: var(--c-accent-fg);
 
-    &:hover { opacity: 0.85; }
+    &:hover {
+      opacity: 0.85;
+    }
   }
 
   &--secondary {
     background: var(--c-surface-raised);
     color: var(--c-fg);
 
-    &:hover { opacity: 0.8; }
+    &:hover {
+      opacity: 0.8;
+    }
   }
 
   &--ghost {
     background: transparent;
     color: var(--c-fg);
 
-    &:hover { background: var(--c-surface-raised); }
+    &:hover {
+      background: var(--c-surface-raised);
+    }
   }
 
   &--outline {
@@ -50,14 +56,18 @@
     background: transparent;
     color: var(--c-fg);
 
-    &:hover { background: var(--c-surface-raised); }
+    &:hover {
+      background: var(--c-surface-raised);
+    }
   }
 
   &--danger {
     background: var(--c-danger);
     color: var(--c-danger-fg);
 
-    &:hover { opacity: 0.85; }
+    &:hover {
+      opacity: 0.85;
+    }
   }
 
   &--link {
@@ -66,7 +76,9 @@
     text-decoration: underline;
     text-underline-offset: 2px;
 
-    &:hover { opacity: 0.8; }
+    &:hover {
+      opacity: 0.8;
+    }
   }
 
   // ── Sizes ──

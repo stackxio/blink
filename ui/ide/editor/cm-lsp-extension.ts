@@ -14,7 +14,7 @@ import { type LspDiagnostic } from "./lsp-client";
 export function lspDiagnosticsListener(
   view: EditorView,
   filePath: string,
-  onDiagnostics: (cb: (uri: string, diags: LspDiagnostic[]) => void) => (() => void),
+  onDiagnostics: (cb: (uri: string, diags: LspDiagnostic[]) => void) => () => void,
 ) {
   const uri = `file://${filePath}`;
 
@@ -49,10 +49,15 @@ function lineCharToPos(view: EditorView, line: number, char: number): number {
 
 function severityMap(severity?: number): "error" | "warning" | "info" | "hint" {
   switch (severity) {
-    case 1: return "error";
-    case 2: return "warning";
-    case 3: return "info";
-    case 4: return "hint";
-    default: return "warning";
+    case 1:
+      return "error";
+    case 2:
+      return "warning";
+    case 3:
+      return "info";
+    case 4:
+      return "hint";
+    default:
+      return "warning";
   }
 }

@@ -21,8 +21,9 @@
     "noUncheckedSideEffectImports": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./ui/*"]
+      "@/*": ["./ui/*"],
+      "@@/*": ["./blink-code/*"]
     }
   },
-  "include": ["ui"]
+  "include": ["ui", "blink-code/panel"]
 }

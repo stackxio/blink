@@ -14,7 +14,9 @@ export default function SettingsProviders() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
+    invoke<Settings>("get_settings")
+      .then(setSettings)
+      .catch(() => {});
   }, []);
 
   async function save(updated: Settings) {

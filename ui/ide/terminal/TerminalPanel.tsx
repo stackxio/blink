@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { Plus, X, Trash2 } from "lucide-react";
+import { WebglAddon } from "@xterm/addon-webgl";
+import { Plus, X, Trash2, SplitSquareHorizontal } from "lucide-react";
 import { useAppStore } from "@/store";
 import "@xterm/xterm/css/xterm.css";
 
@@ -15,12 +16,13 @@ export default function TerminalPanel() {
   const removeTerminalId = useAppStore((s) => s.removeTerminalId);
   const setActiveTerminalId = useAppStore((s) => s.setActiveTerminalId);
   const createdRef = useRef(false);
+  const [splitId, setSplitId] = useState<string | null>(null);
 
   const terminalIds = ws?.terminalIds ?? [];
   const activeTerminalId = ws?.activeTerminalId ?? null;
   const workspacePath = ws?.path || null;
 
-  async function createSession() {
+  async function createSession(): Promise<string | null> {
     termCounter++;
     const id = `term-${Date.now()}-${termCounter}`;
     try {
@@ -31,8 +33,10 @@ export default function TerminalPanel() {
         cols: 80,
       });
       addTerminalId(id);
+      return id;
     } catch (err) {
       console.error("Failed to create terminal:", err);
+      return null;
     }
   }
 
@@ -54,12 +58,23 @@ export default function TerminalPanel() {
     if (createdRef.current || terminalIds.length > 0) return;
     createdRef.current = true;
     createSession();
-    return () => { createdRef.current = false; };
+    return () => {
+      createdRef.current = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once on mount
   }, []);
 
   function getTermName(_id: string, idx: number) {
     return `Terminal ${idx + 1}`;
+  }
+
+  async function createSplit() {
+    const id = await createSession();
+    if (id) setSplitId(id);
+  }
+
+  function closeSplitPane() {
+    setSplitId(null);
   }
 
   return (
@@ -75,7 +90,11 @@ export default function TerminalPanel() {
             >
               {getTermName(id, idx)}
               <span
-                onClick={(e) => { e.stopPropagation(); closeSession(id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  closeSession(id);
+                  if (splitId === id) setSplitId(null);
+                }}
                 style={{ cursor: "pointer", marginLeft: 4, opacity: 0.6 }}
               >
                 <X size={10} />
@@ -84,8 +103,21 @@ export default function TerminalPanel() {
           ))}
         </div>
         <div className="terminal-panel__actions">
-          <button type="button" className="terminal-panel__action" onClick={createSession} title="New Terminal">
+          <button
+            type="button"
+            className="terminal-panel__action"
+            onClick={createSession}
+            title="New Terminal"
+          >
             <Plus />
+          </button>
+          <button
+            type="button"
+            className="terminal-panel__action"
+            onClick={createSplit}
+            title="Split Terminal"
+          >
+            <SplitSquareHorizontal />
           </button>
           <button
             type="button"
@@ -97,12 +129,52 @@ export default function TerminalPanel() {
           </button>
         </div>
       </div>
-      <div className="terminal-panel__body">
-        {terminalIds.map((id) => (
-          <div key={id} style={{ display: activeTerminalId === id ? "contents" : "none" }}>
-            <TerminalInstance id={id} visible={activeTerminalId === id} />
-          </div>
-        ))}
+      <div className={`terminal-panel__body${splitId ? " terminal-panel__body--split" : ""}`}>
+        {/* Primary pane */}
+        <div className="terminal-pane-wrap">
+          {terminalIds.map((id) => {
+            const isActive = activeTerminalId === id && id !== splitId;
+            return (
+              <div
+                key={id}
+                className="terminal-instance-wrap"
+                style={{ display: isActive ? "flex" : "none" }}
+              >
+                <TerminalInstance id={id} visible={isActive} />
+              </div>
+            );
+          })}
+        </div>
+        {/* Split pane */}
+        {splitId && (
+          <>
+            <div className="terminal-split-divider" />
+            <div className="terminal-pane-wrap" style={{ position: "relative" }}>
+              <button
+                type="button"
+                onClick={closeSplitPane}
+                title="Close Split"
+                style={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  zIndex: 10,
+                  background: "transparent",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--c-muted-fg)",
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                <X size={12} />
+              </button>
+              <div className="terminal-instance-wrap" style={{ display: "flex" }}>
+                <TerminalInstance id={splitId} visible />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -111,8 +183,10 @@ export default function TerminalPanel() {
 function getTerminalTheme() {
   const style = getComputedStyle(document.documentElement);
   const get = (v: string) => style.getPropertyValue(v).trim() || undefined;
-  const isDark = document.documentElement.classList.contains("dark") ||
-    (!document.documentElement.classList.contains("light") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const isDark =
+    document.documentElement.classList.contains("dark") ||
+    (!document.documentElement.classList.contains("light") &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   return {
     background: get("--c-bg") || (isDark ? "#1e1e1e" : "#ffffff"),
@@ -160,6 +234,12 @@ function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(containerRef.current);
+    // Enable WebGL renderer for GPU-accelerated rendering; fall back silently
+    try {
+      const webgl = new WebglAddon();
+      webgl.onContextLoss(() => webgl.dispose());
+      term.loadAddon(webgl);
+    } catch {}
     requestAnimationFrame(() => fit.fit());
 
     termRef.current = term;
@@ -176,10 +256,18 @@ function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
     let unlisten: (() => void) | null = null;
     listen<string>(`terminal:output:${id}`, (event) => {
       if (termRef.current) termRef.current.write(event.payload);
-    }).then((fn) => { unlisten = fn; });
+    })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {});
 
     const ro = new ResizeObserver(() => {
-      requestAnimationFrame(() => { try { fit.fit(); } catch {} });
+      requestAnimationFrame(() => {
+        try {
+          fit.fit();
+        } catch {}
+      });
     });
     ro.observe(containerRef.current);
 
@@ -199,5 +287,7 @@ function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
     }
   }, [visible]);
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+  return (
+    <div ref={containerRef} style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: "hidden" }} />
+  );
 }

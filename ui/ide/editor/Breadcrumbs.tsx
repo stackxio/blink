@@ -20,7 +20,9 @@ export default function Breadcrumbs({ filePath, workspacePath }: Props) {
       {segments.map((segment, i) => (
         <span key={i} className="breadcrumbs__item">
           {i > 0 && <ChevronRight size={12} className="breadcrumbs__sep" />}
-          <span className={i === segments.length - 1 ? "breadcrumbs__current" : "breadcrumbs__segment"}>
+          <span
+            className={i === segments.length - 1 ? "breadcrumbs__current" : "breadcrumbs__segment"}
+          >
             {segment}
           </span>
         </span>

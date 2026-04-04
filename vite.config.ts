@@ -9,7 +9,23 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./ui"),
+      "@@": path.resolve(__dirname, "./blink-code"),
     },
+  },
+  build: {
+    reportCompressedSize: false,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/monaco-editor")) {
+            return "monaco";
+          }
+        },
+      },
+    },
+  },
+  optimizeDeps: {
+    exclude: ["monaco-editor", "monaco-editor/esm/vs/editor/editor.api"],
   },
   clearScreen: false,
   server: {

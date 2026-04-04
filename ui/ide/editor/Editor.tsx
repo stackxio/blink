@@ -1,131 +1,21 @@
 import { useEffect, useRef, useCallback, useState } from "react";
-import { EditorState, Compartment } from "@codemirror/state";
-import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, type Panel } from "@codemirror/view";
 import { invoke } from "@tauri-apps/api/core";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
-import { bracketMatching, indentOnInput, foldGutter, foldKeymap, indentUnit } from "@codemirror/language";
-import { autocompletion, closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { search, searchKeymap, highlightSelectionMatches, SearchQuery, setSearchQuery, findNext, findPrevious, closeSearchPanel, gotoLine } from "@codemirror/search";
-import { lintGutter } from "@codemirror/lint";
-import { darkSyntaxHighlighting } from "./cm-theme";
+import { listen } from "@tauri-apps/api/event";
+import MergeConflictBar from "./MergeConflictBar";
+import SymbolSearch from "./SymbolSearch";
 import { LspClient } from "./lsp-client";
-import { lspDiagnosticsListener } from "./cm-lsp-extension";
-import { gitGutterExtension, setGitChanges, parseDiff } from "./cm-git-gutter";
-import { inlineEditExtension, inlineEditTheme, createInlineEditKeymap, closeInlineEdit } from "./cm-inline-edit";
+import { parseDiff } from "./git-gutter";
+import { type ConflictRegion, findConflicts } from "./merge-conflicts";
+import { applyLspDiagnostics, registerLspProviders } from "./monaco-lsp";
+import {
+  getLanguageId,
+  getLspLanguageId,
+  observeMonacoTheme,
+  releaseModel,
+  retainModel,
+  setupMonaco,
+} from "./monaco-setup";
 import { useAppStore } from "@/store";
-import { showMinimap } from "@replit/codemirror-minimap";
-
-import { javascript } from "@codemirror/lang-javascript";
-import { python } from "@codemirror/lang-python";
-import { rust } from "@codemirror/lang-rust";
-import { html } from "@codemirror/lang-html";
-import { css } from "@codemirror/lang-css";
-import { json } from "@codemirror/lang-json";
-import { markdown } from "@codemirror/lang-markdown";
-import { go } from "@codemirror/lang-go";
-import { java } from "@codemirror/lang-java";
-import { cpp } from "@codemirror/lang-cpp";
-import { php } from "@codemirror/lang-php";
-import { xml } from "@codemirror/lang-xml";
-import { yaml } from "@codemirror/lang-yaml";
-import { sql } from "@codemirror/lang-sql";
-import { vue } from "@codemirror/lang-vue";
-import { sass } from "@codemirror/lang-sass";
-import { less } from "@codemirror/lang-less";
-import { wast } from "@codemirror/lang-wast";
-
-function getLanguageExtension(filename: string) {
-  const ext = filename.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "js": case "jsx": case "mjs": case "cjs": return javascript({ jsx: true });
-    case "ts": case "tsx": return javascript({ jsx: true, typescript: true });
-    case "py": return python();
-    case "rs": return rust();
-    case "go": return go();
-    case "java": return java();
-    case "c": case "cpp": case "cc": case "cxx": case "h": case "hpp": return cpp();
-    case "php": return php();
-    case "html": case "htm": case "svelte": return html();
-    case "vue": return vue();
-    case "css": return css();
-    case "scss": case "sass": return sass();
-    case "less": return less();
-    case "json": case "jsonc": return json();
-    case "md": case "mdx": return markdown();
-    case "xml": case "svg": case "plist": return xml();
-    case "yaml": case "yml": return yaml();
-    case "sql": return sql();
-    case "wat": case "wast": return wast();
-    default: return [];
-  }
-}
-
-function createSearchPanel(view: EditorView): Panel {
-  const dom = document.createElement("div");
-  dom.className = "blink-search";
-  dom.innerHTML = `
-    <div class="blink-search__row">
-      <input type="text" class="blink-search__input" placeholder="Find" spellcheck="false" autocorrect="off" />
-      <div class="blink-search__toggles">
-        <button class="blink-search__toggle" data-opt="case" title="Match Case">Aa</button>
-        <button class="blink-search__toggle" data-opt="word" title="Whole Word">ab</button>
-        <button class="blink-search__toggle" data-opt="regex" title="Regex">.*</button>
-      </div>
-      <button class="blink-search__btn" data-action="prev" title="Previous (Shift+Enter)">‹</button>
-      <button class="blink-search__btn" data-action="next" title="Next (Enter)">›</button>
-      <button class="blink-search__btn blink-search__btn--text" data-action="close">✕</button>
-    </div>
-  `;
-
-  const input = dom.querySelector("input") as HTMLInputElement;
-  let caseSensitive = false;
-  let wholeWord = false;
-  let regexp = false;
-
-  function updateQuery() {
-    const query = new SearchQuery({ search: input.value, caseSensitive, regexp, wholeWord });
-    view.dispatch({ effects: setSearchQuery.of(query) });
-  }
-
-  dom.querySelectorAll(".blink-search__toggle").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const opt = (btn as HTMLElement).dataset.opt;
-      if (opt === "case") { caseSensitive = !caseSensitive; }
-      if (opt === "word") { wholeWord = !wholeWord; }
-      if (opt === "regex") { regexp = !regexp; }
-      btn.classList.toggle("blink-search__toggle--on");
-      updateQuery();
-    });
-  });
-
-  input.addEventListener("input", updateQuery);
-
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (e.shiftKey) findPrevious(view);
-      else findNext(view);
-    }
-    if (e.key === "Escape") {
-      e.preventDefault();
-      closeSearchPanel(view);
-      view.focus();
-    }
-  });
-
-  dom.querySelector('[data-action="next"]')?.addEventListener("click", () => findNext(view));
-  dom.querySelector('[data-action="prev"]')?.addEventListener("click", () => findPrevious(view));
-  dom.querySelector('[data-action="close"]')?.addEventListener("click", () => {
-    closeSearchPanel(view);
-    view.focus();
-  });
-
-  return {
-    dom,
-    top: true,
-    mount() { setTimeout(() => input.focus(), 0); },
-  };
-}
 
 interface Props {
   content: string;
@@ -137,343 +27,1108 @@ interface Props {
   onSave: (content: string) => void;
   onChange: (modified: boolean) => void;
   onCursorChange?: (line: number, col: number, scrollTop: number) => void;
+  onNavigate?: (filePath: string, line: number, col: number) => void;
+  symbolSearchMode?: "document" | "workspace" | null;
+  onSymbolSearchClose?: () => void;
 }
 
-// Compartments for dynamic editor settings
-const wordWrapCompartment = new Compartment();
-const fontSizeCompartment = new Compartment();
-const minimapCompartment = new Compartment();
-
-function fontSizeTheme(size: number) {
-  return EditorView.theme({ "&": { fontSize: `${size}px` } });
+interface FindState {
+  open: boolean;
+  query: string;
+  caseSensitive: boolean;
+  wholeWord: boolean;
+  regex: boolean;
+  matchCount: number;
+  activeIndex: number;
 }
 
-function minimapExtension(enabled: boolean) {
-  if (!enabled) return [];
-  return [
-    showMinimap.compute(["doc"], () => ({
-      create: () => {
-        const dom = document.createElement("div");
-        return { dom };
-      },
-      displayText: "blocks",
-      showOverlay: "always",
-    })),
-  ];
+interface InlineEditState {
+  open: boolean;
+  top: number;
+  left: number;
+  instruction: string;
+  loading: boolean;
+  selection: any | null;
+  selectedText: string;
 }
 
-export default function Editor({ content, filename, filePath, initialCursorLine, initialCursorCol, initialScrollTop, onSave, onChange, onCursorChange }: Props) {
+const DEFAULT_FIND_STATE: FindState = {
+  open: false,
+  query: "",
+  caseSensitive: false,
+  wholeWord: false,
+  regex: false,
+  matchCount: 0,
+  activeIndex: 0,
+};
+
+function escapeRegExp(text: string) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getStoredEditorOptions() {
+  return {
+    autoSave: localStorage.getItem("blink:autoSave") !== "false",
+    tabSize: parseInt(localStorage.getItem("blink:tabSize") || "2", 10),
+    minimap: localStorage.getItem("blink:minimap") !== "false",
+    fontSize: parseInt(localStorage.getItem("blink:fontSize") || "13", 10),
+    wordWrap: localStorage.getItem("blink:wordWrap") === "true",
+    indentGuides: localStorage.getItem("blink:indentGuides") !== "false",
+  };
+}
+
+function shouldUseExternalLsp(extension: string) {
+  return !["js", "jsx", "mjs", "cjs", "ts", "tsx"].includes(extension);
+}
+
+function getFindMatches(
+  model: any,
+  query: string,
+  caseSensitive: boolean,
+  wholeWord: boolean,
+  regex: boolean,
+) {
+  if (!query) return [];
+  const search = wholeWord && !regex ? `\\b${escapeRegExp(query)}\\b` : query;
+  try {
+    return model.findMatches(search, false, regex || wholeWord, caseSensitive, null, false);
+  } catch {
+    return [];
+  }
+}
+
+function modelLineRange(monacoApi: any, model: any, startLine: number, endLine: number) {
+  return new monacoApi.Range(startLine, 1, endLine, model.getLineMaxColumn(endLine));
+}
+
+function getBlockText(monacoApi: any, model: any, fromLine: number, toLine: number) {
+  if (toLine < fromLine) return "";
+  return model.getValueInRange(modelLineRange(monacoApi, model, fromLine, toLine));
+}
+
+export default function Editor({
+  content,
+  filename,
+  filePath,
+  initialCursorLine,
+  initialCursorCol,
+  initialScrollTop,
+  onSave,
+  onChange,
+  onCursorChange,
+  onNavigate,
+  symbolSearchMode,
+  onSymbolSearchClose,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
+  const editorHostRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<any | null>(null);
+  const modelRef = useRef<any | null>(null);
+  const monacoRef = useRef<any | null>(null);
   const savedContentRef = useRef(content);
-  const [blameInfo, setBlameInfo] = useState<{ author: string; date: string; summary: string } | null>(null);
-  const blameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestContentRef = useRef(content);
   const lspClientRef = useRef<LspClient | null>(null);
-  const diagCleanupRef = useRef<(() => void) | null>(null);
-  const storeDiagCleanupRef = useRef<(() => void) | null>(null);
+  const changeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const lastCursorSnapshotRef = useRef<{
+    line: number;
+    col: number;
+    scrollTop: number;
+  } | null>(null);
+  const lastBlameKeyRef = useRef<string | null>(null);
+  const blameCacheRef = useRef<
+    Map<string, { author: string; date: string; summary: string } | null>
+  >(new Map());
+  const gitDecorationIdsRef = useRef<string[]>([]);
+  const conflictDecorationIdsRef = useRef<string[]>([]);
+  const findDecorationIdsRef = useRef<string[]>([]);
+  const findMatchesRef = useRef<any[]>([]);
+  const definitionActionRef = useRef<any | null>(null);
+  const providersRef = useRef<{ dispose(): void } | null>(null);
+  const themeCleanupRef = useRef<(() => void) | null>(null);
+  const lspCleanupRef = useRef<(() => void) | null>(null);
+  const staticCleanupRef = useRef<(() => void) | null>(null);
+  const currentFileUriRef = useRef<string | null>(null);
+  const filePathRef = useRef(filePath);
+  const workspacePathRef = useRef<string | null>(null);
+  const onSaveRef = useRef(onSave);
+  const onChangeRef = useRef(onChange);
+  const onCursorChangeRef = useRef(onCursorChange);
+  const onNavigateRef = useRef(onNavigate);
+  const findStateRef = useRef(DEFAULT_FIND_STATE);
+  const inlineEditRef = useRef<InlineEditState>({
+    open: false,
+    top: 16,
+    left: 16,
+    instruction: "",
+    loading: false,
+    selection: null,
+    selectedText: "",
+  });
   const ws = useAppStore((s) => s.activeWorkspace());
 
-  const handleSave = useCallback(() => {
-    if (viewRef.current) {
-      const text = viewRef.current.state.doc.toString();
-      onSave(text);
-      savedContentRef.current = text;
-      onChange(false);
-      lspClientRef.current?.didSave(`file://${filePath}`, text);
-      // Refresh git gutter after save
-      const wsPath = useAppStore.getState().activeWorkspace()?.path ?? null;
-      if (wsPath && filePath.startsWith(wsPath)) {
-        const relPath = filePath.slice(wsPath.length).replace(/^\//, "");
-        invoke<string>("git_diff", { path: wsPath, filePath: relPath })
-          .then((diff) => {
-            if (!viewRef.current) return;
-            const changes = parseDiff(diff);
-            viewRef.current.dispatch({ effects: setGitChanges.of(changes) });
-          })
-          .catch(() => {});
-      }
-    }
-  }, [onSave, onChange, filePath]);
+  const [blameInfo, setBlameInfo] = useState<{
+    author: string;
+    date: string;
+    summary: string;
+  } | null>(null);
+  const [conflicts, setConflicts] = useState<ConflictRegion[]>([]);
+  const [conflictIdx, setConflictIdx] = useState(0);
+  const [findState, setFindState] = useState<FindState>(DEFAULT_FIND_STATE);
+  const [editorError, setEditorError] = useState<string | null>(null);
+  const [fallbackValue, setFallbackValue] = useState(content);
+  const [inlineEdit, setInlineEdit] = useState<InlineEditState>({
+    open: false,
+    top: 16,
+    left: 16,
+    instruction: "",
+    loading: false,
+    selection: null,
+    selectedText: "",
+  });
 
   useEffect(() => {
-    if (!containerRef.current) return;
+    onSaveRef.current = onSave;
+  }, [onSave]);
 
-    const lang = getLanguageExtension(filename);
-    const ext = filename.split(".").pop()?.toLowerCase() || "";
-
-    // Read editor preferences from localStorage
-    const storedWordWrap = localStorage.getItem("blink:wordWrap") === "true";
-    const storedTabSize = parseInt(localStorage.getItem("blink:tabSize") || "2", 10);
-    const storedMinimap = localStorage.getItem("blink:minimap") !== "false"; // default on
-    const storedFontSize = parseInt(localStorage.getItem("blink:fontSize") || "13", 10);
-
-    // Start LSP in background — doesn't block editor creation
-    const lspClient = new LspClient();
-    lspClientRef.current = lspClient;
-
-    lspClient.start(ext, ws?.path ?? null).then((langId) => {
-      if (langId && viewRef.current) {
-        lspClient.didOpen(`file://${filePath}`, langId, content);
-        diagCleanupRef.current = lspDiagnosticsListener(
-          viewRef.current,
-          filePath,
-          (cb) => lspClient.onDiagnostics(cb),
-        );
-        // Also push diagnostics into the global store for the Problems panel
-        const uri = `file://${filePath}`;
-        storeDiagCleanupRef.current = lspClient.onDiagnostics((diagUri, lspDiags) => {
-          if (diagUri !== uri) return;
-          useAppStore.getState().setDiagnosticsForUri(uri, lspDiags.map((d) => ({
-            uri,
-            severity: d.severity ?? 2,
-            message: d.message,
-            line: d.range.start.line,
-            character: d.range.start.character,
-          })));
-        });
-      }
-    }).catch(() => {});
-
-    // Debounced LSP didChange
-    let changeTimer: ReturnType<typeof setTimeout> | null = null;
-    let initialLoad = true;
-
-    const state = EditorState.create({
-      doc: content,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLine(),
-        highlightActiveLineGutter(),
-        foldGutter(),
-        history(),
-        bracketMatching(),
-        closeBrackets(),
-        indentOnInput(),
-        highlightSelectionMatches(),
-        search({ top: true, createPanel: createSearchPanel }),
-        darkSyntaxHighlighting,
-        autocompletion(), // CM's built-in — no LSP override
-        lintGutter(),
-        // Tab size & indent
-        EditorState.tabSize.of(storedTabSize),
-        indentUnit.of(" ".repeat(storedTabSize)),
-        // Word wrap (in compartment so it can be toggled at runtime)
-        wordWrapCompartment.of(storedWordWrap ? EditorView.lineWrapping : []),
-        // Font size (in compartment so it can be changed at runtime)
-        fontSizeCompartment.of(fontSizeTheme(storedFontSize)),
-        // Git change gutter
-        gitGutterExtension,
-        // Inline AI edit (Cmd+K)
-        inlineEditExtension,
-        inlineEditTheme,
-        // Minimap
-        minimapCompartment.of(minimapExtension(storedMinimap)),
-        ...(Array.isArray(lang) ? lang : [lang]),
-        keymap.of([
-          ...closeBracketsKeymap,
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...searchKeymap,
-          ...foldKeymap,
-          indentWithTab,
-          { key: "Mod-s", run: () => { handleSave(); return true; } },
-          { key: "Mod-g", run: gotoLine },
-          createInlineEditKeymap(),
-        ]),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            if (initialLoad) { initialLoad = false; return; }
-            const current = update.state.doc.toString();
-            onChange(current !== savedContentRef.current);
-            if (changeTimer) clearTimeout(changeTimer);
-            changeTimer = setTimeout(() => {
-              lspClientRef.current?.didChange(`file://${filePath}`, current);
-            }, 500);
-          }
-        }),
-        // Track cursor position changes + fetch blame
-        EditorView.updateListener.of((update) => {
-          if (update.selectionSet || update.geometryChanged) {
-            const pos = update.state.selection.main.head;
-            const line = update.state.doc.lineAt(pos);
-            const scrollTop = update.view.scrollDOM.scrollTop;
-            onCursorChange?.(line.number, pos - line.from + 1, scrollTop);
-            // Debounced blame fetch
-            if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
-            blameTimerRef.current = setTimeout(() => {
-              if (ws?.path) {
-                invoke<{ author: string; date: string; summary: string } | null>("git_blame_line", {
-                  path: ws.path, filePath, line: line.number,
-                }).then(setBlameInfo).catch(() => setBlameInfo(null));
-              }
-            }, 400);
-          }
-        }),
-        // Auto-save on blur (focus loss) — respects auto_save setting
-        EditorView.domEventHandlers({
-          blur: (_event, view) => {
-            const autoSave = localStorage.getItem("blink:autoSave") !== "false"; // default on
-            if (!autoSave) return;
-            const current = view.state.doc.toString();
-            if (current !== savedContentRef.current) {
-              handleSave();
-            }
-          },
-        }),
-        EditorView.theme({ "&": { height: "100%" } }),
-      ],
-    });
-
-    const view = new EditorView({ state, parent: containerRef.current });
-    viewRef.current = view;
-
-    // Load git diff and apply git gutter markers
-    const wsPath = ws?.path ?? null;
-    if (wsPath && filePath.startsWith(wsPath)) {
-      const relPath = filePath.slice(wsPath.length).replace(/^\//, "");
-      invoke<string>("git_diff", { path: wsPath, filePath: relPath })
-        .then((diff) => {
-          if (!viewRef.current) return;
-          const changes = parseDiff(diff);
-          viewRef.current.dispatch({ effects: setGitChanges.of(changes) });
-        })
-        .catch(() => {});
-    }
-
-    // Handle inline AI edit (Cmd+K) — blink:inline-edit event from cm-inline-edit.ts
-    async function onInlineEdit(e: Event) {
-      const { from, to, selectedText, instruction, view: editorView } = (e as CustomEvent).detail as {
-        from: number;
-        to: number;
-        selectedText: string;
-        instruction: string;
-        view: EditorView;
-      };
-      if (editorView !== view) return; // only handle events for this editor instance
-
-      const prompt = `You are a code editor assistant. The user has selected the following code:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\nInstruction: ${instruction}\n\nRespond with ONLY the replacement code. No explanation, no markdown fences, no extra text.`;
-
-      try {
-        let result = "";
-        const { listen } = await import("@tauri-apps/api/event");
-
-        const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (ev) => {
-          result += ev.payload.chunk;
-        });
-
-        const unlistenDone = await listen<{ full_text: string }>("chat:done", (ev) => {
-          result = ev.payload.full_text;
-          cleanup();
-          applyResult();
-        });
-
-        const unlistenError = await listen<{ error: string }>("chat:error", () => {
-          cleanup();
-          if (viewRef.current) {
-            viewRef.current.dispatch({ effects: closeInlineEdit.of(null) });
-          }
-        });
-
-        function cleanup() { unlistenChunk(); unlistenDone(); unlistenError(); }
-        function applyResult() {
-          if (!viewRef.current) return;
-          // Strip markdown code fences if AI wrapped the response
-          const cleaned = result.trim().replace(/^```[\w]*\n?/, "").replace(/\n?```$/, "");
-          viewRef.current.dispatch({
-            changes: { from, to, insert: cleaned },
-            effects: closeInlineEdit.of(null),
-          });
-          viewRef.current.focus();
-        }
-
-        await invoke("chat_stream", {
-          input: {
-            prompt,
-            threadId: null,
-            runtimeMode: "full-access",
-            provider: null, // use active provider from settings
-            model: null,
-          },
-        });
-      } catch {
-        if (viewRef.current) {
-          viewRef.current.dispatch({ effects: closeInlineEdit.of(null) });
-        }
-      }
-    }
-    document.addEventListener("blink:inline-edit", onInlineEdit);
-
-    // Listen for editor setting changes from settings panel
-    function onStorageChange(e: StorageEvent) {
-      if (!viewRef.current) return;
-      if (e.key === "blink:wordWrap") {
-        const wrap = e.newValue === "true";
-        viewRef.current.dispatch({
-          effects: wordWrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []),
-        });
-      } else if (e.key === "blink:minimap") {
-        const enabled = e.newValue !== "false";
-        viewRef.current.dispatch({
-          effects: minimapCompartment.reconfigure(minimapExtension(enabled)),
-        });
-      } else if (e.key === "blink:fontSize") {
-        const size = parseInt(e.newValue ?? "13", 10);
-        viewRef.current.dispatch({
-          effects: fontSizeCompartment.reconfigure(fontSizeTheme(size)),
-        });
-      }
-    }
-    window.addEventListener("storage", onStorageChange);
-
-    // Restore cursor position and scroll
-    if (initialCursorLine && initialCursorLine > 0) {
-      try {
-        const line = view.state.doc.line(Math.min(initialCursorLine, view.state.doc.lines));
-        const pos = line.from + Math.min((initialCursorCol || 1) - 1, line.length);
-        view.dispatch({ selection: { anchor: pos } });
-        if (initialScrollTop) {
-          requestAnimationFrame(() => { view.scrollDOM.scrollTop = initialScrollTop; });
-        }
-      } catch {}
-    }
-
-    return () => {
-      window.removeEventListener("storage", onStorageChange);
-      document.removeEventListener("blink:inline-edit", onInlineEdit);
-      if (changeTimer) clearTimeout(changeTimer);
-      lspClientRef.current?.didClose(`file://${filePath}`);
-      diagCleanupRef.current?.();
-      storeDiagCleanupRef.current?.();
-      view.destroy();
-      viewRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only recreate editor when file identity changes, not on every callback/content update
-  }, [filename, filePath]);
-
-  // Only sync content from parent when the file is reloaded (content prop changes from parent)
-  // Do NOT include onChange in deps — it changes every render and would reset the editor
-  const contentRef = useRef(content);
   useEffect(() => {
-    // Skip if content hasn't actually changed from last load
-    if (content === contentRef.current) return;
-    contentRef.current = content;
-    if (!viewRef.current) return;
-    const current = viewRef.current.state.doc.toString();
-    if (current !== content) {
-      viewRef.current.dispatch({
-        changes: { from: 0, to: current.length, insert: content },
-      });
-      savedContentRef.current = content;
-    }
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
+  useEffect(() => {
+    onCursorChangeRef.current = onCursorChange;
+  }, [onCursorChange]);
+
+  useEffect(() => {
+    onNavigateRef.current = onNavigate;
+  }, [onNavigate]);
+
+  useEffect(() => {
+    findStateRef.current = findState;
+  }, [findState]);
+
+  useEffect(() => {
+    inlineEditRef.current = inlineEdit;
+  }, [inlineEdit]);
+
+  useEffect(() => {
+    latestContentRef.current = content;
+    setFallbackValue(content);
   }, [content]);
 
+  useEffect(() => {
+    filePathRef.current = filePath;
+    workspacePathRef.current = ws?.path ?? null;
+  }, [filePath, ws?.path]);
+
+  useEffect(() => {
+    lastCursorSnapshotRef.current = null;
+    lastBlameKeyRef.current = null;
+    if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
+    setBlameInfo(null);
+  }, [filePath]);
+
+  const fileUri = `file://${filePath}`;
+
+  const applyGitDecorations = useCallback(async () => {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    const monacoApi = monacoRef.current;
+    const wsPath = workspacePathRef.current;
+    const currentFilePath = filePathRef.current;
+    if (!editor || !model || !monacoApi || !wsPath || !currentFilePath.startsWith(wsPath)) return;
+    const relPath = currentFilePath.slice(wsPath.length).replace(/^\//, "");
+    try {
+      const diff = await invoke<string>("git_diff", { path: wsPath, filePath: relPath });
+      const changes = parseDiff(diff);
+      const decorations = Array.from(changes.entries()).flatMap(([line, type]) => {
+        if (line < 1 || line > model.getLineCount()) return [];
+        return [
+          {
+            range: new monacoApi.Range(line, 1, line, 1),
+            options: {
+              isWholeLine: true,
+              linesDecorationsClassName: `monaco-git-change monaco-git-change--${type}`,
+            },
+          },
+        ];
+      });
+      gitDecorationIdsRef.current = editor.deltaDecorations(
+        gitDecorationIdsRef.current,
+        decorations,
+      );
+    } catch {
+      // Ignore diff lookup failures for non-git files.
+    }
+  }, []);
+
+  const applyConflictDecorations = useCallback(() => {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !model || !monacoApi) return;
+
+    const nextConflicts = findConflicts(model.getValue());
+    setConflicts(nextConflicts);
+    setConflictIdx((current) => {
+      if (nextConflicts.length === 0) return 0;
+      return Math.min(current, nextConflicts.length - 1);
+    });
+
+    const decorations: any[] = [];
+    for (const conflict of nextConflicts) {
+      decorations.push({
+        range: modelLineRange(monacoApi, model, conflict.oursStart, conflict.oursStart),
+        options: { isWholeLine: true, className: "monaco-conflict-marker" },
+      });
+      decorations.push({
+        range: modelLineRange(monacoApi, model, conflict.divider, conflict.divider),
+        options: { isWholeLine: true, className: "monaco-conflict-marker" },
+      });
+      decorations.push({
+        range: modelLineRange(monacoApi, model, conflict.theirsEnd, conflict.theirsEnd),
+        options: { isWholeLine: true, className: "monaco-conflict-marker" },
+      });
+      if (conflict.oursToLine >= conflict.oursFromLine) {
+        decorations.push({
+          range: modelLineRange(monacoApi, model, conflict.oursFromLine, conflict.oursToLine),
+          options: { isWholeLine: true, className: "monaco-conflict-ours" },
+        });
+      }
+      if (conflict.theirsToLine >= conflict.theirsFromLine) {
+        decorations.push({
+          range: modelLineRange(monacoApi, model, conflict.theirsFromLine, conflict.theirsToLine),
+          options: { isWholeLine: true, className: "monaco-conflict-theirs" },
+        });
+      }
+    }
+
+    conflictDecorationIdsRef.current = editor.deltaDecorations(
+      conflictDecorationIdsRef.current,
+      decorations,
+    );
+  }, []);
+
+  const updateCursorState = useCallback(() => {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    if (!editor || !model) return;
+    const position = editor.getPosition();
+    if (!position) return;
+    const nextSnapshot = {
+      line: position.lineNumber,
+      col: position.column,
+      scrollTop: editor.getScrollTop(),
+    };
+    const previousSnapshot = lastCursorSnapshotRef.current;
+    const cursorChanged =
+      !previousSnapshot ||
+      previousSnapshot.line !== nextSnapshot.line ||
+      previousSnapshot.col !== nextSnapshot.col;
+    const snapshotChanged =
+      cursorChanged || !previousSnapshot || previousSnapshot.scrollTop !== nextSnapshot.scrollTop;
+
+    if (snapshotChanged) {
+      lastCursorSnapshotRef.current = nextSnapshot;
+      onCursorChangeRef.current?.(nextSnapshot.line, nextSnapshot.col, nextSnapshot.scrollTop);
+    }
+
+    const wsPath = workspacePathRef.current;
+    const currentFilePath = filePathRef.current;
+    if (!cursorChanged || !wsPath) return;
+
+    const blameKey = `${currentFilePath}:${nextSnapshot.line}`;
+    lastBlameKeyRef.current = blameKey;
+
+    const cached = blameCacheRef.current.get(blameKey);
+    if (cached !== undefined) {
+      setBlameInfo(cached);
+      return;
+    }
+
+    if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
+    blameTimerRef.current = setTimeout(() => {
+      invoke<{ author: string; date: string; summary: string } | null>("git_blame_line", {
+        path: wsPath,
+        filePath: currentFilePath,
+        line: nextSnapshot.line,
+      })
+        .then((result) => {
+          blameCacheRef.current.set(blameKey, result);
+          if (lastBlameKeyRef.current === blameKey) {
+            setBlameInfo(result);
+          }
+        })
+        .catch(() => {
+          blameCacheRef.current.set(blameKey, null);
+          if (lastBlameKeyRef.current === blameKey) {
+            setBlameInfo(null);
+          }
+        });
+    }, 250);
+  }, []);
+
+  const closeInlineEdit = useCallback(() => {
+    setInlineEdit((state) => ({
+      ...state,
+      open: false,
+      loading: false,
+      instruction: "",
+      selection: null,
+      selectedText: "",
+    }));
+    editorRef.current?.focus();
+  }, []);
+
+  const openInlineEdit = useCallback(() => {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    if (!editor || !model) return;
+    const selection = editor.getSelection();
+    if (!selection || selection.isEmpty()) return;
+
+    const anchor = editor.getScrolledVisiblePosition(selection.getStartPosition());
+    const layout = editor.getLayoutInfo();
+    const selectedText = model.getValueInRange(selection);
+    setInlineEdit({
+      open: true,
+      loading: false,
+      instruction: "",
+      selection,
+      selectedText,
+      top: (anchor?.top ?? 8) + 26,
+      left: Math.min((anchor?.left ?? 12) + layout.contentLeft, layout.width - 320),
+    });
+  }, []);
+
+  const updateFindDecorations = useCallback((matches: any[], activeIndex: number) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const decorations = matches.map((match, index) => ({
+      range: match.range,
+      options: {
+        inlineClassName:
+          index === activeIndex
+            ? "monaco-find-match monaco-find-match--active"
+            : "monaco-find-match",
+      },
+    }));
+    findDecorationIdsRef.current = editor.deltaDecorations(
+      findDecorationIdsRef.current,
+      decorations,
+    );
+  }, []);
+
+  const refreshFind = useCallback(
+    (patch?: Partial<FindState>, reveal = false) => {
+      const model = modelRef.current;
+      const editor = editorRef.current;
+      if (!model || !editor) return;
+
+      const next = { ...findStateRef.current, ...patch };
+      if (!next.open || !next.query) {
+        findMatchesRef.current = [];
+        findDecorationIdsRef.current = editor.deltaDecorations(findDecorationIdsRef.current, []);
+        setFindState({ ...next, matchCount: 0, activeIndex: 0 });
+        return;
+      }
+
+      const matches = getFindMatches(
+        model,
+        next.query,
+        next.caseSensitive,
+        next.wholeWord,
+        next.regex,
+      );
+      findMatchesRef.current = matches;
+      const activeIndex = matches.length === 0 ? 0 : Math.min(next.activeIndex, matches.length - 1);
+      updateFindDecorations(matches, activeIndex);
+      setFindState({ ...next, matchCount: matches.length, activeIndex });
+
+      if (reveal && matches[activeIndex]) {
+        editor.setSelection(matches[activeIndex].range);
+        editor.revealRangeInCenterIfOutsideViewport(matches[activeIndex].range);
+      }
+    },
+    [updateFindDecorations],
+  );
+
+  const moveFindSelection = useCallback(
+    (direction: 1 | -1) => {
+      const matches = findMatchesRef.current;
+      if (matches.length === 0) return;
+      const nextIndex =
+        direction === 1
+          ? (findStateRef.current.activeIndex + 1) % matches.length
+          : (findStateRef.current.activeIndex - 1 + matches.length) % matches.length;
+      refreshFind({ activeIndex: nextIndex }, true);
+    },
+    [refreshFind],
+  );
+
+  useEffect(() => {
+    if (!editorHostRef.current) return;
+    let cancelled = false;
+    let cleanup: (() => void) | undefined;
+
+    void (async () => {
+      try {
+        const monacoApi = await setupMonaco();
+        if (cancelled || !editorHostRef.current) return;
+        monacoRef.current = monacoApi;
+        setEditorError(null);
+
+        let editor = editorRef.current;
+        if (!editor) {
+          const opts = getStoredEditorOptions();
+          editor = monacoApi.editor.create(editorHostRef.current, {
+            automaticLayout: true,
+            theme: "blink",
+            fontFamily: "var(--font-mono)",
+            fontSize: opts.fontSize,
+            lineHeight: Math.round(opts.fontSize * 1.6),
+            lineNumbers: "on",
+            lineNumbersMinChars: 4,
+            minimap: { enabled: opts.minimap },
+            wordWrap: opts.wordWrap ? "on" : "off",
+            tabSize: opts.tabSize,
+            insertSpaces: true,
+            glyphMargin: false,
+            folding: true,
+            roundedSelection: false,
+            scrollBeyondLastLine: false,
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            renderLineHighlight: "all",
+            padding: { top: 8, bottom: 8 },
+            bracketPairColorization: { enabled: false },
+            matchBrackets: "always",
+            guides: {
+              indentation: opts.indentGuides,
+              highlightActiveIndentation: false,
+              bracketPairs: false,
+            },
+            suggest: { preview: true, showWords: false },
+            quickSuggestions: true,
+          });
+          editorRef.current = editor;
+          const bootModel = editor.getModel();
+          if (bootModel) {
+            editor.setModel(null);
+            bootModel.dispose();
+          }
+
+          const cursorDisposable = editor.onDidChangeCursorPosition(() => {
+            updateCursorState();
+            if (inlineEditRef.current.open) {
+              closeInlineEdit();
+            }
+          });
+
+          const scrollDisposable = editor.onDidScrollChange(() => {
+            if (scrollFrameRef.current != null) return;
+            scrollFrameRef.current = window.requestAnimationFrame(() => {
+              scrollFrameRef.current = null;
+              updateCursorState();
+            });
+          });
+
+          const blurDisposable = editor.onDidBlurEditorWidget(() => {
+            if (!getStoredEditorOptions().autoSave) return;
+            const currentModel = modelRef.current;
+            if (currentModel && currentModel.getValue() !== savedContentRef.current) {
+              const text = currentModel.getValue();
+              onSaveRef.current(text);
+              savedContentRef.current = text;
+              onChangeRef.current(false);
+              if (currentFileUriRef.current) {
+                lspClientRef.current?.didSave(currentFileUriRef.current, text);
+              }
+              void applyGitDecorations();
+            }
+          });
+
+          editor.addAction({
+            id: "blink.save",
+            label: "Save",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS],
+            run: () => {
+              const currentModel = modelRef.current;
+              if (!currentModel) return;
+              const text = currentModel.getValue();
+              onSaveRef.current(text);
+              savedContentRef.current = text;
+              onChangeRef.current(false);
+              if (currentFileUriRef.current) {
+                lspClientRef.current?.didSave(currentFileUriRef.current, text);
+              }
+              void applyGitDecorations();
+            },
+          });
+
+          editor.addAction({
+            id: "blink.find",
+            label: "Find",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyF],
+            run: () => {
+              const currentModel = modelRef.current;
+              if (!currentModel) return;
+              const selection = editor.getSelection();
+              const nextQuery =
+                selection && !selection.isEmpty()
+                  ? currentModel.getValueInRange(selection).trim()
+                  : findStateRef.current.query;
+              setFindState((state) => ({
+                ...state,
+                open: true,
+                query: nextQuery,
+                activeIndex: 0,
+              }));
+            },
+          });
+
+          editor.addAction({
+            id: "blink.goto-line",
+            label: "Go to Line",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyG],
+            run: async () => {
+              await editor.getAction("editor.action.gotoLine")?.run();
+            },
+          });
+
+          editor.addAction({
+            id: "blink.format",
+            label: "Format Document",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyMod.Shift | monacoApi.KeyCode.KeyF],
+            run: async () => {
+              await editor.getAction("editor.action.formatDocument")?.run();
+            },
+          });
+
+          editor.addAction({
+            id: "blink.inline-edit",
+            label: "Inline Edit",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyK],
+            run: () => openInlineEdit(),
+          });
+
+          themeCleanupRef.current = observeMonacoTheme(monacoApi, () => {
+            editor.updateOptions({});
+          });
+
+          const onStorageChange = (e: StorageEvent) => {
+            if (!editorRef.current || !modelRef.current) return;
+            if (e.key === "blink:wordWrap") {
+              editorRef.current.updateOptions({ wordWrap: e.newValue === "true" ? "on" : "off" });
+            } else if (e.key === "blink:minimap") {
+              editorRef.current.updateOptions({ minimap: { enabled: e.newValue !== "false" } });
+            } else if (e.key === "blink:indentGuides") {
+              editorRef.current.updateOptions({
+                guides: {
+                  indentation: e.newValue === "true",
+                  highlightActiveIndentation: false,
+                  bracketPairs: false,
+                },
+              });
+            } else if (e.key === "blink:fontSize") {
+              const fontSize = parseInt(e.newValue ?? "13", 10);
+              editorRef.current.updateOptions({
+                fontSize,
+                lineHeight: Math.round(fontSize * 1.6),
+              });
+            } else if (e.key === "blink:tabSize") {
+              const tabSize = parseInt(e.newValue ?? "2", 10);
+              modelRef.current.updateOptions({ tabSize, insertSpaces: true });
+              editorRef.current.updateOptions({ tabSize });
+            }
+          };
+          window.addEventListener("storage", onStorageChange);
+
+          staticCleanupRef.current = () => {
+            window.removeEventListener("storage", onStorageChange);
+            if (blameTimerRef.current) clearTimeout(blameTimerRef.current);
+            if (scrollFrameRef.current != null) window.cancelAnimationFrame(scrollFrameRef.current);
+            themeCleanupRef.current?.();
+            cursorDisposable.dispose();
+            scrollDisposable.dispose();
+            blurDisposable.dispose();
+            editor.dispose();
+            editorRef.current = null;
+            monacoRef.current = null;
+          };
+        }
+
+        const language = getLanguageId(filename);
+        const initialContent = latestContentRef.current;
+        const model = retainModel(monacoApi, fileUri, initialContent, language);
+        modelRef.current = model;
+        currentFileUriRef.current = fileUri;
+        savedContentRef.current = initialContent;
+        model.updateOptions({ tabSize: getStoredEditorOptions().tabSize, insertSpaces: true });
+        editor.setModel(model);
+
+        if (model.getValue() !== latestContentRef.current) {
+          model.setValue(latestContentRef.current);
+          savedContentRef.current = latestContentRef.current;
+        }
+
+        if (initialCursorLine && initialCursorLine > 0) {
+          const lineNumber = Math.min(initialCursorLine, model.getLineCount());
+          const column = Math.min(initialCursorCol || 1, model.getLineMaxColumn(lineNumber));
+          editor.setPosition({ lineNumber, column });
+          editor.revealPosition({ lineNumber, column });
+          if (initialScrollTop) {
+            requestAnimationFrame(() => {
+              editor.setScrollTop(initialScrollTop);
+            });
+          }
+        } else {
+          editor.setScrollTop(initialScrollTop || 0);
+        }
+
+        const ext = filename.split(".").pop()?.toLowerCase() || "";
+        if (shouldUseExternalLsp(ext)) {
+          const lspClient = new LspClient();
+          lspClientRef.current = lspClient;
+
+          lspClient
+            .start(ext, workspacePathRef.current)
+            .then((langId) => {
+              if (!langId || modelRef.current?.uri.toString() !== fileUri) return;
+              setTimeout(() => {
+                if (modelRef.current?.uri.toString() !== fileUri) return;
+                lspClient.didOpen(fileUri, getLspLanguageId(filename), model.getValue());
+              }, 550);
+
+              lspCleanupRef.current = lspClient.onDiagnostics((uri, diagnostics) => {
+                if (uri !== fileUri || modelRef.current?.uri.toString() !== uri) return;
+                applyLspDiagnostics(monacoApi, model, diagnostics, (nextDiagnostics) => {
+                  useAppStore.getState().setDiagnosticsForUri(
+                    uri,
+                    nextDiagnostics.map((d) => ({
+                      uri,
+                      severity: d.severity ?? 2,
+                      message: d.message,
+                      line: d.range.start.line,
+                      character: d.range.start.character,
+                    })),
+                  );
+                });
+              });
+
+              const providers = registerLspProviders(
+                monacoApi,
+                model,
+                lspClient,
+                (path, line, col) => {
+                  onNavigateRef.current?.(path, line, col);
+                },
+              );
+              providersRef.current = providers;
+              definitionActionRef.current = providers.definitionAction(editor);
+            })
+            .catch(() => {});
+        } else {
+          lspClientRef.current = null;
+          useAppStore.getState().setDiagnosticsForUri(fileUri, []);
+        }
+
+        const changeDisposable = model.onDidChangeContent(() => {
+          const current = model.getValue();
+          onChangeRef.current(current !== savedContentRef.current);
+          if (changeTimerRef.current) clearTimeout(changeTimerRef.current);
+          changeTimerRef.current = setTimeout(() => {
+            if (currentFileUriRef.current) {
+              lspClientRef.current?.didChange(currentFileUriRef.current, current);
+            }
+          }, 500);
+          applyConflictDecorations();
+          if (findStateRef.current.open) refreshFind();
+        });
+
+        applyConflictDecorations();
+        void applyGitDecorations();
+        updateCursorState();
+
+        cleanup = () => {
+          if (changeTimerRef.current) clearTimeout(changeTimerRef.current);
+          lspClientRef.current?.didClose(fileUri);
+          lspCleanupRef.current?.();
+          lspCleanupRef.current = null;
+          providersRef.current?.dispose();
+          providersRef.current = null;
+          definitionActionRef.current?.dispose();
+          definitionActionRef.current = null;
+          lspClientRef.current = null;
+          gitDecorationIdsRef.current = editor.deltaDecorations(gitDecorationIdsRef.current, []);
+          conflictDecorationIdsRef.current = editor.deltaDecorations(
+            conflictDecorationIdsRef.current,
+            [],
+          );
+          findDecorationIdsRef.current = editor.deltaDecorations(findDecorationIdsRef.current, []);
+          changeDisposable.dispose();
+          if (editor.getModel() === model) {
+            editor.setModel(null);
+          }
+          modelRef.current = null;
+          currentFileUriRef.current = null;
+          useAppStore.getState().setDiagnosticsForUri(fileUri, []);
+          releaseModel(monacoApi, fileUri);
+        };
+      } catch (error) {
+        console.error("Failed to initialize Monaco editor", error);
+        setEditorError(error instanceof Error ? error.message : String(error));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- switch models only when file identity changes
+  }, [filename, filePath]);
+
+  useEffect(() => {
+    return () => {
+      staticCleanupRef.current?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    const model = modelRef.current;
+    if (!model) return;
+    if (model.getValue() !== content) {
+      model.setValue(content);
+      savedContentRef.current = content;
+      onChangeRef.current(false);
+      applyConflictDecorations();
+      void applyGitDecorations();
+    }
+  }, [applyConflictDecorations, applyGitDecorations, content]);
+
+  function handleFallbackSave() {
+    onSaveRef.current(fallbackValue);
+    savedContentRef.current = fallbackValue;
+    onChangeRef.current(false);
+  }
+
+  useEffect(() => {
+    if (findState.open) {
+      refreshFind();
+    }
+  }, [
+    findState.open,
+    findState.query,
+    findState.caseSensitive,
+    findState.wholeWord,
+    findState.regex,
+    refreshFind,
+  ]);
+
+  function acceptOurs(conflict: ConflictRegion) {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !model || !monacoApi) return;
+    editor.executeEdits("blink-merge", [
+      {
+        range: modelLineRange(monacoApi, model, conflict.oursStart, conflict.theirsEnd),
+        text: getBlockText(monacoApi, model, conflict.oursFromLine, conflict.oursToLine),
+      },
+    ]);
+  }
+
+  function acceptTheirs(conflict: ConflictRegion) {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !model || !monacoApi) return;
+    editor.executeEdits("blink-merge", [
+      {
+        range: modelLineRange(monacoApi, model, conflict.oursStart, conflict.theirsEnd),
+        text: getBlockText(monacoApi, model, conflict.theirsFromLine, conflict.theirsToLine),
+      },
+    ]);
+  }
+
+  function acceptBoth(conflict: ConflictRegion) {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    const monacoApi = monacoRef.current;
+    if (!editor || !model || !monacoApi) return;
+    const ours = getBlockText(monacoApi, model, conflict.oursFromLine, conflict.oursToLine);
+    const theirs = getBlockText(monacoApi, model, conflict.theirsFromLine, conflict.theirsToLine);
+    editor.executeEdits("blink-merge", [
+      {
+        range: modelLineRange(monacoApi, model, conflict.oursStart, conflict.theirsEnd),
+        text: ours && theirs ? `${ours}\n${theirs}` : ours || theirs,
+      },
+    ]);
+  }
+
+  function navigateToConflict(index: number) {
+    const editor = editorRef.current;
+    const conflict = conflicts[index];
+    if (!editor || !conflict) return;
+    setConflictIdx(index);
+    editor.setPosition({ lineNumber: conflict.oursStart, column: 1 });
+    editor.revealLineInCenter(conflict.oursStart);
+    editor.focus();
+  }
+
+  async function submitInlineEdit() {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    if (!editor || !model || !inlineEdit.selection || !inlineEdit.instruction.trim()) return;
+
+    setInlineEdit((state) => ({ ...state, loading: true }));
+
+    const prompt = `You are a code editor assistant. The user has selected the following code:\n\n\`\`\`\n${inlineEdit.selectedText}\n\`\`\`\n\nInstruction: ${inlineEdit.instruction}\n\nRespond with ONLY the replacement code. No explanation, no markdown fences, no extra text.`;
+
+    try {
+      let result = "";
+
+      const unlistenChunk = await listen<{ chunk: string }>("chat:stream", (event) => {
+        result += event.payload.chunk;
+      });
+
+      const completion = new Promise<boolean>(async (resolve) => {
+        let unlistenDone = () => {};
+        let unlistenError = () => {};
+
+        unlistenDone = await listen<{ full_text: string }>("chat:done", (event) => {
+          result = event.payload.full_text;
+          unlistenDone();
+          unlistenError();
+          resolve(true);
+        });
+        unlistenError = await listen<{ error: string }>("chat:error", () => {
+          result = "";
+          unlistenDone();
+          unlistenError();
+          resolve(false);
+        });
+      });
+
+      await invoke("chat_stream", {
+        input: {
+          prompt,
+          threadId: null,
+          runtimeMode: "full-access",
+          provider: null,
+          model: null,
+        },
+      });
+      const ok = await completion;
+      unlistenChunk();
+      if (!ok) {
+        setInlineEdit((state) => ({ ...state, loading: false }));
+        return;
+      }
+
+      const cleaned = result
+        .trim()
+        .replace(/^```[\w]*\n?/, "")
+        .replace(/\n?```$/, "");
+      editor.executeEdits("blink-inline-edit", [
+        {
+          range: inlineEdit.selection,
+          text: cleaned,
+        },
+      ]);
+      closeInlineEdit();
+    } catch {
+      setInlineEdit((state) => ({ ...state, loading: false }));
+    }
+  }
+
   return (
-    <div className="editor-pane" style={{ position: "relative" }}>
-      <div ref={containerRef} style={{ flex: 1, overflow: "hidden" }} />
+    <div className="editor-pane" ref={containerRef} style={{ position: "relative" }}>
+      {conflicts.length > 0 && (
+        <MergeConflictBar
+          conflicts={conflicts}
+          currentIndex={conflictIdx}
+          onAcceptOurs={acceptOurs}
+          onAcceptTheirs={acceptTheirs}
+          onAcceptBoth={acceptBoth}
+          onNavigate={navigateToConflict}
+        />
+      )}
+
+      {findState.open && (
+        <div className="blink-search">
+          <div className="blink-search__row">
+            <input
+              type="text"
+              className="blink-search__input"
+              placeholder="Find"
+              spellCheck={false}
+              autoCorrect="off"
+              value={findState.query}
+              onChange={(e) =>
+                setFindState((state) => ({ ...state, query: e.target.value, activeIndex: 0 }))
+              }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  moveFindSelection(e.shiftKey ? -1 : 1);
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setFindState(DEFAULT_FIND_STATE);
+                  findDecorationIdsRef.current =
+                    editorRef.current?.deltaDecorations(findDecorationIdsRef.current, []) ?? [];
+                  editorRef.current?.focus();
+                }
+              }}
+              autoFocus
+            />
+            <span className="blink-search__count">
+              {findState.matchCount === 0
+                ? "No matches"
+                : `${findState.activeIndex + 1} / ${findState.matchCount}`}
+            </span>
+            <div className="blink-search__toggles">
+              <button
+                className={`blink-search__toggle ${findState.caseSensitive ? "blink-search__toggle--on" : ""}`}
+                onClick={() =>
+                  setFindState((state) => ({
+                    ...state,
+                    caseSensitive: !state.caseSensitive,
+                    activeIndex: 0,
+                  }))
+                }
+                title="Match Case"
+                type="button"
+              >
+                Aa
+              </button>
+              <button
+                className={`blink-search__toggle ${findState.wholeWord ? "blink-search__toggle--on" : ""}`}
+                onClick={() =>
+                  setFindState((state) => ({
+                    ...state,
+                    wholeWord: !state.wholeWord,
+                    activeIndex: 0,
+                  }))
+                }
+                title="Whole Word"
+                type="button"
+              >
+                ab
+              </button>
+              <button
+                className={`blink-search__toggle ${findState.regex ? "blink-search__toggle--on" : ""}`}
+                onClick={() =>
+                  setFindState((state) => ({ ...state, regex: !state.regex, activeIndex: 0 }))
+                }
+                title="Regex"
+                type="button"
+              >
+                .*
+              </button>
+            </div>
+            <button
+              className="blink-search__btn"
+              onClick={() => moveFindSelection(-1)}
+              type="button"
+            >
+              ‹
+            </button>
+            <button
+              className="blink-search__btn"
+              onClick={() => moveFindSelection(1)}
+              type="button"
+            >
+              ›
+            </button>
+            <button
+              className="blink-search__btn blink-search__btn--text"
+              onClick={() => {
+                setFindState(DEFAULT_FIND_STATE);
+                findDecorationIdsRef.current =
+                  editorRef.current?.deltaDecorations(findDecorationIdsRef.current, []) ?? [];
+                editorRef.current?.focus();
+              }}
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {editorError ? (
+        <div className="editor-pane__fallback-wrap">
+          <div className="editor-pane__fallback-error">Monaco failed to load: {editorError}</div>
+          <textarea
+            className="editor-pane__fallback"
+            value={fallbackValue}
+            spellCheck={false}
+            onChange={(e) => {
+              const next = e.target.value;
+              setFallbackValue(next);
+              onChangeRef.current(next !== savedContentRef.current);
+            }}
+            onBlur={() => {
+              if (getStoredEditorOptions().autoSave && fallbackValue !== savedContentRef.current) {
+                handleFallbackSave();
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <div ref={editorHostRef} className="editor-pane__monaco" />
+      )}
+
+      {inlineEdit.open && (
+        <div className="monaco-inline-edit" style={{ top: inlineEdit.top, left: inlineEdit.left }}>
+          <input
+            className="monaco-inline-edit__input"
+            value={inlineEdit.instruction}
+            onChange={(e) => setInlineEdit((state) => ({ ...state, instruction: e.target.value }))}
+            placeholder="Describe the change"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void submitInlineEdit();
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                closeInlineEdit();
+              }
+            }}
+            autoFocus
+          />
+          <button
+            type="button"
+            className="monaco-inline-edit__action"
+            onClick={() => void submitInlineEdit()}
+            disabled={inlineEdit.loading || !inlineEdit.instruction.trim()}
+          >
+            {inlineEdit.loading ? "Applying…" : "Apply"}
+          </button>
+          <button type="button" className="monaco-inline-edit__cancel" onClick={closeInlineEdit}>
+            Cancel
+          </button>
+        </div>
+      )}
+
       {blameInfo && (
         <div className="editor-blame">
           {blameInfo.author}, {blameInfo.date} — {blameInfo.summary}
         </div>
+      )}
+
+      {symbolSearchMode && lspClientRef.current && (
+        <SymbolSearch
+          mode={symbolSearchMode}
+          client={lspClientRef.current}
+          fileUri={fileUri}
+          onNavigate={(path, line, col) => onNavigateRef.current?.(path, line, col)}
+          onClose={() => onSymbolSearchClose?.()}
+        />
       )}
     </div>
   );

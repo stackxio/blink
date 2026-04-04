@@ -13,4 +13,25 @@ html.light {
 
   --c-border: #e5e5e5;
   --c-input: #f5f5f5;
+
+  // Syntax highlighting tokens — light (VS Code Light+ palette)
+  --hl-keyword: #af00db;
+  --hl-type: #267f99;
+  --hl-function: #795e26;
+  --hl-variable: #001080;
+  --hl-property: #001080;
+  --hl-string: #a31515;
+  --hl-string-special: #a31515;
+  --hl-number: #098658;
+  --hl-builtin: #0000ff;
+  --hl-comment: #008000;
+  --hl-punctuation: #000000;
+  --hl-tag: #800000;
+  --hl-attr-name: #ff0000;
+  --hl-attr-value: #0000ff;
+  --hl-regexp: #811f3f;
+  --hl-meta: #0000ff;
+  --hl-constant: #0070c1;
+  --hl-heading: #0000ff;
+  --hl-link: #0070c1;
 }

@@ -83,13 +83,57 @@
 
   &__body {
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     background: var(--c-bg);
+    display: flex;
 
-    // xterm.js fills this
+    &--split {
+      .terminal-pane-wrap {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .terminal-split-divider {
+        width: 1px;
+        background: var(--c-border);
+        flex-shrink: 0;
+      }
+    }
+
+    .terminal-pane-wrap {
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    // Wrapper for each terminal instance
+    .terminal-instance-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      flex-direction: column;
+
+      // xterm.js fills this wrapper
+      > div {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+    }
+
+    // xterm.js internal elements
     .xterm {
-      height: 100%;
+      flex: 1;
       padding: 4px 8px;
+      overflow: hidden;
     }
 
     .xterm-viewport {
@@ -98,7 +142,7 @@
     }
 
     .xterm-screen {
-      height: 100%;
+      flex: 1;
     }
   }
 }

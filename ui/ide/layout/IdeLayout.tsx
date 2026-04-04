@@ -10,12 +10,12 @@ import TabBar from "./TabBar";
 import PanelResizer from "./PanelResizer";
 import IdeStatusBar from "./IdeStatusBar";
 import FileTree, { type FileTreeHandle } from "@/ide/explorer/FileTree";
-import { ChevronsDownUp } from "lucide-react";
+import { ChevronsDownUp, SplitSquareHorizontal, X } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import ProblemsPanel from "@/ide/problems/ProblemsPanel";
-import AiPanel from "@/ai/AiPanel";
+import BlinkCodePanel from "@/ai/BlinkCodePanel";
 import GitPanel from "@/ide/git/GitPanel";
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
 import CommandPalette from "./CommandPalette";
@@ -42,34 +42,47 @@ export default function IdeLayout() {
   const markFileDeleted = useAppStore((s) => s.markFileDeleted);
   const closeAllFiles = useAppStore((s) => s.closeAllFiles);
   const closeOtherFiles = useAppStore((s) => s.closeOtherFiles);
+  const openFileSplit = useAppStore((s) => s.openFileSplit);
+  const closeFileSplit = useAppStore((s) => s.closeFileSplit);
+  const setActiveSplitFile = useAppStore((s) => s.setActiveSplitFile);
+  const closeSplit = useAppStore((s) => s.closeSplit);
   const setSidePanelWidth = useAppStore((s) => s.setSidePanelWidth);
   const setBottomPanelHeight = useAppStore((s) => s.setBottomPanelHeight);
   const loadSavedWorkspaces = useAppStore((s) => s.loadSavedWorkspaces);
 
-  // Active workspace — all layout state comes from here
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
   const workspaceName = ws?.name ?? "Blink";
   const openFiles = ws?.openFiles ?? [];
   const activeFileIdx = ws?.activeFileIdx ?? -1;
+  const splitFiles = ws?.splitFiles ?? [];
+  const splitActiveIdx = ws?.splitActiveIdx ?? -1;
+  const splitOpen = ws?.splitOpen ?? false;
   const sidePanelOpen = ws?.sidePanelOpen ?? true;
   const sidePanelWidth = ws?.sidePanelWidth ?? 260;
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
   const bottomPanelTab = ws?.bottomPanelTab ?? "terminal";
-  const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
-  const diagnostics = useAppStore((s) => s.diagnostics);
-  const errorCount = Object.values(diagnostics).flat().filter((d) => d.severity === 1).length;
-  const warningCount = Object.values(diagnostics).flat().filter((d) => d.severity === 2).length;
-
   const sidePanelView = ws?.sidePanelView ?? "explorer";
+  const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
+  const diagnosticSummary = useAppStore((s) => s.diagnosticSummary);
+  const errorCount = diagnosticSummary.errors;
+  const warningCount = diagnosticSummary.warnings;
 
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
 
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
   const [mdPreview, setMdPreview] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [symbolSearchMode, setSymbolSearchMode] = useState<"document" | "workspace" | null>(null);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
+  const [liveCursor, setLiveCursor] = useState<{ line?: number; col?: number }>({});
+  const fileContentCacheRef = useRef(new Map<string, string>());
+  const pendingFileStateRef = useRef<{
+    path: string;
+    state: { cursorLine?: number; cursorCol?: number; scrollTop?: number };
+  } | null>(null);
+  const fileStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileTreeRef = useRef<FileTreeHandle>(null);
   const searchPanelRef = useRef<SearchPanelHandle>(null);
 
@@ -88,11 +101,20 @@ export default function IdeLayout() {
     function onFileSearch() {
       setFileSearchOpen((v) => !v);
     }
+    function onOpenFile(e: Event) {
+      const { path, name } = (e as CustomEvent<{ path: string; name: string }>).detail;
+      if (path) {
+        openFile(path, name || path.split("/").pop() || path, false);
+        if (location.pathname !== "/") navigate("/");
+      }
+    }
     document.addEventListener("blink:navigate", onNavigate);
     document.addEventListener("blink:file-search", onFileSearch);
+    document.addEventListener("blink:open-file", onOpenFile);
     return () => {
       document.removeEventListener("blink:navigate", onNavigate);
       document.removeEventListener("blink:file-search", onFileSearch);
+      document.removeEventListener("blink:open-file", onOpenFile);
     };
   }, [navigate]);
 
@@ -105,15 +127,30 @@ export default function IdeLayout() {
     let cancelled = false;
     const fetchBranch = () => {
       invoke<string>("git_branch", { path: workspacePath })
-        .then((b) => { if (!cancelled) setGitBranch(b); })
-        .catch(() => { if (!cancelled) setGitBranch(null); });
+        .then((b) => {
+          if (!cancelled) setGitBranch(b);
+        })
+        .catch(() => {
+          if (!cancelled) setGitBranch(null);
+        });
     };
     fetchBranch();
-    const interval = setInterval(fetchBranch, 5000);
-    // Also refresh immediately when branch switches via status bar
-    function onGitRefresh() { fetchBranch(); }
+
+    function onGitRefresh() {
+      fetchBranch();
+    }
+    function onFocusRefresh() {
+      if (!document.hidden) fetchBranch();
+    }
     document.addEventListener("blink:git-refresh", onGitRefresh);
-    return () => { cancelled = true; clearInterval(interval); document.removeEventListener("blink:git-refresh", onGitRefresh); };
+    window.addEventListener("focus", onFocusRefresh);
+    document.addEventListener("visibilitychange", onFocusRefresh);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("blink:git-refresh", onGitRefresh);
+      window.removeEventListener("focus", onFocusRefresh);
+      document.removeEventListener("visibilitychange", onFocusRefresh);
+    };
   }, [workspacePath]);
 
   // Start file watcher when workspace opens
@@ -132,8 +169,7 @@ export default function IdeLayout() {
       const ws = useAppStore.getState().activeWorkspace();
       if (!ws) return;
 
-      // Refresh file tree so new/deleted files show up
-      fileTreeRef.current?.refresh();
+      fileTreeRef.current?.refreshPath(changedPath);
 
       const fileEntry = ws.openFiles.find((f) => f.path === changedPath);
       if (!fileEntry) return;
@@ -143,18 +179,49 @@ export default function IdeLayout() {
       const isActive = ws.openFiles[ws.activeFileIdx]?.path === changedPath;
       if (isActive) {
         invoke<string>("read_file_content", { path: changedPath })
-          .then((content) => setFileContent(content))
+          .then((content) => {
+            fileContentCacheRef.current.set(changedPath, content);
+            setFileContent(content);
+          })
           .catch(() => {});
       }
     });
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
   }, []);
 
   // Active file
-  const activeFile = activeFileIdx >= 0 && activeFileIdx < openFiles.length ? openFiles[activeFileIdx] : null;
+  const activeFile =
+    activeFileIdx >= 0 && activeFileIdx < openFiles.length ? openFiles[activeFileIdx] : null;
 
   // File content
   const [fileContent, setFileContent] = useState<string>("");
+
+  const flushPendingFileState = useCallback(() => {
+    const pending = pendingFileStateRef.current;
+    if (!pending) return;
+    pendingFileStateRef.current = null;
+    updateFileState(pending.path, pending.state);
+  }, [updateFileState]);
+
+  useEffect(() => {
+    setLiveCursor({
+      line: activeFile?.cursorLine || undefined,
+      col: activeFile?.cursorCol || undefined,
+    });
+  }, [activeFile?.path, activeFile?.cursorLine, activeFile?.cursorCol]);
+
+  useEffect(() => {
+    flushPendingFileState();
+    return () => {
+      if (fileStateTimerRef.current) {
+        clearTimeout(fileStateTimerRef.current);
+        fileStateTimerRef.current = null;
+      }
+      flushPendingFileState();
+    };
+  }, [activeFile?.path, flushPendingFileState]);
 
   const handleSideResize = useCallback(
     (delta: number) => setSidePanelWidth(Math.max(180, Math.min(480, sidePanelWidth + delta))),
@@ -167,7 +234,8 @@ export default function IdeLayout() {
   );
 
   const handleBottomResize = useCallback(
-    (delta: number) => setBottomPanelHeight(Math.max(100, Math.min(500, bottomPanelHeight - delta))),
+    (delta: number) =>
+      setBottomPanelHeight(Math.max(100, Math.min(500, bottomPanelHeight - delta))),
     [bottomPanelHeight, setBottomPanelHeight],
   );
 
@@ -190,6 +258,7 @@ export default function IdeLayout() {
     if (!activeFile) return;
     try {
       await invoke("write_file_content", { path: activeFile.path, content });
+      fileContentCacheRef.current.set(activeFile.path, content);
       markModified(activeFile.path, false);
     } catch {}
   }
@@ -236,6 +305,18 @@ export default function IdeLayout() {
         }
         return;
       }
+      // Cmd+Shift+O — document symbol search
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "o" || e.key === "O")) {
+        e.preventDefault();
+        setSymbolSearchMode((m) => (m === "document" ? null : "document"));
+        return;
+      }
+      // Cmd+T — workspace symbol search
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "t") {
+        e.preventDefault();
+        setSymbolSearchMode((m) => (m === "workspace" ? null : "workspace"));
+        return;
+      }
       // Cmd+Shift+F — focus sidebar search with selected text
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
         e.preventDefault();
@@ -269,14 +350,29 @@ export default function IdeLayout() {
       // Cmd+O — open file
       if ((e.metaKey || e.ctrlKey) && e.key === "o") {
         e.preventDefault();
-        invoke<string[]>("open_file_dialog").then((paths) => {
-          for (const p of paths) {
-            const name = p.split("/").pop() || p;
-            openFile(p, name, false);
-          }
-          if (location.pathname !== "/") navigate("/");
-        }).catch(() => {});
+        invoke<string[]>("open_file_dialog")
+          .then((paths) => {
+            for (const p of paths) {
+              const name = p.split("/").pop() || p;
+              openFile(p, name, false);
+            }
+            if (location.pathname !== "/") navigate("/");
+          })
+          .catch(() => {});
         return;
+      }
+      // Cmd+1–9 — switch to workspace by index
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        const digit = parseInt(e.key, 10);
+        if (digit >= 1 && digit <= 9) {
+          const state = useAppStore.getState();
+          const target = state.workspaces[digit - 1];
+          if (target) {
+            e.preventDefault();
+            state.setActiveWorkspace(target.id);
+            return;
+          }
+        }
       }
       const map = loadBindings();
       if (matchesKey(e, effectiveKey("toggle_sidebar", map))) {
@@ -297,16 +393,27 @@ export default function IdeLayout() {
       setFileContent("");
       return;
     }
+    const cached = fileContentCacheRef.current.get(activeFile.path);
+    if (cached != null) {
+      setFileContent(cached);
+    } else {
+      setFileContent("");
+    }
     let cancelled = false;
     invoke<string>("read_file_content", { path: activeFile.path })
-      .then((content) => { if (!cancelled) setFileContent(content); })
+      .then((content) => {
+        fileContentCacheRef.current.set(activeFile.path, content);
+        if (!cancelled) setFileContent(content);
+      })
       .catch(() => {
         if (!cancelled) {
           setFileContent("");
           markFileDeleted(activeFile.path);
         }
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only reload when file path changes
   }, [activeFile?.path]);
 
@@ -335,10 +442,24 @@ export default function IdeLayout() {
   function getLanguage(name: string): string {
     const ext = name.split(".").pop()?.toLowerCase() || "";
     const map: Record<string, string> = {
-      js: "JavaScript", jsx: "JavaScript", ts: "TypeScript", tsx: "TypeScript",
-      py: "Python", rs: "Rust", go: "Go", html: "HTML", css: "CSS", scss: "SCSS",
-      json: "JSON", md: "Markdown", yaml: "YAML", yml: "YAML", toml: "TOML",
-      sh: "Shell", bash: "Shell", zsh: "Shell",
+      js: "JavaScript",
+      jsx: "JavaScript",
+      ts: "TypeScript",
+      tsx: "TypeScript",
+      py: "Python",
+      rs: "Rust",
+      go: "Go",
+      html: "HTML",
+      css: "CSS",
+      scss: "SCSS",
+      json: "JSON",
+      md: "Markdown",
+      yaml: "YAML",
+      yml: "YAML",
+      toml: "TOML",
+      sh: "Shell",
+      bash: "Shell",
+      zsh: "Shell",
     };
     return map[ext] || ext.toUpperCase() || "Plain Text";
   }
@@ -419,63 +540,186 @@ export default function IdeLayout() {
 
       {/* Main area */}
       <div className="ide__main">
-        <div className="ide__editor-area">
-          <TabBar
-            files={openFiles}
-            activeIdx={activeFileIdx}
-            workspacePath={workspacePath}
-            onSelect={setActiveFile}
-            onClose={handleCloseFile}
-            onCloseAll={handleCloseAllFiles}
-            onCloseOthers={handleCloseOtherFiles}
-          />
-          {isEditorActive && activeFile && (
-            <div style={{ display: "flex", alignItems: "center" }}>
-              <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
-              {activeFile.name.endsWith(".md") && (
-                <button
-                  type="button"
-                  className={`md-toggle ${mdPreview ? "md-toggle--active" : ""}`}
-                  onClick={() => setMdPreview((v) => !v)}
-                  title="Toggle Markdown Preview"
+        <div className={`ide__editor-area${splitOpen ? " ide__editor-area--split" : ""}`}>
+          {/* Primary pane */}
+          <div className="editor-pane-wrap">
+            <TabBar
+              files={openFiles}
+              activeIdx={activeFileIdx}
+              workspacePath={workspacePath}
+              onSelect={setActiveFile}
+              onClose={handleCloseFile}
+              onCloseAll={handleCloseAllFiles}
+              onCloseOthers={handleCloseOtherFiles}
+            />
+            {isEditorActive && activeFile && (
+              <div className="breadcrumbs-row">
+                <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
+                <div className="breadcrumbs-row__actions">
+                  {activeFile.name.endsWith(".md") && (
+                    <button
+                      type="button"
+                      className={`md-toggle ${mdPreview ? "md-toggle--active" : ""}`}
+                      onClick={() => setMdPreview((v) => !v)}
+                      title="Toggle Markdown Preview"
+                    >
+                      <BookOpen size={13} />
+                      Preview
+                    </button>
+                  )}
+                  {!splitOpen && (
+                    <button
+                      type="button"
+                      className="breadcrumbs-row__btn"
+                      title="Split Right"
+                      onClick={() => openFileSplit(activeFile.path, activeFile.name)}
+                    >
+                      <SplitSquareHorizontal size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              {isEditorActive ? (
+                <div
+                  className={mdPreview && activeFile.name.endsWith(".md") ? "md-split" : ""}
+                  style={{ flex: 1, display: "flex", overflow: "hidden" }}
                 >
-                  <BookOpen />
-                  Preview
-                </button>
+                  <div
+                    className="md-split__editor"
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      display: "flex",
+                      flexDirection: "column",
+                    }}
+                  >
+                    <Editor
+                      content={fileContent}
+                      filename={activeFile.name}
+                      filePath={activeFile.path}
+                      initialCursorLine={activeFile.cursorLine}
+                      initialCursorCol={activeFile.cursorCol}
+                      initialScrollTop={activeFile.scrollTop}
+                      onSave={handleFileSave}
+                      onChange={(mod) => markModified(activeFile.path, mod)}
+                      onCursorChange={(line, col, scroll) => {
+                        setLiveCursor({ line, col });
+                        pendingFileStateRef.current = {
+                          path: activeFile.path,
+                          state: {
+                            cursorLine: line,
+                            cursorCol: col,
+                            scrollTop: scroll,
+                          },
+                        };
+                        if (fileStateTimerRef.current) {
+                          clearTimeout(fileStateTimerRef.current);
+                        }
+                        fileStateTimerRef.current = setTimeout(() => {
+                          fileStateTimerRef.current = null;
+                          flushPendingFileState();
+                        }, 120);
+                      }}
+                      onNavigate={(path, line, col) => {
+                        const name = path.split("/").pop() || path;
+                        openFile(path, name, false);
+                        setTimeout(
+                          () => updateFileState(path, { cursorLine: line, cursorCol: col }),
+                          50,
+                        );
+                      }}
+                      symbolSearchMode={symbolSearchMode}
+                      onSymbolSearchClose={() => setSymbolSearchMode(null)}
+                    />
+                  </div>
+                  {mdPreview && activeFile.name.endsWith(".md") && (
+                    <div className="md-split__preview">
+                      <MarkdownPreview content={fileContent} />
+                    </div>
+                  )}
+                </div>
+              ) : workspacePath ? (
+                <div className="empty-state">
+                  <p className="empty-state__text">
+                    Select a file from the explorer to start editing
+                  </p>
+                </div>
+              ) : (
+                <Outlet />
               )}
             </div>
-          )}
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-            {isEditorActive ? (
-              <div className={mdPreview && activeFile.name.endsWith(".md") ? "md-split" : ""} style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-                <div className="md-split__editor" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                  <Editor
-                    key={activeFile.path}
-                    content={fileContent}
-                    filename={activeFile.name}
-                    filePath={activeFile.path}
-                    initialCursorLine={activeFile.cursorLine}
-                    initialCursorCol={activeFile.cursorCol}
-                    initialScrollTop={activeFile.scrollTop}
-                    onSave={handleFileSave}
-                    onChange={(mod) => markModified(activeFile.path, mod)}
-                    onCursorChange={(line, col, scroll) => updateFileState(activeFile.path, { cursorLine: line, cursorCol: col, scrollTop: scroll })}
-                  />
-                </div>
-                {mdPreview && activeFile.name.endsWith(".md") && (
-                  <div className="md-split__preview">
-                    <MarkdownPreview content={fileContent} />
-                  </div>
-                )}
-              </div>
-            ) : workspacePath ? (
-              <div className="empty-state">
-                <p className="empty-state__text">Select a file from the explorer to start editing</p>
-              </div>
-            ) : (
-              <Outlet />
-            )}
           </div>
+
+          {/* Split pane */}
+          {splitOpen &&
+            (() => {
+              const splitFile =
+                splitActiveIdx >= 0 && splitActiveIdx < splitFiles.length
+                  ? splitFiles[splitActiveIdx]
+                  : null;
+              return (
+                <>
+                  <div className="editor-split-divider" />
+                  <div className="editor-pane-wrap">
+                    <TabBar
+                      files={splitFiles}
+                      activeIdx={splitActiveIdx}
+                      workspacePath={workspacePath}
+                      onSelect={setActiveSplitFile}
+                      onClose={closeFileSplit}
+                      onCloseAll={closeSplit}
+                      onCloseOthers={(idx) => {
+                        const keep = splitFiles[idx];
+                        if (keep) {
+                          closeSplit();
+                          openFileSplit(keep.path, keep.name);
+                        }
+                      }}
+                    />
+                    {splitFile && (
+                      <div className="breadcrumbs-row">
+                        <Breadcrumbs filePath={splitFile.path} workspacePath={workspacePath} />
+                        <div className="breadcrumbs-row__actions">
+                          <button
+                            type="button"
+                            className="breadcrumbs-row__btn"
+                            title="Close Split"
+                            onClick={closeSplit}
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div
+                      style={{
+                        flex: 1,
+                        overflow: "hidden",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      {splitFile ? (
+                        <SplitEditorPane
+                          file={splitFile}
+                          workspacePath={workspacePath}
+                          onSave={async (path, content) => {
+                            await invoke("write_file_content", { path, content });
+                          }}
+                          onModified={(path, mod) => markModified(path, mod)}
+                        />
+                      ) : (
+                        <div className="empty-state">
+                          <p className="empty-state__text">Open a file to edit in split view</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
         </div>
 
         {bottomPanelOpen && (
@@ -483,15 +727,17 @@ export default function IdeLayout() {
             <PanelResizer direction="vertical" onResize={handleBottomResize} />
             <div className="ide__bottom-panel" style={{ height: bottomPanelHeight }}>
               {/* Tab bar */}
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                borderBottom: "1px solid var(--c-border)",
-                background: "var(--c-surface)",
-                flexShrink: 0,
-                height: 32,
-                paddingLeft: 8,
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  borderBottom: "1px solid var(--c-border)",
+                  background: "var(--c-surface)",
+                  flexShrink: 0,
+                  height: 32,
+                  paddingLeft: 8,
+                }}
+              >
                 {(["terminal", "problems"] as const).map((tab) => (
                   <button
                     key={tab}
@@ -501,7 +747,10 @@ export default function IdeLayout() {
                       height: "100%",
                       padding: "0 12px",
                       border: "none",
-                      borderBottom: bottomPanelTab === tab ? "2px solid var(--c-accent)" : "2px solid transparent",
+                      borderBottom:
+                        bottomPanelTab === tab
+                          ? "2px solid var(--c-accent)"
+                          : "2px solid transparent",
                       background: "transparent",
                       color: bottomPanelTab === tab ? "var(--c-fg)" : "var(--c-muted-fg)",
                       fontSize: "var(--font-size-xs)",
@@ -513,15 +762,17 @@ export default function IdeLayout() {
                     }}
                   >
                     {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    {tab === "problems" && (errorCount + warningCount) > 0 && (
-                      <span style={{
-                        fontSize: 10,
-                        background: errorCount > 0 ? "var(--c-danger)" : "var(--c-warning)",
-                        color: "#fff",
-                        borderRadius: 8,
-                        padding: "0 5px",
-                        lineHeight: "16px",
-                      }}>
+                    {tab === "problems" && errorCount + warningCount > 0 && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          background: errorCount > 0 ? "var(--c-danger)" : "var(--c-warning)",
+                          color: "#fff",
+                          borderRadius: 8,
+                          padding: "0 5px",
+                          lineHeight: "16px",
+                        }}
+                      >
                         {errorCount + warningCount}
                       </span>
                     )}
@@ -529,7 +780,15 @@ export default function IdeLayout() {
                 ))}
               </div>
               {/* Panel content */}
-              <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", height: "calc(100% - 32px)" }}>
+              <div
+                style={{
+                  flex: 1,
+                  overflow: "hidden",
+                  display: "flex",
+                  flexDirection: "column",
+                  height: "calc(100% - 32px)",
+                }}
+              >
                 {bottomPanelTab === "terminal" ? <TerminalPanel /> : <ProblemsPanel />}
               </div>
             </div>
@@ -541,7 +800,7 @@ export default function IdeLayout() {
       {aiPanelOpen && (
         <div className="ide__ai-panel" style={{ width: aiPanelWidth }}>
           <PanelResizer onResize={handleAiResize} />
-          <AiPanel />
+          <BlinkCodePanel />
         </div>
       )}
 
@@ -560,20 +819,61 @@ export default function IdeLayout() {
       )}
 
       {/* Command palette (Cmd+Shift+P) */}
-      {commandPaletteOpen && (
-        <CommandPalette onClose={() => setCommandPaletteOpen(false)} />
-      )}
+      {commandPaletteOpen && <CommandPalette onClose={() => setCommandPaletteOpen(false)} />}
 
       {/* Status bar */}
       <div className="ide__status-bar">
         <IdeStatusBar
           branch={gitBranch}
           language={activeFile ? getLanguage(activeFile.name) : undefined}
-          line={activeFile?.cursorLine || undefined}
-          col={activeFile?.cursorCol || undefined}
+          line={liveCursor.line}
+          col={liveCursor.col}
           workspaceName={workspaceName}
         />
       </div>
     </div>
+  );
+}
+
+// ── Split pane editor wrapper ──
+// Manages its own content state so it doesn't conflict with the primary pane.
+function SplitEditorPane({
+  file,
+  workspacePath: _workspacePath,
+  onSave,
+  onModified,
+}: {
+  file: { path: string; name: string; cursorLine: number; cursorCol: number; scrollTop: number };
+  workspacePath: string | null;
+  onSave: (path: string, content: string) => void;
+  onModified: (path: string, mod: boolean) => void;
+}) {
+  const [content, setContent] = useState("");
+  const savedRef = useRef(content);
+
+  useEffect(() => {
+    invoke<string>("read_file_content", { path: file.path })
+      .then((c) => {
+        setContent(c);
+        savedRef.current = c;
+      })
+      .catch(() => {});
+  }, [file.path]);
+
+  return (
+    <Editor
+      content={content}
+      filename={file.name}
+      filePath={file.path}
+      initialCursorLine={file.cursorLine}
+      initialCursorCol={file.cursorCol}
+      initialScrollTop={file.scrollTop}
+      onSave={(c) => {
+        onSave(file.path, c);
+        savedRef.current = c;
+      }}
+      onChange={(mod) => onModified(file.path, mod)}
+      onCursorChange={() => {}}
+    />
   );
 }

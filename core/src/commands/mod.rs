@@ -1,5 +1,6 @@
 pub mod ai;
 pub mod attachments;
+pub mod blink_code_bridge;
 pub mod editor;
 pub mod files;
 pub mod git;

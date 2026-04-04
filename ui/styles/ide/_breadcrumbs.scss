@@ -1,5 +1,48 @@
 @use "../mixins" as *;
 
+// Full-width row that holds breadcrumbs + right-side actions
+.breadcrumbs-row {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--c-border);
+  flex-shrink: 0;
+
+  // Breadcrumbs fills remaining space, no own border (row owns it)
+  .breadcrumbs {
+    flex: 1;
+    border-bottom: none;
+    min-width: 0;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+    flex-shrink: 0;
+  }
+
+  &__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+}
+
 .breadcrumbs {
   display: flex;
   align-items: center;

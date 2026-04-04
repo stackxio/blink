@@ -2,7 +2,7 @@
 
 AI-first code editor built on Tauri + Rust.
 
-Blink is a lightweight, cross-platform IDE with AI deeply integrated — not as an afterthought sidebar, but as a core part of the editing experience. Built by [Voxire](https://voxire.com).
+Blink is a lightweight, cross-platform IDE with AI deeply integrated into the editing experience.
 
 ## Features
 
@@ -10,7 +10,7 @@ Blink is a lightweight, cross-platform IDE with AI deeply integrated — not as 
 - **Multi-workspace** — switch between projects instantly, each with its own tabs, terminal, and state
 - **Integrated terminal** — xterm.js + PTY, per-workspace terminal sessions
 - **LSP support** — autocomplete, diagnostics, hover (TypeScript, Rust, Go, Python, and more)
-- **File explorer** — lazy-loading tree with context menu (rename, delete, new file/folder, reveal in Finder)
+- **File explorer** — lazy-loading tree with workspace navigation and file actions
 - **Cmd+P** — fuzzy file search across workspace
 - **AI providers** — bring your own: GPT/Codex, Claude, Ollama, or any OpenAI-compatible API
 - **Themes** — dark/light mode with VS Code-compatible syntax highlighting
@@ -19,18 +19,18 @@ Blink is a lightweight, cross-platform IDE with AI deeply integrated — not as 
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| Desktop | Tauri v2 |
-| Backend | Rust |
-| Frontend | React + TypeScript + Vite |
-| Styling | SCSS + CSS custom properties |
-| Editor | CodeMirror 6 |
-| Terminal | xterm.js + portable-pty |
-| LSP | Rust broker (JSON-RPC over stdio) |
-| State | Zustand |
-| Database | SQLite (rusqlite) |
-| Package manager | pnpm |
+| Layer           | Choice                            |
+| --------------- | --------------------------------- |
+| Desktop         | Tauri v2                          |
+| Backend         | Rust                              |
+| Frontend        | React + TypeScript + Vite         |
+| Styling         | SCSS + CSS custom properties      |
+| Editor          | CodeMirror 6                      |
+| Terminal        | xterm.js + portable-pty           |
+| LSP             | Rust broker (JSON-RPC over stdio) |
+| State           | Zustand                           |
+| Database        | SQLite (rusqlite)                 |
+| Package manager | Bun                               |
 
 ## Project Structure
 
@@ -40,8 +40,9 @@ blink/
 │   ├── ide/               # IDE components (editor, file tree, terminal, tabs, etc.)
 │   ├── components/        # Shared UI components
 │   ├── features/          # Settings pages
-│   ├── stores/            # Zustand stores (app, workspace)
+│   ├── overlays/          # Settings and extension overlays
 │   ├── styles/            # SCSS (variables, mixins, themes, components, IDE layout)
+│   ├── store.ts           # Zustand app/workspace state
 │   ├── App.tsx
 │   └── main.tsx
 ├── core/                  # Rust/Tauri backend
@@ -57,6 +58,7 @@ blink/
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── ROADMAP.md
+├── Makefile
 ├── package.json
 └── vite.config.ts
 ```
@@ -66,32 +68,34 @@ blink/
 ### Prerequisites
 
 - [Rust](https://www.rust-lang.org/tools/install)
-- [Node.js](https://nodejs.org/) (v18+)
-- [pnpm](https://pnpm.io/)
+- [Bun](https://bun.sh/)
 
 ### Install & Run
 
 ```bash
-pnpm install
-pnpm app
+bun install
+bun run hooks:install
+bun run app
 ```
 
 ### Build
 
 ```bash
-pnpm app:build
+bun run app:build
 ```
 
 ### Scripts
 
 ```bash
-pnpm app           # Dev mode (Vite + Tauri)
-pnpm app:build      # Production build
-pnpm dev            # Vite dev server only
-pnpm typecheck      # TypeScript check
-pnpm lint           # ESLint
-pnpm format         # Prettier
-pnpm db:reset       # Reset local database
+bun run app        # Dev mode (Vite + Tauri)
+bun run app:build  # Production build
+bun run dev        # Vite dev server only
+bun run typecheck  # TypeScript check
+bun run lint       # ESLint
+bun run format     # Prettier + cargo fmt
+bun run format:rust # cargo fmt for the Rust core
+make check          # Format checks + typecheck + Rust check
+bun run db:reset   # Reset local database
 ```
 
 ### Data
@@ -101,17 +105,13 @@ pnpm db:reset       # Reset local database
 
 ## AI Providers
 
-| Provider | Description |
-|---|---|
-| **GPT** | Codex / OpenAI models |
-| **Claude** | Anthropic Claude |
+| Provider   | Description                |
+| ---------- | -------------------------- |
+| **GPT**    | Codex / OpenAI models      |
+| **Claude** | Anthropic Claude           |
 | **Ollama** | Local models (Llama, etc.) |
-| **Custom** | Any OpenAI-compatible API |
+| **Custom** | Any OpenAI-compatible API  |
 
 ## Windows Support
 
 Windows support is planned for a future release. Blink currently targets macOS as the primary platform. Windows builds will include native window chrome, proper path handling, and platform-specific shell detection for the integrated terminal. Track progress in the [roadmap](ROADMAP.md).
-
-## License
-
-Proprietary — Voxire

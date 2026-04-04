@@ -1,15 +1,14 @@
 #![allow(dead_code)]
 
-use tauri::menu::{AboutMetadataBuilder, MenuBuilder, SubmenuBuilder};
+use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
 use tauri::Manager;
 
 mod commands;
 mod connectors;
 mod db;
 pub mod lsp;
-pub mod providers;
 mod scope;
-pub mod services;
+mod services;
 mod settings;
 pub mod tools;
 
@@ -92,6 +91,13 @@ pub fn run() {
                 .text("explorer", "Explorer")
                 .text("search", "Search")
                 .text("source_control", "Source Control")
+                .separator()
+                .item(
+                    &MenuItemBuilder::new("Inspect")
+                        .id("inspect")
+                        .accelerator("Alt+CmdOrCtrl+I")
+                        .build(app)?,
+                )
                 .build()?;
 
             let window_menu = SubmenuBuilder::new(app, "Window")
@@ -135,6 +141,14 @@ pub fn run() {
                         "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('blink:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),
                         "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('blink:check-updates'))"),
+                        "inspect" => {
+                            if window.is_devtools_open() {
+                                window.close_devtools();
+                            } else {
+                                window.open_devtools();
+                            }
+                            Ok(())
+                        }
                         _ => Ok(()),
                     };
                 }
@@ -142,11 +156,10 @@ pub fn run() {
 
             let conn = db::init::init_db().expect("Failed to initialize database");
             app.manage(std::sync::Mutex::new(conn));
-            app.manage(commands::ai::create_stream_sessions());
-            app.manage(commands::ai::create_codex_state());
             app.manage(commands::terminal::create_terminal_state());
             app.manage(std::sync::Mutex::new(commands::watcher::WatcherState::new()));
             app.manage(lsp::manager::create_lsp_state());
+            app.manage(commands::blink_code_bridge::bridge_state());
             settings::prompts::ensure_defaults();
             Ok(())
         })
@@ -158,13 +171,7 @@ pub fn run() {
             commands::mcp::list_mcp_servers,
             commands::mcp::add_mcp_server,
             commands::mcp::remove_mcp_server,
-            commands::ai::chat,
-            commands::ai::chat_stream,
-            commands::ai::cancel_stream,
-            commands::ai::list_ollama_models,
-            commands::files::summarize_folder,
-            commands::files::organize_downloads,
-            commands::files::rename_file_with_ai,
+            commands::files::get_home_dir,
             commands::attachments::attach_files,
             commands::attachments::list_attachments,
             commands::attachments::read_attachment_preview,
@@ -237,15 +244,21 @@ pub fn run() {
             commands::git::git_stage,
             commands::git::git_unstage,
             commands::git::git_commit,
+            commands::git::git_generate_commit_message,
             commands::git::git_checkout_branch,
             commands::git::git_push,
             commands::git::git_pull,
             commands::git::git_create_branch,
             commands::git::git_blame_line,
+            commands::git::git_show,
             commands::watcher::start_watching,
             commands::watcher::stop_watching,
             commands::tools::tool_list,
             commands::tools::tool_execute,
+            commands::blink_code_bridge::blink_code_bridge_start,
+            commands::blink_code_bridge::blink_code_bridge_start_with_init,
+            commands::blink_code_bridge::blink_code_bridge_send,
+            commands::blink_code_bridge::blink_code_bridge_stop,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

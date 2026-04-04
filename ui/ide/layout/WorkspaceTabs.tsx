@@ -12,7 +12,9 @@ interface RecentWorkspace {
 function getRecentWorkspaces(): RecentWorkspace[] {
   try {
     return JSON.parse(localStorage.getItem("blink:recent-workspaces") || "[]");
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 function addToRecent(path: string, name: string) {
@@ -26,17 +28,70 @@ function removeFromRecent(path: string) {
   localStorage.setItem("blink:recent-workspaces", JSON.stringify(recent));
 }
 
-function getDisplayName(ws: Workspace, all: Workspace[]): string {
-  const dupes = all.filter((w) => w.name === ws.name);
-  if (dupes.length <= 1) return ws.name;
+function getDisplayName(ws: Workspace, all: Workspace[]) {
+  const duplicates = all.filter((entry) => entry.name === ws.name).length;
   const parts = ws.path.split("/");
   const parent = parts.length >= 2 ? parts[parts.length - 2] : "";
-  return parent ? `${ws.name} (${parent})` : ws.name;
+  return duplicates > 1 && parent ? `${ws.name} (${parent})` : ws.name;
+}
+
+function WorkspaceTabButton({
+  workspace,
+  displayName,
+  active,
+  showClose,
+}: {
+  workspace: Workspace;
+  displayName: string;
+  active: boolean;
+  showClose: boolean;
+}) {
+  const setActiveWorkspace = useAppStore((s) => s.setActiveWorkspace);
+  const removeWorkspace = useAppStore((s) => s.removeWorkspace);
+  const modifiedFiles = workspace.openFiles.filter((file) => file.modified);
+  const modifiedCount = modifiedFiles.length;
+
+  return (
+    <button
+      type="button"
+      className={`workspace-tabs__tab ${active ? "workspace-tabs__tab--active" : ""}`}
+      onClick={() => setActiveWorkspace(workspace.id)}
+      title={workspace.path}
+    >
+      {displayName}
+      {showClose && (
+        <span
+          className="workspace-tabs__close"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (modifiedCount > 0) {
+              const msg =
+                modifiedCount === 1
+                  ? `"${modifiedFiles[0].name}" has unsaved changes. Close workspace anyway?`
+                  : `${modifiedCount} files have unsaved changes. Close workspace anyway?`;
+              if (!confirm(msg)) return;
+            }
+            removeWorkspace(workspace.id);
+          }}
+        >
+          <X />
+        </span>
+      )}
+    </button>
+  );
 }
 
 export default function WorkspaceTabs() {
-  const { workspaces, activeWorkspaceId, setActiveWorkspace, removeWorkspace, addWorkspace } =
-    useAppStore();
+  const workspaces = useAppStore((s) => s.workspaces);
+  const workspaceRecentKey = useAppStore(
+    (s) => s.workspaces.map((ws) => `${ws.path}::${ws.name}`).join("|"),
+  );
+  const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
+  const addWorkspace = useAppStore((s) => s.addWorkspace);
+  const workspaceIds = workspaces.map((ws) => ws.id);
+  const workspacePaths = workspaces.map((ws) => ws.path);
+  const workspaceNamesByPath = Object.fromEntries(workspaces.map((ws) => [ws.path, ws.name]));
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [recentFilter, setRecentFilter] = useState("");
   const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0 });
@@ -44,18 +99,21 @@ export default function WorkspaceTabs() {
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Track opens in recent history
   useEffect(() => {
-    workspaces.forEach((ws) => {
-      if (ws.path) addToRecent(ws.path, ws.name);
-    });
-  }, [workspaces]);
+    if (!workspaceRecentKey) return;
+    for (const path of workspacePaths) {
+      if (path) {
+        addToRecent(path, workspaceNamesByPath[path] || path.split("/").pop() || path);
+      }
+    }
+  }, [workspaceNamesByPath, workspacePaths, workspaceRecentKey]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!dropdownOpen) return;
     function onClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setDropdownOpen(false);
@@ -72,7 +130,7 @@ export default function WorkspaceTabs() {
 
   useEffect(() => {
     if (dropdownOpen) {
-      setRecentFilter(""); // eslint-disable-line react-hooks/set-state-in-effect -- reset filter when dropdown opens
+      setRecentFilter("");
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [dropdownOpen]);
@@ -93,31 +151,26 @@ export default function WorkspaceTabs() {
     addWorkspace(path, name);
   }
 
-  const openPaths = new Set(workspaces.map((w) => w.path));
+  const openPaths = new Set(workspacePaths);
   const recent = getRecentWorkspaces()
     .filter((r) => !openPaths.has(r.path))
-    .filter((r) => !recentFilter || r.name.toLowerCase().includes(recentFilter.toLowerCase()) || r.path.toLowerCase().includes(recentFilter.toLowerCase()));
+    .filter(
+      (r) =>
+        !recentFilter ||
+        r.name.toLowerCase().includes(recentFilter.toLowerCase()) ||
+        r.path.toLowerCase().includes(recentFilter.toLowerCase()),
+    );
 
   return (
     <div className="workspace-tabs">
-      {workspaces.map((ws) => (
-        <button
-          key={ws.id}
-          type="button"
-          className={`workspace-tabs__tab ${ws.id === activeWorkspaceId ? "workspace-tabs__tab--active" : ""}`}
-          onClick={() => setActiveWorkspace(ws.id)}
-          title={ws.path}
-        >
-          {getDisplayName(ws, workspaces)}
-          {workspaces.length > 1 && (
-            <span
-              className="workspace-tabs__close"
-              onClick={(e) => { e.stopPropagation(); removeWorkspace(ws.id); }}
-            >
-              <X />
-            </span>
-          )}
-        </button>
+      {workspaces.map((workspace) => (
+        <WorkspaceTabButton
+          key={workspace.id}
+          workspace={workspace}
+          displayName={getDisplayName(workspace, workspaces)}
+          active={workspace.id === activeWorkspaceId}
+          showClose={workspaceIds.length > 1}
+        />
       ))}
 
       <div className="workspace-tabs__dropdown-wrapper">
@@ -138,7 +191,11 @@ export default function WorkspaceTabs() {
         </button>
 
         {dropdownOpen && (
-          <div ref={dropdownRef} className="workspace-tabs__dropdown" style={{ top: dropdownPos.top, left: dropdownPos.left }}>
+          <div
+            ref={dropdownRef}
+            className="workspace-tabs__dropdown"
+            style={{ top: dropdownPos.top, left: dropdownPos.left }}
+          >
             <div className="menu__search">
               <input
                 ref={inputRef}
@@ -171,10 +228,17 @@ export default function WorkspaceTabs() {
                       onClick={() => handleSelectRecent(r.path, r.name)}
                     >
                       <span className="workspace-tabs__recent-name">{r.name}</span>
-                      <span className="workspace-tabs__recent-path">{r.path.replace(/\/[^/]+$/, "")}</span>
+                      <span className="workspace-tabs__recent-path">
+                        {r.path.replace(/\/[^/]+$/, "")}
+                      </span>
                       <span
                         className="workspace-tabs__recent-remove"
-                        onClick={(e) => { e.stopPropagation(); removeFromRecent(r.path); setDropdownOpen(false); setTimeout(() => setDropdownOpen(true), 0); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromRecent(r.path);
+                          setDropdownOpen(false);
+                          setTimeout(() => setDropdownOpen(true), 0);
+                        }}
                         title="Remove from recent"
                       >
                         <X size={12} />

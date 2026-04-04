@@ -1,0 +1,171 @@
+import type { BlinkMessage, BlinkToolCall, ChatProvider } from "./types";
+
+type ProviderOpts = {
+  model: string;
+  baseUrl: string;
+  apiKey: string;
+  maxTokens: number;
+};
+
+function openAiMessages(system: string, messages: BlinkMessage[]): unknown[] {
+  const out: unknown[] = [{ role: "system", content: system }];
+  for (const m of messages) {
+    if (m.role === "user") out.push({ role: "user", content: m.content });
+    else if (m.role === "assistant") {
+      const entry: Record<string, unknown> = {
+        role: "assistant",
+        // Some endpoints reject null content — coerce to empty string
+        content: m.content ?? "",
+      };
+      if (m.tool_calls?.length) entry.tool_calls = m.tool_calls;
+      out.push(entry);
+    } else {
+      out.push({
+        role: "tool",
+        tool_call_id: m.tool_call_id,
+        content: m.content,
+      });
+    }
+  }
+  return out;
+}
+
+function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/+$/, "");
+}
+
+export function createOpenAICompatProvider(opts: ProviderOpts): ChatProvider {
+  const { model, apiKey, maxTokens } = opts;
+  const base = normalizeBaseUrl(opts.baseUrl);
+
+  return {
+    async *streamTurn(input) {
+      const { system, messages, tools, signal } = input;
+      const url = `${base}/chat/completions`;
+
+      const doFetch = (includeTools: boolean) =>
+        fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            stream: true,
+            max_tokens: maxTokens,
+            messages: openAiMessages(system, messages),
+            tools: includeTools && tools.length ? tools : undefined,
+          }),
+          signal,
+        });
+
+      let res = await doFetch(true);
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => res.statusText);
+        // Some models don't support tool calling — retry without tools
+        if (tools.length > 0 && errText.toLowerCase().includes("does not support tools")) {
+          res = await doFetch(false);
+          if (!res.ok) {
+            const errText2 = await res.text().catch(() => res.statusText);
+            yield {
+              kind: "error",
+              error: `Request failed (${res.status}): ${errText2.slice(0, 500)}`,
+            };
+            return;
+          }
+        } else {
+          yield {
+            kind: "error",
+            error: `Request failed (${res.status}): ${errText.slice(0, 500)}`,
+          };
+          return;
+        }
+      }
+
+      if (!res.body) {
+        yield {
+          kind: "assistant",
+          message: { content: "(empty response body)", tool_calls: undefined },
+        };
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+      const acc = new Map<number, { id: string; name: string; args: string }>();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("data:")) continue;
+          const data = trimmed.slice(5).trim();
+          if (data === "[DONE]") continue;
+          let json: {
+            choices?: Array<{
+              delta?: {
+                content?: string;
+                tool_calls?: Array<{
+                  index?: number;
+                  id?: string;
+                  function?: { name?: string; arguments?: string };
+                }>;
+              };
+            }>;
+          };
+          try {
+            json = JSON.parse(data) as typeof json;
+          } catch {
+            continue;
+          }
+          const delta = json.choices?.[0]?.delta;
+          if (delta?.content) {
+            fullText += delta.content;
+            yield { kind: "text", delta: delta.content };
+          }
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index ?? 0;
+              let slot = acc.get(idx);
+              if (!slot) {
+                slot = { id: "", name: "", args: "" };
+                acc.set(idx, slot);
+              }
+              if (tc.id) slot.id += tc.id;
+              if (tc.function?.name) slot.name += tc.function.name;
+              if (tc.function?.arguments) slot.args += tc.function.arguments;
+            }
+          }
+        }
+      }
+
+      const tool_calls: BlinkToolCall[] = [];
+      const indices = [...acc.keys()].sort((a, b) => a - b);
+      for (const idx of indices) {
+        const v = acc.get(idx);
+        if (!v?.name) continue;
+        tool_calls.push({
+          id: v.id || `toolu_${crypto.randomUUID()}`,
+          type: "function",
+          function: { name: v.name, arguments: v.args },
+        });
+      }
+
+      yield {
+        kind: "assistant",
+        message: {
+          content: fullText || null,
+          tool_calls: tool_calls.length ? tool_calls : undefined,
+        },
+      };
+    },
+  };
+}

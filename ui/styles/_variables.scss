@@ -21,7 +21,7 @@
   --c-ring: var(--c-accent);
 
   // Accents
-  --c-accent: #64C5B9;
+  --c-accent: #64c5b9;
   --c-accent-fg: #fff;
   --c-danger: oklch(0.577 0.245 27.325);
   --c-danger-fg: #fff;
@@ -51,6 +51,27 @@
   --status-bar-h: 24px;
   --tab-bar-h: 36px;
   --titlebar-h: 34px;
+
+  // ── Syntax highlighting tokens (editor) ──
+  --hl-keyword: #c586c0;
+  --hl-type: #4ec9b0;
+  --hl-function: #dcdcaa;
+  --hl-variable: #9cdcfe;
+  --hl-property: #9cdcfe;
+  --hl-string: #ce9178;
+  --hl-string-special: #d7ba7d;
+  --hl-number: #b5cea8;
+  --hl-builtin: #569cd6;
+  --hl-comment: #6a9955;
+  --hl-punctuation: #d4d4d4;
+  --hl-tag: #569cd6;
+  --hl-attr-name: #9cdcfe;
+  --hl-attr-value: #ce9178;
+  --hl-regexp: #d16969;
+  --hl-meta: #569cd6;
+  --hl-constant: #4fc1ff;
+  --hl-heading: #569cd6;
+  --hl-link: #569cd6;
 
   // Transitions
   --transition-fast: 100ms ease;

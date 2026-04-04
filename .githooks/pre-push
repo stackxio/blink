@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+echo "[pre-push] Running formatters..."
+bun run format
+
+if ! git diff --quiet --exit-code; then
+  echo "[pre-push] Formatting changed files."
+  echo "[pre-push] Review and stage the updated files, then push again."
+  git status --short
+  exit 1
+fi
+
+echo "[pre-push] Building frontend..."
+bun run build
+
+echo "[pre-push] Building Rust core..."
+cargo build --manifest-path core/Cargo.toml
+
+echo "[pre-push] Checks passed."

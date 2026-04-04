@@ -24,7 +24,12 @@ export default function Titlebar() {
         >
           <Sparkles size={14} />
         </button>
-        <button type="button" className="titlebar__action" title="Settings" onClick={() => navigate("/settings")}>
+        <button
+          type="button"
+          className="titlebar__action"
+          title="Settings"
+          onClick={() => navigate("/settings")}
+        >
           <Settings size={14} />
         </button>
       </div>

@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
-    "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build"
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build"
   },
   "app": {
     "windows": [
@@ -22,9 +22,7 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "windowEffects": {
-          "effects": [
-            "sidebar"
-          ],
+          "effects": ["sidebar"],
           "state": "followsWindowActiveState"
         }
       }
@@ -36,9 +34,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://github.com/stackxio/blink/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/stackxio/blink/releases/latest/download/latest.json"],
       "dialog": false,
       "pubkey": ""
     }

@@ -15,10 +15,10 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const ws = useAppStore((s) => s.activeWorkspace());
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
-  const diagnostics = useAppStore((s) => s.diagnostics);
+  const diagnosticSummary = useAppStore((s) => s.diagnosticSummary);
   const bottomPanelOpen = ws?.bottomPanelOpen ?? false;
-  const errorCount = Object.values(diagnostics).flat().filter((d) => d.severity === 1).length;
-  const warningCount = Object.values(diagnostics).flat().filter((d) => d.severity === 2).length;
+  const errorCount = diagnosticSummary.errors;
+  const warningCount = diagnosticSummary.warnings;
 
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("blink:wordWrap") === "true");
   const [tabSize] = useState(() => parseInt(localStorage.getItem("blink:tabSize") || "2", 10));
@@ -33,13 +33,17 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
     setWordWrap(next);
     localStorage.setItem("blink:wordWrap", String(next));
     // Dispatch a storage event so the editor can react to the change
-    window.dispatchEvent(new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(next) }));
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(next) }),
+    );
   }, [wordWrap]);
 
   // Load branches when picker opens
   useEffect(() => {
     if (!branchPickerOpen || !ws?.path) return;
-    invoke<string[]>("git_branches", { path: ws.path }).then(setBranches).catch(() => setBranches([]));
+    invoke<string[]>("git_branches", { path: ws.path })
+      .then(setBranches)
+      .catch(() => setBranches([]));
   }, [branchPickerOpen, ws?.path]);
 
   // Close branch picker on outside click
@@ -118,9 +122,20 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
                     placeholder="New branch name…"
                     value={newBranchInput}
                     onChange={(e) => setNewBranchInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") handleCreateBranch(); if (e.key === "Escape") { setBranchPickerOpen(false); setNewBranchInput(""); } }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleCreateBranch();
+                      if (e.key === "Escape") {
+                        setBranchPickerOpen(false);
+                        setNewBranchInput("");
+                      }
+                    }}
                   />
-                  <button type="button" className="btn btn--default btn--icon btn--sm" onClick={handleCreateBranch} disabled={!newBranchInput.trim()}>
+                  <button
+                    type="button"
+                    className="btn btn--default btn--icon btn--sm"
+                    onClick={handleCreateBranch}
+                    disabled={!newBranchInput.trim()}
+                  >
                     <Plus size={13} />
                   </button>
                 </div>
@@ -132,7 +147,10 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
           type="button"
           className="status-bar__item"
           style={errorCount > 0 ? { color: "var(--c-danger)" } : undefined}
-          onClick={() => { setBottomPanelTab("problems"); if (!bottomPanelOpen) toggleBottomPanel(); }}
+          onClick={() => {
+            setBottomPanelTab("problems");
+            if (!bottomPanelOpen) toggleBottomPanel();
+          }}
           title="Errors"
         >
           <AlertCircle size={12} />
@@ -142,7 +160,10 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
           type="button"
           className="status-bar__item"
           style={warningCount > 0 ? { color: "var(--c-warning)" } : undefined}
-          onClick={() => { setBottomPanelTab("problems"); if (!bottomPanelOpen) toggleBottomPanel(); }}
+          onClick={() => {
+            setBottomPanelTab("problems");
+            if (!bottomPanelOpen) toggleBottomPanel();
+          }}
           title="Warnings"
         >
           <AlertTriangle size={12} />

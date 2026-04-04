@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronRight, File, Folder, FolderOpen, FolderPlus } from "lucide-react";
+import { ChevronRight, FolderPlus } from "lucide-react";
+import { ExplorerIcon } from "./explorer-icons";
 
 interface DirEntry {
   name: string;
@@ -32,7 +33,9 @@ function loadExpandedDirs(rootPath: string): Set<string> {
   try {
     const stored = localStorage.getItem(`blink:expanded:${rootPath}`);
     return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch { return new Set(); }
+  } catch {
+    return new Set();
+  }
 }
 
 function saveExpandedDirs(rootPath: string, dirs: Set<string>) {
@@ -42,17 +45,70 @@ function saveExpandedDirs(rootPath: string, dirs: Set<string>) {
 export interface FileTreeHandle {
   collapseAll: () => void;
   refresh: () => void;
+  refreshPath: (path: string) => void;
 }
 
-const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath, onOpenFolder, onFileSelect, activeFilePath }, ref) {
+function cloneAtPath(
+  nodes: TreeNode[],
+  path: number[],
+  updater: (node: TreeNode) => TreeNode,
+): TreeNode[] {
+  if (path.length === 0) return nodes;
+  const next = [...nodes];
+  const [head, ...rest] = path;
+  const target = next[head];
+  if (!target) return nodes;
+  next[head] =
+    rest.length === 0
+      ? updater(target)
+      : {
+          ...target,
+          children: target.children ? cloneAtPath(target.children, rest, updater) : target.children,
+        };
+  return next;
+}
+
+function findNodePath(
+  nodes: TreeNode[],
+  targetPath: string,
+  parentPath: number[] = [],
+): number[] | null {
+  for (let i = 0; i < nodes.length; i += 1) {
+    const node = nodes[i];
+    const nextPath = [...parentPath, i];
+    if (node.path === targetPath) return nextPath;
+    if (node.children) {
+      const nested = findNodePath(node.children, targetPath, nextPath);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function parentDirectory(path: string) {
+  const idx = path.lastIndexOf("/");
+  return idx > 0 ? path.slice(0, idx) : path;
+}
+
+const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
+  { rootPath, onOpenFolder, onFileSelect, activeFilePath },
+  ref,
+) {
   const [tree, setTree] = useState<TreeNode[]>([]);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ path: string; name: string } | null>(null);
-  const [creating, setCreating] = useState<{ parentPath: string; type: "file" | "dir" } | null>(null);
+  const [creating, setCreating] = useState<{ parentPath: string; type: "file" | "dir" } | null>(
+    null,
+  );
   const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bgMenuRef = useRef<HTMLDivElement>(null);
   const expandedRef = useRef<Set<string>>(new Set());
+  const treeRef = useRef<TreeNode[]>([]);
+
+  useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
 
   async function loadDir(path: string): Promise<TreeNode[]> {
     const entries = await invoke<DirEntry[]>("read_dir", { path });
@@ -90,20 +146,51 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
       expandedRef.current.clear();
       if (rootPath) {
         saveExpandedDirs(rootPath, expandedRef.current);
-        loadDir(rootPath).then(setTree).catch(() => setTree([]));
+        loadDir(rootPath)
+          .then(setTree)
+          .catch(() => setTree([]));
       }
     },
     refresh: () => {
       if (rootPath) {
-        loadDirRecursive(rootPath, expandedRef.current).then(setTree).catch(() => {});
+        loadDirRecursive(rootPath, expandedRef.current)
+          .then(setTree)
+          .catch(() => {});
       }
+    },
+    refreshPath: (path: string) => {
+      if (!rootPath) return;
+      const dirPath = path === rootPath ? rootPath : parentDirectory(path);
+      if (dirPath === rootPath) {
+        loadDirRecursive(rootPath, expandedRef.current)
+          .then(setTree)
+          .catch(() => {});
+        return;
+      }
+      const targetPath = findNodePath(treeRef.current, dirPath);
+      if (!targetPath) return;
+      loadDir(dirPath)
+        .then((children) => {
+          setTree((prev) =>
+            cloneAtPath(prev, targetPath, (node) => ({
+              ...node,
+              children,
+            })),
+          );
+        })
+        .catch(() => {});
     },
   }));
 
   useEffect(() => {
-    if (!rootPath) { setTree([]); return; }
+    if (!rootPath) {
+      setTree([]);
+      return;
+    }
     expandedRef.current = loadExpandedDirs(rootPath);
-    loadDirRecursive(rootPath, expandedRef.current).then(setTree).catch(() => setTree([]));
+    loadDirRecursive(rootPath, expandedRef.current)
+      .then(setTree)
+      .catch(() => setTree([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDirRecursive is stable within the component
   }, [rootPath]);
 
@@ -146,39 +233,37 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
   }, [ctxMenu]);
 
   function refreshTree() {
-    if (rootPath) loadDir(rootPath).then(setTree).catch(() => setTree([]));
+    if (rootPath)
+      loadDirRecursive(rootPath, expandedRef.current)
+        .then(setTree)
+        .catch(() => setTree([]));
   }
 
-  const toggleDir = useCallback(async (node: TreeNode, path: number[]) => {
-    const willExpand = !node.expanded;
+  const toggleDir = useCallback(
+    async (node: TreeNode, path: number[]) => {
+      const willExpand = !node.expanded;
 
-    // Persist expanded state
-    if (rootPath) {
-      if (willExpand) expandedRef.current.add(node.path);
-      else expandedRef.current.delete(node.path);
-      saveExpandedDirs(rootPath, expandedRef.current);
-    }
+      // Persist expanded state
+      if (rootPath) {
+        if (willExpand) expandedRef.current.add(node.path);
+        else expandedRef.current.delete(node.path);
+        saveExpandedDirs(rootPath, expandedRef.current);
+      }
 
-    setTree((prev) => {
-      const next = structuredClone(prev);
-      let target = next as TreeNode[];
-      for (let i = 0; i < path.length - 1; i++) target = target[path[i]].children!;
-      target[path[path.length - 1]].expanded = willExpand;
-      return next;
-    });
-    if (willExpand && node.children === null) {
-      try {
-        const children = await loadDir(node.path);
-        setTree((prev) => {
-          const next = structuredClone(prev);
-          let target = next as TreeNode[];
-          for (let i = 0; i < path.length - 1; i++) target = target[path[i]].children!;
-          target[path[path.length - 1]].children = children;
-          return next;
-        });
-      } catch {}
-    }
-  }, [rootPath]);
+      setTree((prev) => {
+        return cloneAtPath(prev, path, (current) => ({ ...current, expanded: willExpand }));
+      });
+      if (willExpand && node.children === null) {
+        try {
+          const children = await loadDir(node.path);
+          setTree((prev) => {
+            return cloneAtPath(prev, path, (current) => ({ ...current, children }));
+          });
+        } catch {}
+      }
+    },
+    [rootPath],
+  );
 
   // ── Context menu actions ──
   async function handleRevealInFinder() {
@@ -219,20 +304,27 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
 
   function handleNewFile() {
     if (!ctxMenu) return;
-    const parentPath = ctxMenu.node.is_dir ? ctxMenu.node.path : ctxMenu.node.path.replace(/\/[^/]+$/, "");
+    const parentPath = ctxMenu.node.is_dir
+      ? ctxMenu.node.path
+      : ctxMenu.node.path.replace(/\/[^/]+$/, "");
     setCreating({ parentPath, type: "file" });
     setCtxMenu(null);
   }
 
   function handleNewFolder() {
     if (!ctxMenu) return;
-    const parentPath = ctxMenu.node.is_dir ? ctxMenu.node.path : ctxMenu.node.path.replace(/\/[^/]+$/, "");
+    const parentPath = ctxMenu.node.is_dir
+      ? ctxMenu.node.path
+      : ctxMenu.node.path.replace(/\/[^/]+$/, "");
     setCreating({ parentPath, type: "dir" });
     setCtxMenu(null);
   }
 
   async function handleRenameSubmit(newName: string) {
-    if (!renaming || !newName.trim()) { setRenaming(null); return; }
+    if (!renaming || !newName.trim()) {
+      setRenaming(null);
+      return;
+    }
     try {
       await invoke("rename_path", { oldPath: renaming.path, newName: newName.trim() });
       refreshTree();
@@ -241,7 +333,10 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
   }
 
   async function handleCreateSubmit(name: string) {
-    if (!creating || !name.trim()) { setCreating(null); return; }
+    if (!creating || !name.trim()) {
+      setCreating(null);
+      return;
+    }
     const fullPath = `${creating.parentPath}/${name.trim()}`;
     try {
       if (creating.type === "file") {
@@ -297,6 +392,44 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
     setBgMenu(null);
   }
 
+  async function handleMove(srcPath: string, destDir: string) {
+    const name = srcPath.split("/").pop() || srcPath;
+    const destPath = `${destDir}/${name}`;
+    try {
+      await invoke("rename_path", { oldPath: srcPath, newPath: destPath });
+      if (rootPath) {
+        const sourceDir = parentDirectory(srcPath);
+        if (sourceDir === destDir) {
+          if (sourceDir === rootPath) {
+            loadDirRecursive(rootPath, expandedRef.current)
+              .then(setTree)
+              .catch(() => {});
+          } else {
+            const targetPath = findNodePath(treeRef.current, sourceDir);
+            if (!targetPath) {
+              refreshTree();
+              return;
+            }
+            loadDir(sourceDir)
+              .then((children) => {
+                setTree((prev) =>
+                  cloneAtPath(prev, targetPath, (node) => ({
+                    ...node,
+                    children,
+                  })),
+                );
+              })
+              .catch(() => {});
+          }
+        } else {
+          refreshTree();
+        }
+      }
+    } catch (e) {
+      console.error("Move failed:", e);
+    }
+  }
+
   return (
     <div className="file-tree" onContextMenu={handleBgContextMenu}>
       <TreeItems
@@ -306,37 +439,71 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
         onToggle={toggleDir}
         onFileSelect={onFileSelect}
         activeFilePath={activeFilePath}
-        onContextMenu={(e, node) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, node }); }}
+        onContextMenu={(e, node) => {
+          e.preventDefault();
+          setCtxMenu({ x: e.clientX, y: e.clientY, node });
+        }}
         renaming={renaming}
         onRenameSubmit={handleRenameSubmit}
         creating={creating}
         onCreateSubmit={handleCreateSubmit}
+        onMove={handleMove}
       />
 
       {/* Context menu */}
       {ctxMenu && (
-        <div ref={menuRef} className="menu" style={{ position: "fixed", left: ctxMenu.x, top: ctxMenu.y, zIndex: 200 }}>
-          <button type="button" className="menu__item" onClick={handleRevealInFinder}>Reveal in Finder</button>
+        <div
+          ref={menuRef}
+          className="menu"
+          style={{ position: "fixed", left: ctxMenu.x, top: ctxMenu.y, zIndex: 200 }}
+        >
+          <button type="button" className="menu__item" onClick={handleRevealInFinder}>
+            Reveal in Finder
+          </button>
           <div className="menu__separator" />
-          <button type="button" className="menu__item" onClick={handleNewFile}>New File</button>
-          <button type="button" className="menu__item" onClick={handleNewFolder}>New Folder</button>
+          <button type="button" className="menu__item" onClick={handleNewFile}>
+            New File
+          </button>
+          <button type="button" className="menu__item" onClick={handleNewFolder}>
+            New Folder
+          </button>
           <div className="menu__separator" />
-          <button type="button" className="menu__item" onClick={handleCopyPath}>Copy Path</button>
-          <button type="button" className="menu__item" onClick={handleCopyRelativePath}>Copy Relative Path</button>
+          <button type="button" className="menu__item" onClick={handleCopyPath}>
+            Copy Path
+          </button>
+          <button type="button" className="menu__item" onClick={handleCopyRelativePath}>
+            Copy Relative Path
+          </button>
           <div className="menu__separator" />
-          <button type="button" className="menu__item" onClick={handleStartRename}>Rename…</button>
-          <button type="button" className="menu__item menu__item--danger" onClick={handleDelete}>Delete</button>
+          <button type="button" className="menu__item" onClick={handleStartRename}>
+            Rename…
+          </button>
+          <button type="button" className="menu__item menu__item--danger" onClick={handleDelete}>
+            Delete
+          </button>
         </div>
       )}
 
       {/* Background context menu (right-click empty space) */}
       {bgMenu && (
-        <div ref={bgMenuRef} className="menu" style={{ position: "fixed", left: bgMenu.x, top: bgMenu.y, zIndex: 200 }}>
-          <button type="button" className="menu__item" onClick={handleBgNewFile}>New File</button>
-          <button type="button" className="menu__item" onClick={handleBgNewFolder}>New Folder</button>
+        <div
+          ref={bgMenuRef}
+          className="menu"
+          style={{ position: "fixed", left: bgMenu.x, top: bgMenu.y, zIndex: 200 }}
+        >
+          <button type="button" className="menu__item" onClick={handleBgNewFile}>
+            New File
+          </button>
+          <button type="button" className="menu__item" onClick={handleBgNewFolder}>
+            New Folder
+          </button>
           <div className="menu__separator" />
-          <button type="button" className="menu__item" onClick={handleBgRevealInFinder}>Reveal in Finder</button>
-          <button type="button" className="menu__item" onClick={handleBgCopyPath}>Copy Path</button>
+          <button type="button" className="menu__item" onClick={handleBgRevealInFinder}>
+            Reveal in Finder
+          </button>
+          <button type="button" className="menu__item" onClick={handleBgCopyPath}>
+            Copy Path
+          </button>
         </div>
       )}
     </div>
@@ -346,7 +513,18 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree({ rootPath,
 export default FileTree;
 
 function TreeItems({
-  nodes, depth, parentPath, onToggle, onFileSelect, activeFilePath, onContextMenu, renaming, onRenameSubmit, creating, onCreateSubmit,
+  nodes,
+  depth,
+  parentPath,
+  onToggle,
+  onFileSelect,
+  activeFilePath,
+  onContextMenu,
+  renaming,
+  onRenameSubmit,
+  creating,
+  onCreateSubmit,
+  onMove,
 }: {
   nodes: TreeNode[];
   depth: number;
@@ -359,13 +537,17 @@ function TreeItems({
   onRenameSubmit: (name: string) => void;
   creating: { parentPath: string; type: "file" | "dir" } | null;
   onCreateSubmit: (name: string) => void;
+  onMove: (srcPath: string, destDir: string) => void;
 }) {
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
   return (
     <>
       {nodes.map((node, i) => {
         const itemPath = [...parentPath, i];
         const isActive = node.path === activeFilePath;
         const isRenaming = renaming?.path === node.path;
+        const isDragOver = dragOver === node.path && node.is_dir;
 
         return (
           <div key={node.path}>
@@ -379,25 +561,53 @@ function TreeItems({
             ) : (
               <button
                 type="button"
+                draggable
                 className={[
                   "file-tree__item",
                   node.is_dir ? "file-tree__item--dir" : "file-tree__item--file",
                   isActive && "file-tree__item--active",
-                ].filter(Boolean).join(" ")}
+                  isDragOver && "file-tree__item--drag-over",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 style={{ paddingLeft: 8 + depth * 16 }}
-                onClick={() => node.is_dir ? onToggle(node, itemPath) : onFileSelect(node.path, node.name, true)}
+                onClick={() =>
+                  node.is_dir ? onToggle(node, itemPath) : onFileSelect(node.path, node.name, true)
+                }
                 onDoubleClick={() => !node.is_dir && onFileSelect(node.path, node.name, false)}
                 onContextMenu={(e) => onContextMenu(e, node)}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("text/plain", node.path);
+                  e.dataTransfer.effectAllowed = "move";
+                }}
+                onDragOver={(e) => {
+                  if (!node.is_dir) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOver(node.path);
+                }}
+                onDragLeave={() => setDragOver(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOver(null);
+                  if (!node.is_dir) return;
+                  const src = e.dataTransfer.getData("text/plain");
+                  if (src && src !== node.path) onMove(src, node.path);
+                }}
               >
-                <span className={[
-                  "file-tree__chevron",
-                  node.is_dir && node.expanded && "file-tree__chevron--expanded",
-                  !node.is_dir && "file-tree__chevron--hidden",
-                ].filter(Boolean).join(" ")}>
+                <span
+                  className={[
+                    "file-tree__chevron",
+                    node.is_dir && node.expanded && "file-tree__chevron--expanded",
+                    !node.is_dir && "file-tree__chevron--hidden",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
                   <ChevronRight />
                 </span>
                 <span className="file-tree__icon">
-                  {node.is_dir ? (node.expanded ? <FolderOpen /> : <Folder />) : <File />}
+                  <ExplorerIcon name={node.name} isDir={node.is_dir} expanded={node.expanded} />
                 </span>
                 <span className="file-tree__name">{node.name}</span>
               </button>
@@ -428,6 +638,7 @@ function TreeItems({
                     onRenameSubmit={onRenameSubmit}
                     creating={creating}
                     onCreateSubmit={onCreateSubmit}
+                    onMove={onMove}
                   />
                 )}
               </>
@@ -440,7 +651,11 @@ function TreeItems({
 }
 
 function InlineInput({
-  defaultValue, depth, onSubmit, onCancel, placeholder,
+  defaultValue,
+  depth,
+  onSubmit,
+  onCancel,
+  placeholder,
 }: {
   defaultValue: string;
   depth: number;
@@ -449,7 +664,10 @@ function InlineInput({
   placeholder?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => { ref.current?.focus(); ref.current?.select(); }, []);
+  useEffect(() => {
+    ref.current?.focus();
+    ref.current?.select();
+  }, []);
 
   return (
     <div className="file-tree__item" style={{ paddingLeft: 8 + depth * 16 }}>

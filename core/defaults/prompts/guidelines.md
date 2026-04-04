@@ -6,7 +6,7 @@
 - Show only the relevant code — don't rewrite entire files unless asked
 - When suggesting changes, show what to change and where
 - Include file paths when referencing specific files
-- Explain *why* a change is needed, not just *what* to change
+- Explain _why_ a change is needed, not just _what_ to change
 
 ## Response Rules
 

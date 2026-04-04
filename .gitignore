@@ -17,6 +17,7 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 *.suo
 *.ntvs*
 *.njsproj
@@ -26,6 +27,3 @@ pnpm-debug.log*
 # OS
 .DS_Store
 *.local
-
-# Local staging area for importing reference code
-dummy/

@@ -59,7 +59,8 @@ export default function SettingsArchived() {
                 <div className="settings-row__info">
                   <div className="settings-row__label">{thread.title}</div>
                   <div className="settings-row__hint">
-                    Archived {thread.archived_at ? new Date(thread.archived_at).toLocaleDateString() : ""}
+                    Archived{" "}
+                    {thread.archived_at ? new Date(thread.archived_at).toLocaleDateString() : ""}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 2 }}>

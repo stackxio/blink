@@ -58,9 +58,35 @@
 
   &__editor-area {
     flex: 1;
-    @include flex-col;
     @include full-height;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+
+    &--split {
+      flex-direction: row;
+
+      .editor-pane-wrap {
+        flex: 1;
+        min-width: 0;
+        @include flex-col;
+        overflow: hidden;
+      }
+
+      .editor-split-divider {
+        width: 1px;
+        background: var(--c-border);
+        flex-shrink: 0;
+      }
+    }
+
+    // Single-pane: pane-wrap fills available space
+    .editor-pane-wrap {
+      flex: 1;
+      min-width: 0;
+      @include flex-col;
+      overflow: hidden;
+    }
   }
 
   &__bottom-panel {

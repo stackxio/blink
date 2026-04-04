@@ -17,9 +17,19 @@ interface Props {
   onClose: (idx: number) => void;
   onCloseAll: () => void;
   onCloseOthers: (idx: number) => void;
+  extraActions?: React.ReactNode;
 }
 
-export default function TabBar({ files, activeIdx, workspacePath, onSelect, onClose, onCloseAll, onCloseOthers }: Props) {
+export default function TabBar({
+  files,
+  activeIdx,
+  workspacePath,
+  onSelect,
+  onClose,
+  onCloseAll,
+  onCloseOthers,
+  extraActions,
+}: Props) {
   const [ctx, setCtx] = useState<ContextMenu | null>(null);
 
   const dismiss = useCallback(() => setCtx(null), []);
@@ -27,7 +37,9 @@ export default function TabBar({ files, activeIdx, workspacePath, onSelect, onCl
   // Close on any click or Escape
   useEffect(() => {
     if (!ctx) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") dismiss(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") dismiss();
+    };
     window.addEventListener("click", dismiss);
     window.addEventListener("keydown", onKey);
     return () => {
@@ -66,6 +78,7 @@ export default function TabBar({ files, activeIdx, workspacePath, onSelect, onCl
 
   return (
     <div className="tab-bar">
+      {extraActions && <div className="tab-bar__extra-actions">{extraActions}</div>}
       {files.map((file, i) => {
         const isActive = i === activeIdx;
         const cls = [
@@ -112,40 +125,71 @@ export default function TabBar({ files, activeIdx, workspacePath, onSelect, onCl
         );
       })}
 
-      {ctx && createPortal(
-        <div
-          className="menu"
-          style={{ left: ctx.x, top: ctx.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button className="menu__item" onClick={() => { onClose(ctx.idx); dismiss(); }}>
-            Close
-          </button>
-          <button
-            className={`menu__item ${files.length <= 1 ? "menu__item--disabled" : ""}`}
-            onClick={() => { onCloseOthers(ctx.idx); dismiss(); }}
+      {ctx &&
+        createPortal(
+          <div
+            className="menu"
+            style={{ left: ctx.x, top: ctx.y }}
+            onClick={(e) => e.stopPropagation()}
           >
-            Close Others
-          </button>
-          <button className="menu__item" onClick={() => { onCloseAll(); dismiss(); }}>
-            Close All
-          </button>
-          <button
-            className={`menu__item ${ctx.idx >= files.length - 1 ? "menu__item--disabled" : ""}`}
-            onClick={() => { closeToRight(ctx.idx); dismiss(); }}
-          >
-            Close to the Right
-          </button>
-          <div className="menu__separator" />
-          <button className="menu__item" onClick={() => { copyPath(ctx.idx); dismiss(); }}>
-            Copy Path
-          </button>
-          <button className="menu__item" onClick={() => { copyRelativePath(ctx.idx); dismiss(); }}>
-            Copy Relative Path
-          </button>
-        </div>,
-        document.body,
-      )}
+            <button
+              className="menu__item"
+              onClick={() => {
+                onClose(ctx.idx);
+                dismiss();
+              }}
+            >
+              Close
+            </button>
+            <button
+              className={`menu__item ${files.length <= 1 ? "menu__item--disabled" : ""}`}
+              onClick={() => {
+                onCloseOthers(ctx.idx);
+                dismiss();
+              }}
+            >
+              Close Others
+            </button>
+            <button
+              className="menu__item"
+              onClick={() => {
+                onCloseAll();
+                dismiss();
+              }}
+            >
+              Close All
+            </button>
+            <button
+              className={`menu__item ${ctx.idx >= files.length - 1 ? "menu__item--disabled" : ""}`}
+              onClick={() => {
+                closeToRight(ctx.idx);
+                dismiss();
+              }}
+            >
+              Close to the Right
+            </button>
+            <div className="menu__separator" />
+            <button
+              className="menu__item"
+              onClick={() => {
+                copyPath(ctx.idx);
+                dismiss();
+              }}
+            >
+              Copy Path
+            </button>
+            <button
+              className="menu__item"
+              onClick={() => {
+                copyRelativePath(ctx.idx);
+                dismiss();
+              }}
+            >
+              Copy Relative Path
+            </button>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -60,9 +60,12 @@
     cursor: pointer;
     @include transition(background);
 
-    &:hover,
     &--active {
       background: var(--c-surface-raised);
+    }
+
+    &--hoverable:hover:not(.file-search__item--active) {
+      background: color-mix(in srgb, var(--c-surface-raised) 70%, transparent);
     }
 
     svg {

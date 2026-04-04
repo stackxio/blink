@@ -10,9 +10,7 @@ function ContextMenu({ children }: { children: React.ReactNode }) {
 
   return (
     <ContextMenuOpenCtx.Provider value={{ pos, setPos }}>
-      <MenuCtx.Provider value={{ close: () => setPos(null) }}>
-        {children}
-      </MenuCtx.Provider>
+      <MenuCtx.Provider value={{ close: () => setPos(null) }}>{children}</MenuCtx.Provider>
     </ContextMenuOpenCtx.Provider>
   );
 }
@@ -23,7 +21,13 @@ const ContextMenuOpenCtx = React.createContext<{
 }>({ pos: null, setPos: () => {} });
 
 // ── Trigger ──
-function ContextMenuTrigger({ children, asChild: _ }: { children: React.ReactNode; asChild?: boolean }) {
+function ContextMenuTrigger({
+  children,
+  asChild: _,
+}: {
+  children: React.ReactNode;
+  asChild?: boolean;
+}) {
   const { setPos } = React.useContext(ContextMenuOpenCtx);
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -41,7 +45,11 @@ function ContextMenuTrigger({ children, asChild: _ }: { children: React.ReactNod
 }
 
 // ── Content ──
-function ContextMenuContent({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+function ContextMenuContent({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   const { pos, setPos } = React.useContext(ContextMenuOpenCtx);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -95,11 +103,9 @@ function ContextMenuItem({
   return (
     <button
       type="button"
-      className={[
-        "menu__item",
-        variant === "destructive" && "menu__item--danger",
-        className,
-      ].filter(Boolean).join(" ")}
+      className={["menu__item", variant === "destructive" && "menu__item--danger", className]
+        .filter(Boolean)
+        .join(" ")}
       onClick={(e) => {
         onClick?.(e);
         onSelect?.();
@@ -124,8 +130,14 @@ const ContextMenuSub = ({ children }: { children: React.ReactNode }) => <>{child
 const ContextMenuSubTrigger = ContextMenuItem;
 const ContextMenuSubContent = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 const ContextMenuRadioGroup = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-const ContextMenuLabel = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={["menu__label", className].filter(Boolean).join(" ")} {...props}>{children}</div>
+const ContextMenuLabel = ({
+  children,
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={["menu__label", className].filter(Boolean).join(" ")} {...props}>
+    {children}
+  </div>
 );
 
 export {

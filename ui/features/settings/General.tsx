@@ -17,6 +17,7 @@ interface EditorSettings {
   font_size: number;
   word_wrap: boolean;
   minimap: boolean;
+  indent_guides: boolean;
 }
 
 interface Settings {
@@ -39,7 +40,9 @@ export default function SettingsGeneral() {
   const recordingRef = useRef<string | null>(null);
 
   useEffect(() => {
-    invoke<Settings>("get_settings").then(setSettings).catch(() => {});
+    invoke<Settings>("get_settings")
+      .then(setSettings)
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -47,7 +50,10 @@ export default function SettingsGeneral() {
     recordingRef.current = recording;
     function onKey(e: KeyboardEvent) {
       e.preventDefault();
-      if (e.key === "Escape") { setRecording(null); return; }
+      if (e.key === "Escape") {
+        setRecording(null);
+        return;
+      }
       const combo = keyFromEvent(e);
       if (!combo) return;
       const updated = { ...bindingMap, [recordingRef.current!]: combo };
@@ -72,19 +78,36 @@ export default function SettingsGeneral() {
     }
     if ("tab_size" in patch) {
       localStorage.setItem("blink:tabSize", String(patch.tab_size));
-      window.dispatchEvent(new StorageEvent("storage", { key: "blink:tabSize", newValue: String(patch.tab_size) }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "blink:tabSize", newValue: String(patch.tab_size) }),
+      );
     }
     if ("word_wrap" in patch) {
       localStorage.setItem("blink:wordWrap", String(patch.word_wrap));
-      window.dispatchEvent(new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(patch.word_wrap) }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(patch.word_wrap) }),
+      );
     }
     if ("minimap" in patch) {
       localStorage.setItem("blink:minimap", String(patch.minimap));
-      window.dispatchEvent(new StorageEvent("storage", { key: "blink:minimap", newValue: String(patch.minimap) }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "blink:minimap", newValue: String(patch.minimap) }),
+      );
+    }
+    if ("indent_guides" in patch) {
+      localStorage.setItem("blink:indentGuides", String(patch.indent_guides));
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "blink:indentGuides",
+          newValue: String(patch.indent_guides),
+        }),
+      );
     }
     if ("font_size" in patch) {
       localStorage.setItem("blink:fontSize", String(patch.font_size));
-      window.dispatchEvent(new StorageEvent("storage", { key: "blink:fontSize", newValue: String(patch.font_size) }));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "blink:fontSize", newValue: String(patch.font_size) }),
+      );
     }
     try {
       await invoke("save_settings", { settings: updated });
@@ -147,7 +170,9 @@ export default function SettingsGeneral() {
             onChange={(e) => updateEditor({ font_size: parseInt(e.target.value, 10) })}
           >
             {FONT_SIZES.map((v) => (
-              <option key={v} value={v}>{v}px</option>
+              <option key={v} value={v}>
+                {v}px
+              </option>
             ))}
           </select>
         </div>
@@ -155,7 +180,9 @@ export default function SettingsGeneral() {
         <div className="settings-row">
           <div className="settings-row__info">
             <div className="settings-row__label">Word wrap</div>
-            <div className="settings-row__hint">Wrap long lines instead of horizontal scrolling.</div>
+            <div className="settings-row__hint">
+              Wrap long lines instead of horizontal scrolling.
+            </div>
           </div>
           <button
             type="button"
@@ -169,12 +196,30 @@ export default function SettingsGeneral() {
         <div className="settings-row">
           <div className="settings-row__info">
             <div className="settings-row__label">Code minimap</div>
-            <div className="settings-row__hint">Show or hide the code minimap on the right side of the editor.</div>
+            <div className="settings-row__hint">
+              Show or hide the code minimap on the right side of the editor.
+            </div>
           </div>
           <button
             type="button"
             className={`toggle ${editor.minimap ? "toggle--on" : ""}`}
             onClick={() => updateEditor({ minimap: !editor.minimap })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Indent guides</div>
+            <div className="settings-row__hint">
+              Show or hide the vertical indentation guide lines in the editor.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.indent_guides ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ indent_guides: !editor.indent_guides })}
           >
             <span className="toggle__thumb" />
           </button>
@@ -186,7 +231,9 @@ export default function SettingsGeneral() {
         <div className="settings-row">
           <div className="settings-row__info">
             <div className="settings-row__label">Persist workspaces across restarts</div>
-            <div className="settings-row__hint">Reopen your last workspaces and tabs when Blink launches.</div>
+            <div className="settings-row__hint">
+              Reopen your last workspaces and tabs when Blink launches.
+            </div>
           </div>
           <button
             type="button"
@@ -210,7 +257,15 @@ export default function SettingsGeneral() {
                 type="button"
                 className={`settings-row__value ${isRecording ? "settings-row__value--recording" : ""}`}
                 onClick={() => setRecording(isRecording ? null : b.id)}
-                style={isRecording ? { borderColor: "var(--c-accent)", color: "var(--c-accent)", background: "color-mix(in srgb, var(--c-accent) 10%, transparent)" } : { cursor: "pointer" }}
+                style={
+                  isRecording
+                    ? {
+                        borderColor: "var(--c-accent)",
+                        color: "var(--c-accent)",
+                        background: "color-mix(in srgb, var(--c-accent) 10%, transparent)",
+                      }
+                    : { cursor: "pointer" }
+                }
               >
                 {isRecording ? "Press keys..." : formatKey(key)}
               </button>

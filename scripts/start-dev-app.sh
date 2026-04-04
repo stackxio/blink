@@ -4,7 +4,7 @@
 # On non-macOS, fall back to normal tauri dev.
 set -e
 if [ "$(uname)" != "Darwin" ]; then
-  cd "$(dirname "$0")/.." && exec env TAURI_DIR=core pnpm exec tauri dev
+  cd "$(dirname "$0")/.." && exec env TAURI_DIR=core bun run tauri dev
 fi
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORE="$PROJECT_ROOT/core"
@@ -13,7 +13,10 @@ DEV_URL="http://localhost:1420"
 
 # 1. Start frontend dev server in background
 echo "Starting dev server..."
-pnpm --dir "$PROJECT_ROOT" dev &
+(
+  cd "$PROJECT_ROOT"
+  exec bun run dev
+) &
 VITE_PID=$!
 cleanup() {
   kill $VITE_PID 2>/dev/null || true

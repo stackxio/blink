@@ -91,6 +91,12 @@
     }
   }
 
+  &__match {
+    background: transparent;
+    color: var(--c-accent);
+    font-weight: 700;
+  }
+
   &__item-shortcut {
     font-size: var(--font-size-xs);
     color: var(--c-muted-fg);

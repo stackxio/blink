@@ -60,7 +60,12 @@ interface DialogContentProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }
 
-function DialogContent({ children, showCloseButton = true, className, ...props }: DialogContentProps) {
+function DialogContent({
+  children,
+  showCloseButton = true,
+  className,
+  ...props
+}: DialogContentProps) {
   const { open, onClose } = useDialog();
 
   React.useEffect(() => {
@@ -75,7 +80,12 @@ function DialogContent({ children, showCloseButton = true, className, ...props }
   if (!open) return null;
 
   return createPortal(
-    <div className="dialog-backdrop" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div
+      className="dialog-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className={["dialog", className].filter(Boolean).join(" ")} {...props}>
         {children}
         {showCloseButton && (

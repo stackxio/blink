@@ -3,49 +3,50 @@ SHELL := /bin/zsh
 .PHONY: install dev build tauri app app-build lint typecheck rust-check check format format-check format-js format-js-check format-rust format-rust-check
 
 install:
-	pnpm install
+	bun install
 
 dev:
-	pnpm dev
+	bun run dev
 
 build:
-	pnpm build
+	bun run build
 
 tauri:
-	pnpm tauri
+	bun run tauri
 
 app:
-	pnpm app
+	bun run app
 
 app-build:
-	pnpm app:build
+	bun run app:build
 
 lint:
-	pnpm lint
+	bun run lint
 
 typecheck:
-	pnpm typecheck
+	bun run typecheck
 
 rust-check:
-	pnpm check:rust
+	cargo check --manifest-path core/Cargo.toml
 
 check:
-	pnpm check
+	bun run typecheck
+	cargo check --manifest-path core/Cargo.toml
 
 format-js:
-	pnpm format:js
+	bun run format:js
 
 format-js-check:
-	pnpm format:js:check
+	bun run format:js:check
 
 format-rust:
-	pnpm format:rust
+	bun run format:rust
 
 format-rust-check:
-	pnpm format:rust:check
+	bun run format:rust:check
 
 format:
-	pnpm format
+	bun run format
 
 format-check:
-	pnpm format:check
+	bun run format:check

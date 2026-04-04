@@ -18,7 +18,10 @@ export interface SearchPanelHandle {
   focusInput: (text?: string) => void;
 }
 
-const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ workspacePath, onOpenFile }, ref) {
+const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
+  { workspacePath, onOpenFile },
+  ref,
+) {
   const [query, setQuery] = useState("");
   const [showReplace, setShowReplace] = useState(false);
   const [replaceValue, setReplaceValue] = useState("");
@@ -99,15 +102,20 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
     setReplacing(true);
     setReplaceResult(null);
     try {
-      const res = await invoke<{ files_modified: number; replacements_made: number }>("replace_in_files", {
-        root: workspacePath,
-        query,
-        replacement: replaceValue,
-        caseSensitive,
-        wholeWord,
-        isRegex: useRegex,
-      });
-      setReplaceResult(`Replaced ${res.replacements_made} occurrence${res.replacements_made !== 1 ? "s" : ""} in ${res.files_modified} file${res.files_modified !== 1 ? "s" : ""}.`);
+      const res = await invoke<{ files_modified: number; replacements_made: number }>(
+        "replace_in_files",
+        {
+          root: workspacePath,
+          query,
+          replacement: replaceValue,
+          caseSensitive,
+          wholeWord,
+          isRegex: useRegex,
+        },
+      );
+      setReplaceResult(
+        `Replaced ${res.replacements_made} occurrence${res.replacements_made !== 1 ? "s" : ""} in ${res.files_modified} file${res.files_modified !== 1 ? "s" : ""}.`,
+      );
       // Re-run search to update results
       doSearch(query);
     } catch (e) {
@@ -177,7 +185,10 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
               <button
                 type="button"
                 className={`search-panel__filter ${caseSensitive ? "search-panel__filter--active" : ""}`}
-                onClick={() => { setCaseSensitive((v) => !v); if (query) doSearch(query); }}
+                onClick={() => {
+                  setCaseSensitive((v) => !v);
+                  if (query) doSearch(query);
+                }}
                 title="Match Case"
               >
                 Aa
@@ -185,7 +196,10 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
               <button
                 type="button"
                 className={`search-panel__filter ${wholeWord ? "search-panel__filter--active" : ""}`}
-                onClick={() => { setWholeWord((v) => !v); if (query) doSearch(query); }}
+                onClick={() => {
+                  setWholeWord((v) => !v);
+                  if (query) doSearch(query);
+                }}
                 title="Match Whole Word"
               >
                 <span style={{ textDecoration: "underline" }}>ab</span>
@@ -193,7 +207,10 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
               <button
                 type="button"
                 className={`search-panel__filter ${useRegex ? "search-panel__filter--active" : ""}`}
-                onClick={() => { setUseRegex((v) => !v); if (query) doSearch(query); }}
+                onClick={() => {
+                  setUseRegex((v) => !v);
+                  if (query) doSearch(query);
+                }}
                 title="Use Regular Expression"
               >
                 .*
@@ -212,7 +229,9 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
                 placeholder="Replace"
                 value={replaceValue}
                 onChange={(e) => setReplaceValue(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") doReplaceAll(); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") doReplaceAll();
+                }}
                 spellCheck={false}
               />
               <button
@@ -231,21 +250,20 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
       </div>
 
       <div className="search-panel__results">
-        {searching && (
-          <div className="search-panel__status">Searching...</div>
-        )}
-        {replacing && (
-          <div className="search-panel__status">Replacing...</div>
-        )}
+        {searching && <div className="search-panel__status">Searching...</div>}
+        {replacing && <div className="search-panel__status">Replacing...</div>}
         {replaceResult && !replacing && (
-          <div className="search-panel__status" style={{ color: "var(--c-accent)" }}>{replaceResult}</div>
+          <div className="search-panel__status" style={{ color: "var(--c-accent)" }}>
+            {replaceResult}
+          </div>
         )}
         {!searching && !replacing && !replaceResult && searched && results.length === 0 && (
           <div className="search-panel__status">No results found</div>
         )}
         {!searching && !replacing && results.length > 0 && (
           <div className="search-panel__status">
-            {results.length} result{results.length !== 1 ? "s" : ""} in {grouped.size} file{grouped.size !== 1 ? "s" : ""}
+            {results.length} result{results.length !== 1 ? "s" : ""} in {grouped.size} file
+            {grouped.size !== 1 ? "s" : ""}
           </div>
         )}
         {Array.from(grouped.entries()).map(([filePath, matches]) => (
@@ -265,7 +283,10 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel({ 
               >
                 <span className="search-panel__line-num">{m.line_number}</span>
                 <span className="search-panel__line-text">
-                  {highlightMatch(m.line_text.trim(), m.column - (m.line_text.length - m.line_text.trimStart().length))}
+                  {highlightMatch(
+                    m.line_text.trim(),
+                    m.column - (m.line_text.length - m.line_text.trimStart().length),
+                  )}
                 </span>
               </button>
             ))}

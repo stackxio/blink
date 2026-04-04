@@ -75,6 +75,8 @@ pub struct EditorSettings {
     pub word_wrap: bool,
     #[serde(default = "default_minimap")]
     pub minimap: bool,
+    #[serde(default = "default_indent_guides")]
+    pub indent_guides: bool,
 }
 
 fn default_auto_save() -> bool {
@@ -89,6 +91,9 @@ fn default_font_size() -> u8 {
 fn default_minimap() -> bool {
     true
 }
+fn default_indent_guides() -> bool {
+    true
+}
 
 impl Default for EditorSettings {
     fn default() -> Self {
@@ -98,6 +103,7 @@ impl Default for EditorSettings {
             font_size: 13,
             word_wrap: false,
             minimap: true,
+            indent_guides: true,
         }
     }
 }

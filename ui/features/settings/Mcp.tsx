@@ -134,7 +134,10 @@ export default function SettingsMcp() {
           style={{ color: "var(--c-fg)", textDecoration: "underline", textUnderlineOffset: 2 }}
         >
           Docs
-          <ExternalLink size={12} style={{ display: "inline", marginLeft: 4, verticalAlign: "middle" }} />
+          <ExternalLink
+            size={12}
+            style={{ display: "inline", marginLeft: 4, verticalAlign: "middle" }}
+          />
         </a>
       </p>
 
@@ -161,7 +164,9 @@ export default function SettingsMcp() {
               <div key={s.name} className="settings-row">
                 <div className="settings-row__info">
                   <div className="settings-row__label">{s.name}</div>
-                  <div className="settings-row__hint">{s.command} {s.args.join(" ")}</div>
+                  <div className="settings-row__hint">
+                    {s.command} {s.args.join(" ")}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -190,7 +195,15 @@ export default function SettingsMcp() {
         )}
 
         {showAddForm && (
-          <div style={{ padding: 12, borderTop: servers.length > 0 ? "1px solid var(--c-border)" : undefined, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div
+            style={{
+              padding: 12,
+              borderTop: servers.length > 0 ? "1px solid var(--c-border)" : undefined,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+            }}
+          >
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="text"
@@ -214,14 +227,26 @@ export default function SettingsMcp() {
               placeholder="Args (e.g. -y @linear/mcp)"
               value={newArgs}
               onChange={(e) => setNewArgs(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setShowAddForm(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAdd();
+                if (e.key === "Escape") setShowAddForm(false);
+              }}
             />
             <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowAddForm(false)}>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setShowAddForm(false)}
+              >
                 <X size={14} />
                 Cancel
               </button>
-              <button type="button" className="btn btn--default btn--sm" onClick={handleAdd} disabled={!newName.trim() || !newCommand.trim()}>
+              <button
+                type="button"
+                className="btn btn--default btn--sm"
+                onClick={handleAdd}
+                disabled={!newName.trim() || !newCommand.trim()}
+              >
                 Add
               </button>
             </div>
@@ -230,27 +255,39 @@ export default function SettingsMcp() {
       </div>
 
       {/* Recommended servers */}
-      <h2 className="settings-section__subtitle" style={{ marginTop: 24 }}>Recommended servers</h2>
+      <h2 className="settings-section__subtitle" style={{ marginTop: 24 }}>
+        Recommended servers
+      </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {RECOMMENDED_SERVERS.map((server) => {
           const installed = installedNames.has(server.name);
           return (
             <div key={server.id} className="settings-card">
               <div className="settings-row">
-                <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, minWidth: 0 }}
+                >
                   <div
                     style={{
-                      width: 40, height: 40, borderRadius: "50%",
+                      width: 40,
+                      height: 40,
+                      borderRadius: "50%",
                       background: server.iconBg,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0, color: "#fff",
-                      fontSize: "var(--font-size-sm)", fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                      color: "#fff",
+                      fontSize: "var(--font-size-sm)",
+                      fontWeight: 600,
                     }}
                   >
                     {server.icon}
                   </div>
                   <div className="settings-row__info">
-                    <div className="settings-row__label">{server.name} by {server.by}</div>
+                    <div className="settings-row__label">
+                      {server.name} by {server.by}
+                    </div>
                     <div className="settings-row__hint">{server.description}</div>
                   </div>
                 </div>

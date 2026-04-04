@@ -29,7 +29,9 @@ export default function SettingsMemory() {
         if (!cancelled) setFiles([]);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function selectFile(filename: string) {
@@ -64,18 +66,23 @@ export default function SettingsMemory() {
 
   return (
     <div className="settings-section">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
         <div>
-          <h1 className="settings-section__title" style={{ marginBottom: 4 }}>Memory</h1>
+          <h1 className="settings-section__title" style={{ marginBottom: 4 }}>
+            Memory
+          </h1>
           <p className="settings-section__description" style={{ marginBottom: 0 }}>
             Daily memory logs stored in ~/.blink/memory/
           </p>
         </div>
-        <button
-          type="button"
-          className="btn btn--secondary btn--sm"
-          onClick={handleClearToday}
-        >
+        <button type="button" className="btn btn--secondary btn--sm" onClick={handleClearToday}>
           <Trash2 size={12} />
           Clear today
         </button>
@@ -83,9 +90,13 @@ export default function SettingsMemory() {
 
       <div style={{ display: "flex", gap: 16 }}>
         {/* File list */}
-        <div style={{ width: 160, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <div
+          style={{ width: 160, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}
+        >
           {files.length === 0 ? (
-            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>No memory files yet.</span>
+            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>
+              No memory files yet.
+            </span>
           ) : (
             files.map((f) => (
               <button
@@ -93,7 +104,11 @@ export default function SettingsMemory() {
                 type="button"
                 className={`btn btn--ghost btn--sm btn--full`}
                 onClick={() => selectFile(f)}
-                style={selectedFile === f ? { background: "var(--c-surface-raised)", color: "var(--c-fg)" } : {}}
+                style={
+                  selectedFile === f
+                    ? { background: "var(--c-surface-raised)", color: "var(--c-fg)" }
+                    : {}
+                }
               >
                 {f.replace(".md", "")}
               </button>
@@ -104,11 +119,20 @@ export default function SettingsMemory() {
         {/* Content viewer */}
         <div className="settings-card" style={{ flex: 1, minHeight: 300, padding: 16 }}>
           {selectedFile ? (
-            <pre style={{ whiteSpace: "pre-wrap", fontSize: "var(--font-size-xs)", lineHeight: 1.6, color: "var(--c-fg)" }}>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                fontSize: "var(--font-size-xs)",
+                lineHeight: 1.6,
+                color: "var(--c-fg)",
+              }}
+            >
               {content || "(empty)"}
             </pre>
           ) : (
-            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>Select a memory file to view.</span>
+            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--c-muted-fg)" }}>
+              Select a memory file to view.
+            </span>
           )}
         </div>
       </div>

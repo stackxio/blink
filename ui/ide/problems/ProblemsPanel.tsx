@@ -1,14 +1,20 @@
 import { useAppStore } from "@/store";
 
 const SEVERITY_LABEL = ["", "Error", "Warning", "Info", "Hint"];
-const SEVERITY_COLOR = ["", "var(--c-danger)", "var(--c-warning)", "var(--c-accent)", "var(--c-muted-fg)"];
+const SEVERITY_COLOR = [
+  "",
+  "var(--c-danger)",
+  "var(--c-warning)",
+  "var(--c-accent)",
+  "var(--c-muted-fg)",
+];
 
 export default function ProblemsPanel() {
   const diagnostics = useAppStore((s) => s.diagnostics);
   const openFile = useAppStore((s) => s.openFile);
 
   const entries = Object.entries(diagnostics).flatMap(([uri, diags]) =>
-    diags.map((d) => ({ ...d, uri }))
+    diags.map((d) => ({ ...d, uri })),
   );
 
   const errors = entries.filter((d) => d.severity === 1).length;
@@ -25,16 +31,18 @@ export default function ProblemsPanel() {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "4px 12px",
-        borderBottom: "1px solid var(--c-border)",
-        fontSize: "var(--font-size-xs)",
-        color: "var(--c-muted-fg)",
-        flexShrink: 0,
-      }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          padding: "4px 12px",
+          borderBottom: "1px solid var(--c-border)",
+          fontSize: "var(--font-size-xs)",
+          color: "var(--c-muted-fg)",
+          flexShrink: 0,
+        }}
+      >
         <span style={{ color: errors > 0 ? "var(--c-danger)" : undefined }}>
           {errors} error{errors !== 1 ? "s" : ""}
         </span>
@@ -46,14 +54,16 @@ export default function ProblemsPanel() {
       {/* List */}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {entries.length === 0 ? (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            height: "100%",
-            fontSize: "var(--font-size-xs)",
-            color: "var(--c-muted-fg)",
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              height: "100%",
+              fontSize: "var(--font-size-xs)",
+              color: "var(--c-muted-fg)",
+            }}
+          >
             No problems detected.
           </div>
         ) : (
@@ -80,20 +90,31 @@ export default function ProblemsPanel() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--c-surface-raised)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <span style={{
-                  flexShrink: 0,
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: SEVERITY_COLOR[entry.severity] ?? "var(--c-muted-fg)",
-                  marginTop: 1,
-                  minWidth: 48,
-                }}>
+                <span
+                  style={{
+                    flexShrink: 0,
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: SEVERITY_COLOR[entry.severity] ?? "var(--c-muted-fg)",
+                    marginTop: 1,
+                    minWidth: 48,
+                  }}
+                >
                   {SEVERITY_LABEL[entry.severity] ?? "Info"}
                 </span>
-                <span style={{ flex: 1, fontSize: "var(--font-size-xs)", lineHeight: 1.4, wordBreak: "break-word" }}>
+                <span
+                  style={{
+                    flex: 1,
+                    fontSize: "var(--font-size-xs)",
+                    lineHeight: 1.4,
+                    wordBreak: "break-word",
+                  }}
+                >
                   {entry.message}
                 </span>
-                <span style={{ flexShrink: 0, fontSize: 10, color: "var(--c-muted-fg)", marginTop: 1 }}>
+                <span
+                  style={{ flexShrink: 0, fontSize: 10, color: "var(--c-muted-fg)", marginTop: 1 }}
+                >
                   {filename}:{entry.line + 1}
                 </span>
               </button>

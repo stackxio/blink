@@ -22,11 +22,7 @@ export default function SettingsOverlay() {
       <div className="settings-overlay__drag-region" data-tauri-drag-region />
       {/* Sidebar nav */}
       <div className="settings-overlay__sidebar">
-        <button
-          type="button"
-          className="settings-overlay__back"
-          onClick={() => navigate("/")}
-        >
+        <button type="button" className="settings-overlay__back" onClick={() => navigate("/")}>
           <ChevronLeft />
           Back
         </button>

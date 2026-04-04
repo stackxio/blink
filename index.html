@@ -7,7 +7,14 @@
     <script>
       (function () {
         var stored = localStorage.getItem("blink-theme");
-        var resolved = stored === "light" ? "light" : stored === "system" ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : "dark";
+        var resolved =
+          stored === "light"
+            ? "light"
+            : stored === "system"
+              ? window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light"
+              : "dark";
         document.documentElement.classList.add(resolved);
         document.documentElement.style.colorScheme = resolved;
       })();

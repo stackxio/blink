@@ -27,7 +27,8 @@ body {
 }
 
 // Disable autocorrect/autocomplete globally — this is a code editor
-input, textarea {
+input,
+textarea {
   autocorrect: off;
   autocapitalize: off;
   spellcheck: false;
@@ -74,4 +75,30 @@ svg {
 .selectable {
   user-select: text;
   -webkit-user-select: text;
+}
+
+// ─── Scrollbars ───
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-fg) 18%, transparent);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+
+  &:hover {
+    background: color-mix(in srgb, var(--c-fg) 32%, transparent);
+    background-clip: padding-box;
+  }
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }

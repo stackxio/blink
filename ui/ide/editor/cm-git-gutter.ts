@@ -10,8 +10,11 @@ export type GitChanges = Map<number, GitChangeType>; // line number (1-based) â†
 // --- DOM markers ---
 
 class GitGutterMarker extends GutterMarker {
-  constructor(readonly type: GitChangeType) {
+  readonly type: GitChangeType;
+
+  constructor(type: GitChangeType) {
     super();
+    this.type = type;
   }
 
   toDOM(): Element {
@@ -118,7 +121,12 @@ export function parseDiff(diff: string): GitChanges {
     }
 
     // Skip file headers
-    if (line.startsWith("---") || line.startsWith("+++") || line.startsWith("diff ") || line.startsWith("index ")) {
+    if (
+      line.startsWith("---") ||
+      line.startsWith("+++") ||
+      line.startsWith("diff ") ||
+      line.startsWith("index ")
+    ) {
       continue;
     }
 

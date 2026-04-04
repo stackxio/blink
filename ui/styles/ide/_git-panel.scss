@@ -120,9 +120,13 @@
     gap: 6px;
   }
 
+  &__commit-input-wrap {
+    position: relative;
+  }
+
   &__commit-input {
     width: 100%;
-    padding: 6px 8px;
+    padding: 10px 40px 10px 10px;
     border: 1px solid var(--c-border);
     border-radius: var(--radius-sm);
     background: var(--c-surface);
@@ -130,7 +134,7 @@
     font-size: var(--font-size-sm);
     font-family: inherit;
     resize: vertical;
-    min-height: 32px;
+    min-height: 72px;
     line-height: 1.4;
     @include transition(border-color);
 
@@ -149,6 +153,7 @@
     align-items: center;
     justify-content: center;
     gap: 6px;
+    width: 100%;
     padding: 5px 12px;
     border: none;
     border-radius: var(--radius-sm);
@@ -166,6 +171,33 @@
 
     &:disabled {
       opacity: 0.4;
+      cursor: not-allowed;
+    }
+  }
+
+  &__commit-ai-btn {
+    position: absolute;
+    right: 8px;
+    top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    cursor: pointer;
+    @include transition(border-color, background, opacity);
+
+    &:hover {
+      border-color: var(--c-muted);
+      background: var(--c-surface-raised);
+    }
+
+    &:disabled {
+      opacity: 0.5;
       cursor: not-allowed;
     }
   }
@@ -358,6 +390,26 @@
     }
   }
 
+  &__show-more {
+    margin: 4px 8px 8px 20px;
+    padding: 6px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    text-align: center;
+    cursor: pointer;
+    @include transition(border-color, color, background);
+
+    &:hover {
+      border-color: var(--c-muted);
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+
   // ─── Diff viewer ───
 
   &__diff {
@@ -470,5 +522,194 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+// ── Git Log Viewer ─────────────────────────────────────────────────────────────
+
+.git-log-viewer {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 4px;
+
+    &:hover {
+      color: var(--c-accent);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__loading {
+    padding: 16px;
+    color: var(--c-muted-fg);
+  }
+
+  &__commit {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--c-border) 50%, transparent);
+    cursor: pointer;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface);
+    }
+
+    &--active {
+      background: var(--c-surface);
+    }
+  }
+
+  &__commit-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__commit-icon {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+  }
+
+  &__commit-msg {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-fg);
+    @include truncate;
+    font-size: var(--font-size-sm);
+  }
+
+  &__commit-hash {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--c-muted-fg);
+    opacity: 0.7;
+  }
+
+  &__commit-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+  }
+
+  &__diff {
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-surface);
+    max-height: 400px;
+    overflow: auto;
+    @include scrollbar;
+  }
+
+  &__diff-loading {
+    padding: 8px 12px;
+    color: var(--c-muted-fg);
+  }
+
+  &__diff-content {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin: 0;
+    padding: 8px 0;
+    overflow: visible;
+    white-space: pre;
+  }
+
+  &__diff-file {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    color: var(--c-fg);
+    font-weight: 600;
+    background: color-mix(in srgb, var(--c-surface-raised) 50%, transparent);
+  }
+
+  &__diff-file-link {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--c-accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-decoration: underline;
+    padding: 0;
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  &__diff-line {
+    padding: 0 12px;
+    line-height: 1.5;
+    color: var(--c-fg);
+  }
+
+  &__diff-add {
+    color: #6a9955;
+    background: color-mix(in srgb, #6a9955 10%, transparent);
+  }
+  &__diff-del {
+    color: #f44747;
+    background: color-mix(in srgb, #f44747 10%, transparent);
+  }
+  &__diff-hunk {
+    color: #569cd6;
+  }
+  &__diff-meta {
+    color: var(--c-muted-fg);
+  }
+
+  &__load-more {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    &:hover {
+      color: var(--c-fg);
+    }
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
   }
 }

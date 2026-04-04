@@ -23,12 +23,16 @@ export default function SettingsAbout() {
   const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
 
   useEffect(() => {
-    getVersion().then(setVersion).catch(() => setVersion("unknown"));
+    getVersion()
+      .then(setVersion)
+      .catch(() => setVersion("unknown"));
   }, []);
 
   // Listen for "Check for Updates" from the native menu
   useEffect(() => {
-    function onCheckUpdates() { checkForUpdate(); }
+    function onCheckUpdates() {
+      checkForUpdate();
+    }
     document.addEventListener("blink:check-updates", onCheckUpdates);
     return () => document.removeEventListener("blink:check-updates", onCheckUpdates);
   }, []);
@@ -79,15 +83,11 @@ export default function SettingsAbout() {
               {update.status === "available" && `Version ${update.info.version} is available.`}
               {update.status === "installing" && "Downloading and installing…"}
               {update.status === "error" && `Error: ${update.message}`}
-              {(update.status === "idle") && "Check for the latest version of Blink."}
+              {update.status === "idle" && "Check for the latest version of Blink."}
             </div>
           </div>
           {update.status === "available" ? (
-            <button
-              type="button"
-              className="btn btn--default btn--sm"
-              onClick={installUpdate}
-            >
+            <button type="button" className="btn btn--default btn--sm" onClick={installUpdate}>
               Install & Restart
             </button>
           ) : (
@@ -107,7 +107,11 @@ export default function SettingsAbout() {
             <div className="settings-row__label">Open source licenses</div>
             <div className="settings-row__hint">Third-party notices for bundled dependencies.</div>
           </div>
-          <button type="button" className="btn btn--secondary btn--sm" onClick={() => navigate("/settings/licenses")}>
+          <button
+            type="button"
+            className="btn btn--secondary btn--sm"
+            onClick={() => navigate("/settings/licenses")}
+          >
             View
           </button>
         </div>

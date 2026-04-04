@@ -48,7 +48,9 @@ export default function SettingsSkills() {
         // ignore
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   function handleSelect(filename: string) {
@@ -139,24 +141,38 @@ export default function SettingsSkills() {
 
   return (
     <div className="settings-section">
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <h1 className="settings-section__title" style={{ marginBottom: 0 }}>Skills</h1>
-        <button
-          type="button"
-          className="btn btn--ghost btn--sm"
-          onClick={handleReset}
-        >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: 16,
+        }}
+      >
+        <h1 className="settings-section__title" style={{ marginBottom: 0 }}>
+          Skills
+        </h1>
+        <button type="button" className="btn btn--ghost btn--sm" onClick={handleReset}>
           Reset defaults
         </button>
       </div>
 
       <p className="settings-section__description">
-        Skills are prompt files that shape how your AI behaves. System skills cannot be deleted, only edited.
+        Skills are prompt files that shape how your AI behaves. System skills cannot be deleted,
+        only edited.
       </p>
 
       <div className="settings-card" style={{ display: "flex", minHeight: 400 }}>
         {/* File list */}
-        <div style={{ width: 176, flexShrink: 0, display: "flex", flexDirection: "column", borderRight: "1px solid var(--c-border)" }}>
+        <div
+          style={{
+            width: 176,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            borderRight: "1px solid var(--c-border)",
+          }}
+        >
           <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
             {skills.map((skill) => (
               <div key={skill.filename} style={{ display: "flex", alignItems: "center" }}>
@@ -186,19 +202,23 @@ export default function SettingsSkills() {
                       d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
                     />
                   </svg>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span
+                    style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
                     {skill.filename.replace(".md", "")}
                   </span>
                   {skill.is_system && (
-                    <span style={{
-                      marginLeft: "auto",
-                      flexShrink: 0,
-                      borderRadius: "var(--radius-sm)",
-                      background: "var(--c-input)",
-                      padding: "0 4px",
-                      fontSize: 10,
-                      color: "var(--c-muted-fg)",
-                    }}>
+                    <span
+                      style={{
+                        marginLeft: "auto",
+                        flexShrink: 0,
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--c-input)",
+                        padding: "0 4px",
+                        fontSize: 10,
+                        color: "var(--c-muted-fg)",
+                      }}
+                    >
                       sys
                     </span>
                   )}
@@ -265,28 +285,48 @@ export default function SettingsSkills() {
         <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
           {selected ? (
             <>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid var(--c-border)", padding: "8px 16px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  borderBottom: "1px solid var(--c-border)",
+                  padding: "8px 16px",
+                }}
+              >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: "var(--font-size-xs)", fontWeight: 500, color: "var(--c-fg)" }}>{selected}</span>
+                  <span
+                    style={{
+                      fontSize: "var(--font-size-xs)",
+                      fontWeight: 500,
+                      color: "var(--c-fg)",
+                    }}
+                  >
+                    {selected}
+                  </span>
                   {selectedSkill?.is_system && (
-                    <span style={{
-                      borderRadius: "var(--radius-sm)",
-                      background: "var(--c-input)",
-                      padding: "2px 6px",
-                      fontSize: 10,
-                      color: "var(--c-muted-fg)",
-                    }}>
+                    <span
+                      style={{
+                        borderRadius: "var(--radius-sm)",
+                        background: "var(--c-input)",
+                        padding: "2px 6px",
+                        fontSize: 10,
+                        color: "var(--c-muted-fg)",
+                      }}
+                    >
                       system
                     </span>
                   )}
                   {dirty && (
-                    <span style={{
-                      borderRadius: "var(--radius-sm)",
-                      background: "rgba(245,158,11,0.2)",
-                      padding: "2px 6px",
-                      fontSize: 10,
-                      color: "#d97706",
-                    }}>
+                    <span
+                      style={{
+                        borderRadius: "var(--radius-sm)",
+                        background: "rgba(245,158,11,0.2)",
+                        padding: "2px 6px",
+                        fontSize: 10,
+                        color: "#d97706",
+                      }}
+                    >
                       unsaved
                     </span>
                   )}

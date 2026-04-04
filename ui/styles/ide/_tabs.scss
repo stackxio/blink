@@ -14,10 +14,37 @@
 
   // Padding for macOS traffic lights (when no activity bar takes the space)
   padding-top: 0;
+
+  &__extra-actions {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    padding-right: 4px;
+    flex-shrink: 0;
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
 }
 
 .tab {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 6px;
   height: 28px;

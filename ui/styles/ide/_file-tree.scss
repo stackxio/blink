@@ -23,7 +23,7 @@
     text-align: left;
     cursor: pointer;
     @include no-select;
-    @include transition(background);
+    transition: background-color 40ms linear;
 
     &:hover {
       background: var(--c-surface-raised);
@@ -40,6 +40,13 @@
     &--file {
       color: var(--c-muted-fg);
     }
+
+    &--drag-over {
+      background: color-mix(in srgb, var(--c-accent) 20%, transparent);
+      outline: 1px solid var(--c-accent);
+      outline-offset: -1px;
+      border-radius: var(--radius-sm);
+    }
   }
 
   &__icon {
@@ -55,6 +62,16 @@
       width: 14px;
       height: 14px;
     }
+  }
+
+  &__icon-image {
+    width: 16px;
+    height: 16px;
+    display: block;
+    object-fit: contain;
+    flex-shrink: 0;
+    pointer-events: none;
+    user-select: none;
   }
 
   &__chevron {

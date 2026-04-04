@@ -70,7 +70,7 @@
     background: var(--c-popover);
     border: 1px solid var(--c-border);
     border-radius: var(--radius);
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.3);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.3);
     min-width: 200px;
     max-width: 280px;
     overflow: hidden;
@@ -97,9 +97,14 @@
     text-align: left;
     cursor: pointer;
 
-    svg { color: var(--c-accent); flex-shrink: 0; }
+    svg {
+      color: var(--c-accent);
+      flex-shrink: 0;
+    }
 
-    &:hover { background: var(--c-surface-raised); }
+    &:hover {
+      background: var(--c-surface-raised);
+    }
 
     span:last-child {
       overflow: hidden;

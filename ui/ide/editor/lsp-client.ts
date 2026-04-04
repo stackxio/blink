@@ -131,6 +131,23 @@ class LspClient {
     });
   }
 
+  async formatting(uri: string, tabSize: number, insertSpaces: boolean): Promise<unknown> {
+    return this.request("textDocument/formatting", {
+      textDocument: { uri },
+      options: { tabSize, insertSpaces },
+    });
+  }
+
+  async documentSymbols(uri: string): Promise<unknown> {
+    return this.request("textDocument/documentSymbol", {
+      textDocument: { uri },
+    });
+  }
+
+  async workspaceSymbols(query: string): Promise<unknown> {
+    return this.request("workspace/symbol", { query });
+  }
+
   // ── Diagnostics ──
 
   onDiagnostics(callback: DiagnosticCallback) {

@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import "./index.css";
 import "./styles/main.scss";
 import App from "./App";
 
@@ -9,10 +8,11 @@ document.addEventListener("contextmenu", (e) => {
   const target = e.target as HTMLElement;
   if (
     target.closest(".xterm") ||
-    target.closest(".cm-editor") ||
+    target.closest(".monaco-editor") ||
     target.tagName === "INPUT" ||
     target.tagName === "TEXTAREA"
-  ) return;
+  )
+    return;
   e.preventDefault();
 });
 

@@ -34,14 +34,24 @@ export default function ExtensionsOverlay() {
 
     const unlisten = listen<{ language_id: string; status: string }>("lsp:install:status", (e) => {
       if (e.payload.status === "installed") {
-        setInstalling((prev) => { const n = new Set(prev); n.delete(e.payload.language_id); return n; });
+        setInstalling((prev) => {
+          const n = new Set(prev);
+          n.delete(e.payload.language_id);
+          return n;
+        });
         loadServers();
       } else if (e.payload.status === "failed") {
-        setInstalling((prev) => { const n = new Set(prev); n.delete(e.payload.language_id); return n; });
+        setInstalling((prev) => {
+          const n = new Set(prev);
+          n.delete(e.payload.language_id);
+          return n;
+        });
       }
     });
 
-    return () => { unlisten.then((fn) => fn()); };
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
   }, []);
 
   async function handleInstall(langId: string) {
@@ -49,7 +59,11 @@ export default function ExtensionsOverlay() {
     try {
       await invoke<string>("lsp_install_server", { languageId: langId });
     } catch {
-      setInstalling((prev) => { const n = new Set(prev); n.delete(langId); return n; });
+      setInstalling((prev) => {
+        const n = new Set(prev);
+        n.delete(langId);
+        return n;
+      });
     }
   }
 
@@ -110,15 +124,22 @@ export default function ExtensionsOverlay() {
                   <div key={server.language_id} className="settings-card">
                     <div className="settings-row">
                       <div className="settings-row__info">
-                        <div className="settings-row__label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div
+                          className="settings-row__label"
+                          style={{ display: "flex", alignItems: "center", gap: 8 }}
+                        >
                           <Package size={16} style={{ opacity: 0.5 }} />
                           {server.display_name}
                           {server.installed && (
-                            <span style={{
-                              fontSize: 10, padding: "1px 6px", borderRadius: 4,
-                              background: "color-mix(in srgb, var(--c-success) 15%, transparent)",
-                              color: "var(--c-success)",
-                            }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                padding: "1px 6px",
+                                borderRadius: 4,
+                                background: "color-mix(in srgb, var(--c-success) 15%, transparent)",
+                                color: "var(--c-success)",
+                              }}
+                            >
                               Installed
                             </span>
                           )}
@@ -132,7 +153,15 @@ export default function ExtensionsOverlay() {
                         </div>
                       </div>
                       {server.installed ? (
-                        <span style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--c-success)", fontSize: 13 }}>
+                        <span
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 4,
+                            color: "var(--c-success)",
+                            fontSize: 13,
+                          }}
+                        >
                           <Check size={14} />
                         </span>
                       ) : (
@@ -144,15 +173,22 @@ export default function ExtensionsOverlay() {
                           style={{ minWidth: 80 }}
                         >
                           {isInstalling ? (
-                            <><Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Installing</>
+                            <>
+                              <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />{" "}
+                              Installing
+                            </>
                           ) : (
-                            <><Download size={12} /> Install</>
+                            <>
+                              <Download size={12} /> Install
+                            </>
                           )}
                         </button>
                       )}
                     </div>
                     {!server.installed && (
-                      <div style={{ padding: "0 16px 10px", fontSize: 11, color: "var(--c-muted-fg)" }}>
+                      <div
+                        style={{ padding: "0 16px 10px", fontSize: 11, color: "var(--c-muted-fg)" }}
+                      >
                         <code>{server.install_command}</code>
                       </div>
                     )}

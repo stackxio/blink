@@ -12,6 +12,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
   const [query, setQuery] = useState("");
   const [allFiles, setAllFiles] = useState<string[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [pointerMode, setPointerMode] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load file list on mount
@@ -29,7 +30,10 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
   // Close on Escape
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") { e.preventDefault(); onClose(); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -51,6 +55,7 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
   // Reset selection when results change
   useEffect(() => {
     setSelectedIdx(0); // eslint-disable-line react-hooks/set-state-in-effect -- derived state reset on filter change
+    setPointerMode(false); // eslint-disable-line react-hooks/set-state-in-effect -- reset to keyboard mode on new results
   }, [filtered]);
 
   const scrollOnKey = useRef(false);
@@ -68,10 +73,12 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      setPointerMode(false);
       scrollOnKey.current = true;
       setSelectedIdx((i) => Math.min(i + 1, filtered.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      setPointerMode(false);
       scrollOnKey.current = true;
       setSelectedIdx((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
@@ -106,9 +113,15 @@ export default function FileSearch({ workspacePath, onSelect, onClose }: Props) 
               <button
                 key={file}
                 type="button"
-                className={`file-search__item ${i === selectedIdx ? "file-search__item--active" : ""}`}
-                onClick={() => { onSelect(file); onClose(); }}
-                onMouseMove={() => { if (selectedIdx !== i) setSelectedIdx(i); }}
+                className={`file-search__item ${i === selectedIdx ? "file-search__item--active" : ""} ${pointerMode ? "file-search__item--hoverable" : ""}`}
+                onClick={() => {
+                  onSelect(file);
+                  onClose();
+                }}
+                onMouseMove={() => {
+                  if (!pointerMode) setPointerMode(true);
+                  if (selectedIdx !== i) setSelectedIdx(i);
+                }}
               >
                 <File size={14} />
                 <span className="file-search__item-name">{name}</span>
@@ -141,4 +154,3 @@ function fuzzyScore(str: string, query: string): number {
 
   return qi === query.length ? score : 0;
 }
-

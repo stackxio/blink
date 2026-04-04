@@ -29,9 +29,13 @@ export interface Workspace {
   id: string;
   path: string;
   name: string;
-  // Editor
+  // Editor — primary pane
   openFiles: OpenFile[];
   activeFileIdx: number;
+  // Editor — split pane (null = no split)
+  splitFiles: OpenFile[];
+  splitActiveIdx: number;
+  splitOpen: boolean;
   // Layout (per-workspace)
   sidePanelOpen: boolean;
   sidePanelView: SidePanelView;
@@ -46,13 +50,44 @@ export interface Workspace {
   expandedDirs: Set<string>;
 }
 
+function sidebarViewStorageKey(path: string) {
+  return `blink:sidebar-view:${path}`;
+}
+
+function loadSidebarView(path: string): SidePanelView {
+  try {
+    const stored = localStorage.getItem(sidebarViewStorageKey(path));
+    if (stored === "explorer" || stored === "chat" || stored === "search" || stored === "git") {
+      return stored;
+    }
+  } catch {}
+  return "explorer";
+}
+
+function saveSidebarView(path: string, view: SidePanelView) {
+  try {
+    localStorage.setItem(sidebarViewStorageKey(path), view);
+  } catch {}
+}
+
 function createWorkspace(id: string, path: string, name: string): Workspace {
   return {
-    id, path, name,
-    openFiles: [], activeFileIdx: -1,
-    sidePanelOpen: true, sidePanelView: "explorer", sidePanelWidth: 300,
-    bottomPanelOpen: false, bottomPanelHeight: 200, bottomPanelTab: "terminal",
-    terminalIds: [], activeTerminalId: null,
+    id,
+    path,
+    name,
+    openFiles: [],
+    activeFileIdx: -1,
+    splitFiles: [],
+    splitActiveIdx: -1,
+    splitOpen: false,
+    sidePanelOpen: true,
+    sidePanelView: path ? loadSidebarView(path) : "explorer",
+    sidePanelWidth: 300,
+    bottomPanelOpen: false,
+    bottomPanelHeight: 200,
+    bottomPanelTab: "terminal",
+    terminalIds: [],
+    activeTerminalId: null,
     expandedDirs: new Set(),
   };
 }
@@ -65,6 +100,7 @@ interface AppState {
   persistWorkspaces: boolean;
   // Diagnostics (global — keyed by file URI)
   diagnostics: Record<string, DiagnosticEntry[]>;
+  diagnosticSummary: { errors: number; warnings: number };
   setDiagnosticsForUri: (uri: string, diags: DiagnosticEntry[]) => void;
 
   // Workspaces
@@ -102,8 +138,17 @@ interface AppState {
   closeOtherFiles: (idx: number) => void;
   setActiveFile: (idx: number) => void;
   markModified: (path: string, modified: boolean) => void;
-  updateFileState: (path: string, state: { cursorLine?: number; cursorCol?: number; scrollTop?: number }) => void;
+  updateFileState: (
+    path: string,
+    state: { cursorLine?: number; cursorCol?: number; scrollTop?: number },
+  ) => void;
   markFileDeleted: (path: string) => void;
+
+  // Per-workspace split editor
+  openFileSplit: (path: string, name: string) => void;
+  closeFileSplit: (idx: number) => void;
+  setActiveSplitFile: (idx: number) => void;
+  closeSplit: () => void;
 
   // Per-workspace terminal tracking
   addTerminalId: (termId: string) => void;
@@ -114,12 +159,17 @@ interface AppState {
   toggleExpandedDir: (dirPath: string) => void;
 }
 
-function updateWs(state: AppState, updater: (ws: Workspace) => Partial<Workspace>): Partial<AppState> {
+function updateWs(
+  state: AppState,
+  updater: (ws: Workspace) => Partial<Workspace>,
+): Partial<AppState> {
   const ws = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (!ws) return {};
+  const patch = updater(ws);
+  if (Object.keys(patch).length === 0) return {};
   return {
     workspaces: state.workspaces.map((w) =>
-      w.id === state.activeWorkspaceId ? { ...w, ...updater(w) } : w,
+      w.id === state.activeWorkspaceId ? { ...w, ...patch } : w,
     ),
   };
 }
@@ -130,8 +180,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiPanelWidth: 560,
   persistWorkspaces: true,
   diagnostics: {},
+  diagnosticSummary: { errors: 0, warnings: 0 },
   setDiagnosticsForUri: (uri, diags) =>
-    set((s) => ({ diagnostics: { ...s.diagnostics, [uri]: diags } })),
+    set((s) => {
+      const diagnostics = { ...s.diagnostics, [uri]: diags };
+      let errors = 0;
+      let warnings = 0;
+      for (const entries of Object.values(diagnostics)) {
+        for (const entry of entries) {
+          if (entry.severity === 1) errors += 1;
+          else if (entry.severity === 2) warnings += 1;
+        }
+      }
+      return { diagnostics, diagnosticSummary: { errors, warnings } };
+    }),
   workspaces: [],
   activeWorkspaceId: null,
 
@@ -140,7 +202,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     return s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? null;
   },
 
-  setTheme: (t) => { set({ theme: t }); changeTheme(t); },
+  setTheme: (t) => {
+    set({ theme: t });
+    changeTheme(t);
+  },
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanelWidth: (w) => set({ aiPanelWidth: w }),
   setPersistWorkspaces: (v) => set({ persistWorkspaces: v }),
@@ -181,17 +246,29 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   loadSavedWorkspaces: async () => {
     try {
-      const saved = await invoke<{
-        id: string; path: string; name: string; is_active: boolean;
-        open_files: { path: string; name: string; is_active: boolean; is_preview: boolean }[];
-      }[]>("load_workspaces");
+      const saved = await invoke<
+        {
+          id: string;
+          path: string;
+          name: string;
+          is_active: boolean;
+          open_files: { path: string; name: string; is_active: boolean; is_preview: boolean }[];
+        }[]
+      >("load_workspaces");
 
       if (saved.length === 0) return;
 
       const workspaces: Workspace[] = saved.map((s) => {
         const ws = createWorkspace(s.id, s.path, s.name);
         ws.openFiles = s.open_files.map((f) => ({
-          path: f.path, name: f.name, modified: false, preview: f.is_preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false,
+          path: f.path,
+          name: f.name,
+          modified: false,
+          preview: f.is_preview,
+          cursorLine: 0,
+          cursorCol: 0,
+          scrollTop: 0,
+          deleted: false,
         }));
         const activeIdx = s.open_files.findIndex((f) => f.is_active);
         ws.activeFileIdx = activeIdx >= 0 ? activeIdx : s.open_files.length > 0 ? 0 : -1;
@@ -235,12 +312,21 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ── Per-workspace layout ──
 
   toggleSidePanel: () => set((s) => updateWs(s, (ws) => ({ sidePanelOpen: !ws.sidePanelOpen }))),
-  setSidePanelView: (view) => set((s) => updateWs(s, (ws) => ({
-    sidePanelView: view,
-    sidePanelOpen: ws.sidePanelView === view && ws.sidePanelOpen ? false : true,
-  }))),
+  setSidePanelView: (view) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        if (ws.path) {
+          saveSidebarView(ws.path, view);
+        }
+        return {
+          sidePanelView: view,
+          sidePanelOpen: ws.sidePanelView === view && ws.sidePanelOpen ? false : true,
+        };
+      }),
+    ),
   setSidePanelWidth: (w) => set((s) => updateWs(s, () => ({ sidePanelWidth: w }))),
-  toggleBottomPanel: () => set((s) => updateWs(s, (ws) => ({ bottomPanelOpen: !ws.bottomPanelOpen }))),
+  toggleBottomPanel: () =>
+    set((s) => updateWs(s, (ws) => ({ bottomPanelOpen: !ws.bottomPanelOpen }))),
   setBottomPanelHeight: (h) => set((s) => updateWs(s, () => ({ bottomPanelHeight: h }))),
   setBottomPanelTab: (tab) => set((s) => updateWs(s, () => ({ bottomPanelTab: tab }))),
 
@@ -251,7 +337,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (s.workspaces.length === 0) {
         const id = `ws-${Date.now()}`;
         const ws = createWorkspace(id, "", "Untitled");
-        const newFile: OpenFile = { path, name, modified: false, preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false };
+        const newFile: OpenFile = {
+          path,
+          name,
+          modified: false,
+          preview,
+          cursorLine: 0,
+          cursorCol: 0,
+          scrollTop: 0,
+          deleted: false,
+        };
         ws.openFiles = [newFile];
         ws.activeFileIdx = 0;
         return { workspaces: [ws], activeWorkspaceId: id };
@@ -262,80 +357,199 @@ export const useAppStore = create<AppState>((set, get) => ({
         if (existing !== -1) {
           return {
             activeFileIdx: existing,
-            openFiles: preview ? openFiles : openFiles.map((f, i) => (i === existing ? { ...f, preview: false } : f)),
+            openFiles: preview
+              ? openFiles
+              : openFiles.map((f, i) => (i === existing ? { ...f, preview: false } : f)),
           };
         }
         if (preview) {
           const previewIdx = openFiles.findIndex((f) => f.preview);
           if (previewIdx !== -1) {
             const updated = [...openFiles];
-            updated[previewIdx] = { path, name, modified: false, preview: true, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false };
+            updated[previewIdx] = {
+              path,
+              name,
+              modified: false,
+              preview: true,
+              cursorLine: 0,
+              cursorCol: 0,
+              scrollTop: 0,
+              deleted: false,
+            };
             return { openFiles: updated, activeFileIdx: previewIdx };
           }
         }
-        return { openFiles: [...openFiles, { path, name, modified: false, preview, cursorLine: 0, cursorCol: 0, scrollTop: 0, deleted: false }], activeFileIdx: openFiles.length };
+        return {
+          openFiles: [
+            ...openFiles,
+            {
+              path,
+              name,
+              modified: false,
+              preview,
+              cursorLine: 0,
+              cursorCol: 0,
+              scrollTop: 0,
+              deleted: false,
+            },
+          ],
+          activeFileIdx: openFiles.length,
+        };
       });
     });
   },
 
-  closeFile: (idx) => set((s) => updateWs(s, (ws) => {
-    const updated = ws.openFiles.filter((_, i) => i !== idx);
-    let newActive = ws.activeFileIdx;
-    if (idx === ws.activeFileIdx) newActive = Math.min(idx, updated.length - 1);
-    else if (idx < ws.activeFileIdx) newActive = ws.activeFileIdx - 1;
-    return { openFiles: updated, activeFileIdx: newActive };
-  })),
+  closeFile: (idx) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const updated = ws.openFiles.filter((_, i) => i !== idx);
+        let newActive = ws.activeFileIdx;
+        if (idx === ws.activeFileIdx) newActive = Math.min(idx, updated.length - 1);
+        else if (idx < ws.activeFileIdx) newActive = ws.activeFileIdx - 1;
+        return { openFiles: updated, activeFileIdx: newActive };
+      }),
+    ),
 
-  closeAllFiles: () => set((s) => updateWs(s, () => ({
-    openFiles: [],
-    activeFileIdx: -1,
-  }))),
+  closeAllFiles: () =>
+    set((s) =>
+      updateWs(s, () => ({
+        openFiles: [],
+        activeFileIdx: -1,
+      })),
+    ),
 
-  closeOtherFiles: (idx) => set((s) => updateWs(s, (ws) => {
-    const kept = ws.openFiles[idx];
-    if (!kept) return { openFiles: [], activeFileIdx: -1 };
-    return { openFiles: [kept], activeFileIdx: 0 };
-  })),
+  closeOtherFiles: (idx) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const kept = ws.openFiles[idx];
+        if (!kept) return { openFiles: [], activeFileIdx: -1 };
+        return { openFiles: [kept], activeFileIdx: 0 };
+      }),
+    ),
 
   setActiveFile: (idx) => set((s) => updateWs(s, () => ({ activeFileIdx: idx }))),
 
-  markModified: (path, modified) => set((s) => updateWs(s, (ws) => ({
-    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, modified, ...(modified ? { preview: false } : {}) } : f)),
-  }))),
+  markModified: (path, modified) =>
+    set((s) =>
+      updateWs(s, (ws) => ({
+        openFiles: ws.openFiles.map((f) =>
+          f.path === path ? { ...f, modified, ...(modified ? { preview: false } : {}) } : f,
+        ),
+      })),
+    ),
 
-  updateFileState: (path, fileState) => set((s) => updateWs(s, (ws) => ({
-    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, ...fileState } : f)),
-  }))),
+  updateFileState: (path, fileState) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const index = ws.openFiles.findIndex((f) => f.path === path);
+        if (index === -1) return {};
+        const current = ws.openFiles[index];
+        const nextCursorLine = fileState.cursorLine ?? current.cursorLine;
+        const nextCursorCol = fileState.cursorCol ?? current.cursorCol;
+        const nextScrollTop = fileState.scrollTop ?? current.scrollTop;
+        if (
+          nextCursorLine === current.cursorLine &&
+          nextCursorCol === current.cursorCol &&
+          nextScrollTop === current.scrollTop
+        ) {
+          return {};
+        }
+        const openFiles = [...ws.openFiles];
+        openFiles[index] = {
+          ...current,
+          cursorLine: nextCursorLine,
+          cursorCol: nextCursorCol,
+          scrollTop: nextScrollTop,
+        };
+        return { openFiles };
+      }),
+    ),
 
-  markFileDeleted: (path) => set((s) => updateWs(s, (ws) => ({
-    openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, deleted: true } : f)),
-  }))),
+  markFileDeleted: (path) =>
+    set((s) =>
+      updateWs(s, (ws) => ({
+        openFiles: ws.openFiles.map((f) => (f.path === path ? { ...f, deleted: true } : f)),
+      })),
+    ),
+
+  // ── Split editor ──
+
+  openFileSplit: (path, name) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const existing = ws.splitFiles.findIndex((f) => f.path === path);
+        if (existing !== -1) return { splitOpen: true, splitActiveIdx: existing };
+        const newFile: OpenFile = {
+          path,
+          name,
+          modified: false,
+          preview: false,
+          cursorLine: 0,
+          cursorCol: 0,
+          scrollTop: 0,
+          deleted: false,
+        };
+        return {
+          splitOpen: true,
+          splitFiles: [...ws.splitFiles, newFile],
+          splitActiveIdx: ws.splitFiles.length,
+        };
+      }),
+    ),
+
+  closeFileSplit: (idx) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const updated = ws.splitFiles.filter((_, i) => i !== idx);
+        let newActive = ws.splitActiveIdx;
+        if (idx === ws.splitActiveIdx) newActive = Math.min(idx, updated.length - 1);
+        else if (idx < ws.splitActiveIdx) newActive = ws.splitActiveIdx - 1;
+        return { splitFiles: updated, splitActiveIdx: newActive, splitOpen: updated.length > 0 };
+      }),
+    ),
+
+  setActiveSplitFile: (idx) => set((s) => updateWs(s, () => ({ splitActiveIdx: idx }))),
+
+  closeSplit: () =>
+    set((s) => updateWs(s, () => ({ splitOpen: false, splitFiles: [], splitActiveIdx: -1 }))),
 
   // ── Per-workspace terminals ──
 
-  addTerminalId: (termId) => set((s) => updateWs(s, (ws) => ({
-    terminalIds: [...ws.terminalIds, termId],
-    activeTerminalId: termId,
-  }))),
+  addTerminalId: (termId) =>
+    set((s) =>
+      updateWs(s, (ws) => ({
+        terminalIds: [...ws.terminalIds, termId],
+        activeTerminalId: termId,
+      })),
+    ),
 
-  removeTerminalId: (termId) => set((s) => updateWs(s, (ws) => {
-    const next = ws.terminalIds.filter((id) => id !== termId);
-    return {
-      terminalIds: next,
-      activeTerminalId: ws.activeTerminalId === termId
-        ? (next.length > 0 ? next[next.length - 1] : null)
-        : ws.activeTerminalId,
-    };
-  })),
+  removeTerminalId: (termId) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const next = ws.terminalIds.filter((id) => id !== termId);
+        return {
+          terminalIds: next,
+          activeTerminalId:
+            ws.activeTerminalId === termId
+              ? next.length > 0
+                ? next[next.length - 1]
+                : null
+              : ws.activeTerminalId,
+        };
+      }),
+    ),
 
   setActiveTerminalId: (termId) => set((s) => updateWs(s, () => ({ activeTerminalId: termId }))),
 
   // ── File tree ──
 
-  toggleExpandedDir: (dirPath) => set((s) => updateWs(s, (ws) => {
-    const next = new Set(ws.expandedDirs);
-    if (next.has(dirPath)) next.delete(dirPath);
-    else next.add(dirPath);
-    return { expandedDirs: next };
-  })),
+  toggleExpandedDir: (dirPath) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const next = new Set(ws.expandedDirs);
+        if (next.has(dirPath)) next.delete(dirPath);
+        else next.add(dirPath);
+        return { expandedDirs: next };
+      }),
+    ),
 }));
