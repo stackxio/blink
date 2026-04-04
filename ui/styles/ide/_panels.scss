@@ -92,7 +92,7 @@
   }
 }
 
-// Welcome / empty state — centered to the full window using negative offset
+// Welcome / empty state — centered within the editor pane
 .empty-state {
   @include flex-col;
   align-items: center;
@@ -100,8 +100,6 @@
   height: 100%;
   gap: 12px;
   color: var(--c-muted-fg);
-  // Offset left to account for activity bar + side panel so it looks screen-centered
-  margin-left: calc(-1 * (var(--activity-bar-w) + var(--side-panel-w)) / 2);
 
   &__icon {
     width: 48px;
