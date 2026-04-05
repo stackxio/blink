@@ -615,20 +615,106 @@
 
   &__image-wrap {
     display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  &__image-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+    background: var(--c-surface);
+  }
+
+  &__zoom-btn {
+    display: flex;
     align-items: center;
     justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+
+    &:hover:not(:disabled) {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+  }
+
+  &__zoom-pct {
+    min-width: 46px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    cursor: pointer;
+    text-align: center;
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__image-meta {
+    margin-left: 8px;
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--c-muted-fg);
+  }
+
+  &__image-canvas {
     flex: 1;
     overflow: auto;
-    padding: 24px;
+    padding: 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
     @include scrollbar(4px);
   }
 
-  &__image {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+  // Checkerboard transparency grid — like Figma / Zed / Photoshop
+  &__checker {
+    display: inline-flex;
+    align-items: flex-start;
+    justify-content: center;
+    background-color: #808080;
+    background-image:
+      linear-gradient(45deg, #666 25%, transparent 25%),
+      linear-gradient(-45deg, #666 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #666 75%),
+      linear-gradient(-45deg, transparent 75%, #666 75%);
+    background-size: 16px 16px;
+    background-position:
+      0 0,
+      0 8px,
+      8px -8px,
+      -8px 0;
     border-radius: var(--radius-sm);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+  }
+
+  &__image {
+    display: block;
+    max-width: 100%;
+    transition: transform 0.1s ease;
   }
 
   &__pdf {

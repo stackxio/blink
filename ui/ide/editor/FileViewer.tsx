@@ -57,23 +57,107 @@ function parseCsv(text: string, delimiter = ","): string[][] {
 
 // ── Sub-viewers ───────────────────────────────────────────────────────────────
 
+const ZOOM_STEPS = [0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8];
+
 function ImageViewer({ filePath, ext }: { filePath: string; ext: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     setSrc(null);
     setError(null);
+    setZoom(1);
+    setNaturalSize(null);
     invoke<string>("read_file_base64", { path: filePath })
       .then((b64) => setSrc(`data:${getMimeType(ext)};base64,${b64}`))
       .catch((e) => setError(String(e)));
   }, [filePath, ext]);
 
+  function zoomIn() {
+    setZoom((z) => {
+      const next = ZOOM_STEPS.find((s) => s > z);
+      return next ?? z;
+    });
+  }
+
+  function zoomOut() {
+    setZoom((z) => {
+      const prev = [...ZOOM_STEPS].reverse().find((s) => s < z);
+      return prev ?? z;
+    });
+  }
+
+  function zoomReset() {
+    setZoom(1);
+  }
+
+  function handleWheel(e: React.WheelEvent) {
+    if (!e.metaKey && !e.ctrlKey) return;
+    e.preventDefault();
+    if (e.deltaY < 0) zoomIn();
+    else zoomOut();
+  }
+
   if (error) return <div className="file-viewer__error">{error}</div>;
   if (!src) return <div className="file-viewer__loading">Loading…</div>;
+
+  const pct = Math.round(zoom * 100);
+
   return (
-    <div className="file-viewer__image-wrap">
-      <img src={src} alt={filePath.split("/").pop()} className="file-viewer__image" />
+    <div className="file-viewer__image-wrap" onWheel={handleWheel}>
+      {/* zoom toolbar */}
+      <div className="file-viewer__image-toolbar">
+        <button
+          type="button"
+          className="file-viewer__zoom-btn"
+          onClick={zoomOut}
+          title="Zoom out"
+          disabled={zoom <= ZOOM_STEPS[0]}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          className="file-viewer__zoom-pct"
+          onClick={zoomReset}
+          title="Reset zoom"
+        >
+          {pct}%
+        </button>
+        <button
+          type="button"
+          className="file-viewer__zoom-btn"
+          onClick={zoomIn}
+          title="Zoom in"
+          disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1]}
+        >
+          +
+        </button>
+        {naturalSize && (
+          <span className="file-viewer__image-meta">
+            {naturalSize.w} × {naturalSize.h}
+          </span>
+        )}
+      </div>
+
+      {/* scrollable canvas */}
+      <div className="file-viewer__image-canvas">
+        <div className="file-viewer__checker">
+          <img
+            src={src}
+            alt={filePath.split("/").pop()}
+            className="file-viewer__image"
+            style={{ transform: `scale(${zoom})`, transformOrigin: "top center" }}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+            }}
+            draggable={false}
+          />
+        </div>
+      </div>
     </div>
   );
 }
