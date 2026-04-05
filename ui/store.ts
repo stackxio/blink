@@ -408,7 +408,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
-  closeFile: (idx) =>
+  closeFile: (idx) => {
     set((s) =>
       updateWs(s, (ws) => {
         const file = ws.openFiles[idx];
@@ -421,9 +421,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         else if (idx < ws.activeFileIdx) newActive = ws.activeFileIdx - 1;
         return { openFiles: updated, activeFileIdx: newActive, closedTabHistory };
       }),
-    ),
+    );
+    if (get().persistWorkspaces) get().saveCurrentWorkspaces();
+  },
 
-  closeAllFiles: () =>
+  closeAllFiles: () => {
     set((s) =>
       updateWs(s, (ws) => {
         const pinned = ws.openFiles.filter((f) => f.pinned);
@@ -433,9 +435,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         const newActive = pinned.length > 0 ? 0 : -1;
         return { openFiles: pinned, activeFileIdx: newActive, closedTabHistory };
       }),
-    ),
+    );
+    if (get().persistWorkspaces) get().saveCurrentWorkspaces();
+  },
 
-  closeOtherFiles: (idx) =>
+  closeOtherFiles: (idx) => {
     set((s) =>
       updateWs(s, (ws) => {
         const target = ws.openFiles[idx];
@@ -452,7 +456,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           closedTabHistory,
         };
       }),
-    ),
+    );
+    if (get().persistWorkspaces) get().saveCurrentWorkspaces();
+  },
 
   setActiveFile: (idx) => set((s) => updateWs(s, () => ({ activeFileIdx: idx }))),
 
