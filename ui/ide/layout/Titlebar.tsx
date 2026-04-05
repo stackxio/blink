@@ -1,12 +1,15 @@
-import { Settings, Sparkles } from "lucide-react";
+import { Settings, Sparkles, ArrowUpCircle, CloudDownload, RotateCcw } from "lucide-react";
 import { useNavigate } from "react-router";
 import { useAppStore } from "@/store";
+import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import WorkspaceTabs from "./WorkspaceTabs";
 
 export default function Titlebar() {
   const navigate = useNavigate();
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
+  const { hasUpdate, isDownloading, isReady, latestVersion, progress, install, restartNow, dismiss } =
+    useUpdateCheck();
 
   return (
     <div className="titlebar">
@@ -15,6 +18,36 @@ export default function Titlebar() {
       </div>
       <div className="titlebar__drag" data-tauri-drag-region />
       <div className="titlebar__right">
+        {isReady && (
+          <div className="titlebar__update titlebar__update--ready">
+            <RotateCcw size={12} />
+            <button type="button" className="titlebar__update-action" onClick={restartNow}>
+              Restart to update
+            </button>
+          </div>
+        )}
+        {isDownloading && (
+          <div className="titlebar__update">
+            <CloudDownload size={12} />
+            <span>{progress !== null ? `${progress}%` : "Downloading…"}</span>
+          </div>
+        )}
+        {hasUpdate && (
+          <div className="titlebar__update">
+            <ArrowUpCircle size={12} />
+            <button
+              type="button"
+              className="titlebar__update-action"
+              onClick={install}
+              title={`Install Blink ${latestVersion}`}
+            >
+              Update to {latestVersion}
+            </button>
+            <button type="button" className="titlebar__update-dismiss" onClick={dismiss} title="Dismiss">
+              ×
+            </button>
+          </div>
+        )}
         <button
           type="button"
           className="titlebar__action"

@@ -60,7 +60,7 @@ if (Object.keys(platforms).length === 0) {
 }
 
 const manifest = {
-  version: tag,
+  version: tag.replace(/^v/, ""), // strip leading "v" so Tauri semver comparison works
   notes: "",
   pub_date: new Date().toISOString(),
   platforms,

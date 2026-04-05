@@ -7,12 +7,8 @@ import {
   AlertTriangle,
   Plus,
   Check,
-  ArrowUpCircle,
-  RotateCcw,
-  CloudDownload,
 } from "lucide-react";
 import { useAppStore } from "@/store";
-import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 
 interface Props {
   branch?: string | null;
@@ -31,16 +27,6 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const errorCount = diagnosticSummary.errors;
   const warningCount = diagnosticSummary.warnings;
 
-  const {
-    hasUpdate,
-    isDownloading,
-    isReady,
-    latestVersion,
-    progress,
-    install,
-    restartNow,
-    dismiss,
-  } = useUpdateCheck();
   const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("blink:wordWrap") === "true");
   const [tabSize] = useState(() => parseInt(localStorage.getItem("blink:tabSize") || "2", 10));
 
@@ -232,42 +218,6 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
           <button type="button" className="status-bar__item">
             {workspaceName}
           </button>
-        )}
-        {isReady && (
-          <div className="status-bar__update status-bar__update--ready">
-            <RotateCcw size={12} />
-            <span>Update ready —</span>
-            <button type="button" className="status-bar__update-action" onClick={restartNow}>
-              Restart now
-            </button>
-          </div>
-        )}
-        {isDownloading && (
-          <div className="status-bar__update">
-            <CloudDownload size={12} />
-            <span>Downloading{progress !== null ? ` ${progress}%` : "…"}</span>
-          </div>
-        )}
-        {hasUpdate && (
-          <div className="status-bar__update">
-            <ArrowUpCircle size={12} />
-            <button
-              type="button"
-              className="status-bar__update-action"
-              onClick={install}
-              title={`Install Blink ${latestVersion}`}
-            >
-              Update to {latestVersion}
-            </button>
-            <button
-              type="button"
-              className="status-bar__update-dismiss"
-              onClick={dismiss}
-              title="Dismiss"
-            >
-              ×
-            </button>
-          </div>
         )}
       </div>
     </div>
