@@ -41,12 +41,27 @@ export function getTerminalTheme() {
 const FONT_FAMILY =
   '"JetBrains Mono", Menlo, "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", "Arial Unicode MS", monospace';
 
-/** Wait for JetBrains Mono to be ready for canvas rendering.
- *  index.html preloads it via <link rel="preload">, so document.fonts.ready
- *  resolves only after it is fully loaded and usable in canvas fillText().
- *  1.5s hard cap as safety net in case the font never loads. */
+/** Prime JetBrains Mono for canvas rendering.
+ *
+ *  Renders a hidden DOM span using the font so the browser populates its
+ *  internal font cache — the same cache canvas fillText() uses. Without
+ *  this, even a fully-loaded FontFace can still miss in canvas on WKWebView
+ *  because CSS/DOM and canvas font caches are separate.
+ *
+ *  Including Claude Code's actual TUI chars (Braille, geometric shapes,
+ *  Dingbats arrows) pre-caches those glyphs specifically.
+ */
 async function ensureFont(): Promise<void> {
-  await Promise.race([document.fonts.ready, new Promise<void>((r) => setTimeout(r, 1500))]);
+  const span = document.createElement("span");
+  span.style.cssText =
+    'position:absolute;opacity:0;pointer-events:none;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:pre';
+  span.textContent = "abcdefghijklmnopqrstuvwxyz0123456789⠿⠶⠦⠧◐◑◒◓❯⏵─│╭╮╰╯█▀▄";
+  document.body.appendChild(span);
+  await Promise.race([
+    document.fonts.ready,
+    new Promise<void>((r) => setTimeout(r, 1500)),
+  ]);
+  document.body.removeChild(span);
 }
 
 export function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
