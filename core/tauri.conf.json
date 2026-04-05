@@ -22,9 +22,7 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "windowEffects": {
-          "effects": [
-            "sidebar"
-          ],
+          "effects": ["sidebar"],
           "state": "followsWindowActiveState"
         }
       }
@@ -36,9 +34,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": [
-        "https://github.com/stackxio/blink/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://github.com/stackxio/blink/releases/latest/download/latest.json"],
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDQUFGQzZBRTg3NkJFRDUKUldUVnZuYm9hdnlxckNqbmRyMzl3VExQQ1dMcHljTURwbE1KUUJ4VlArS0hRaUxXcmd5VEwwZXQK"
     }
@@ -46,9 +42,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
-    "resources": [
-      "bridge/ide-bridge.js"
-    ],
+    "resources": ["bridge/ide-bridge.js"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
