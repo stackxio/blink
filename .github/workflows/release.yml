@@ -99,6 +99,20 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Stamp version
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            const conf = JSON.parse(fs.readFileSync('core/tauri.conf.json', 'utf8'));
+            conf.version = process.env.VERSION;
+            fs.writeFileSync('core/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
+          "
+
       - name: Build Tauri app
         run: TAURI_DIR=core bun run tauri build --target ${{ matrix.target }}
         env:
