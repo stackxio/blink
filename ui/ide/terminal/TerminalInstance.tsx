@@ -38,32 +38,51 @@ export function getTerminalTheme() {
 }
 
 const FONT_FAMILY =
-  '"JetBrains Mono", Menlo, "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", "Arial Unicode MS", monospace';
+  '"JetBrains Mono", "Apple Symbols", Menlo, "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", "Arial Unicode MS", monospace';
 
-/** Prime JetBrains Mono for canvas rendering.
+// Only load the font once across all terminal instances.
+let fontLoadPromise: Promise<void> | null = null;
+
+/**
+ * Load JetBrains Mono by fetching the font binary directly and injecting it
+ * via the FontFace API. This is the only reliable approach in WKWebView:
  *
- *  Renders a hidden DOM span so the browser populates its DOM font cache,
- *  then calls document.fonts.load() to also prime the canvas font cache
- *  (WKWebView keeps these two caches separate). Without this, ctx.fillText()
- *  can miss even a fully-loaded FontFace on the first render frame.
- *
- *  Including Claude Code's actual TUI chars (Braille, geometric shapes,
- *  Dingbats arrows) pre-caches those specific glyphs.
+ *  - CSS @font-face + document.fonts.load() only checks whether the CSS font
+ *    is ready, but WKWebView's canvas cache is separate from the DOM cache
+ *    so ctx.fillText() can still miss the font on the first frame.
+ *  - new FontFace(name, ArrayBuffer) bypasses CSS entirely — the browser parses
+ *    the binary data synchronously and document.fonts.add() makes it
+ *    immediately available to canvas.
  */
-async function ensureFont(): Promise<void> {
-  const span = document.createElement("span");
-  span.style.cssText =
-    'position:absolute;opacity:0;pointer-events:none;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:pre';
-  span.textContent = "abcdefghijklmnopqrstuvwxyz0123456789⠿⠶⠦⠧◐◑◒◓❯⏵─│╭╮╰╯█▀▄";
-  document.body.appendChild(span);
-  // Use document.fonts.load() not document.fonts.ready — ready is a one-time
-  // settled promise that's already resolved by the time a terminal tab opens.
-  // load() creates a fresh request and resolves when the font is actually usable.
-  await Promise.race([
-    document.fonts.load('13px "JetBrains Mono"'),
-    new Promise<void>((r) => setTimeout(r, 1500)),
-  ]);
-  document.body.removeChild(span);
+async function loadFont(): Promise<void> {
+  try {
+    const [regular, bold] = await Promise.all([
+      fetch("/fonts/JetBrainsMono-Regular.ttf").then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+      }),
+      fetch("/fonts/JetBrainsMono-Bold.ttf").then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.arrayBuffer();
+      }),
+    ]);
+
+    const faceRegular = new FontFace("JetBrains Mono", regular, { weight: "400" });
+    const faceBold = new FontFace("JetBrains Mono", bold, { weight: "700" });
+
+    await Promise.all([faceRegular.load(), faceBold.load()]);
+
+    document.fonts.add(faceRegular);
+    document.fonts.add(faceBold);
+  } catch (err) {
+    // Non-fatal — fall back to Menlo / Apple Symbols from the font stack.
+    console.warn("[terminal] JetBrains Mono load failed, falling back:", err);
+  }
+}
+
+function ensureFont(): Promise<void> {
+  if (!fontLoadPromise) fontLoadPromise = loadFont();
+  return fontLoadPromise;
 }
 
 export function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
@@ -83,8 +102,8 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
     };
 
     const run = async () => {
-      // 1. Ensure font is loaded and primed in the canvas font cache before
-      //    xterm opens so the first rendered frame uses JetBrains Mono.
+      // 1. Load JetBrains Mono via FontFace API (binary fetch → document.fonts.add).
+      //    This guarantees the font is in the canvas font cache before xterm opens.
       await ensureFont();
       if (disposed) return;
 
