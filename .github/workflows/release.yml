@@ -117,13 +117,10 @@ jobs:
           pushd "$BUNDLE_DIR"
           tar -czf "$TARBALL" Blink.app
           popd
-          # Write key to temp file (Tauri signer expects a file path)
-          echo "$TAURI_SIGNING_PRIVATE_KEY" > /tmp/tauri-signing.key
           TAURI_DIR=core bun run tauri signer sign \
-            -k /tmp/tauri-signing.key \
+            -k "$TAURI_SIGNING_PRIVATE_KEY" \
             -p "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" \
             "${BUNDLE_DIR}/${TARBALL}"
-          rm -f /tmp/tauri-signing.key
 
       - name: Collect artifacts
         shell: bash
