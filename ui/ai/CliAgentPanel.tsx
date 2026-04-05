@@ -193,7 +193,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       )}
 
       {/* ── Terminal body ── */}
-      <div ref={bodyRef} className="cli-agent-panel__body">
+      <div className="cli-agent-panel__body">
         {sessions.length === 0 ? (
           <EmptyState agents={visibleAgents} onSettings={onSettings} />
         ) : (
