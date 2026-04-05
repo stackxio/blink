@@ -14,7 +14,17 @@ function fmtBytes(bytes: number): string {
 export default function SettingsAbout() {
   const navigate = useNavigate();
   const [version, setVersion] = useState<string | null>(null);
-  const { hasUpdate, isDownloading, isReady, latestVersion, progress, downloadedBytes, totalBytes, install, restartNow } = useUpdateCheck();
+  const {
+    hasUpdate,
+    isDownloading,
+    isReady,
+    latestVersion,
+    progress,
+    downloadedBytes,
+    totalBytes,
+    install,
+    restartNow,
+  } = useUpdateCheck();
 
   useEffect(() => {
     getVersion()
