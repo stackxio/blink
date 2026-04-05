@@ -582,17 +582,20 @@ function TreeItems({
                 }}
                 onDragOver={(e) => {
                   if (!node.is_dir) return;
+                  // Only accept internal tree drags — ignore external file drops from Finder etc.
+                  if (!e.dataTransfer.types.includes("text/plain")) return;
                   e.preventDefault();
                   e.dataTransfer.dropEffect = "move";
                   setDragOver(node.path);
                 }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={(e) => {
-                  e.preventDefault();
                   setDragOver(null);
                   if (!node.is_dir) return;
                   const src = e.dataTransfer.getData("text/plain");
-                  if (src && src !== node.path) onMove(src, node.path);
+                  if (!src) return; // external drop — ignore
+                  e.preventDefault();
+                  if (src !== node.path) onMove(src, node.path);
                 }}
               >
                 <span

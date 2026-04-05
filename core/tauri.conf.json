@@ -24,7 +24,8 @@
         "windowEffects": {
           "effects": ["sidebar"],
           "state": "followsWindowActiveState"
-        }
+        },
+        "fileDropEnabled": false
       }
     ],
     "security": {
