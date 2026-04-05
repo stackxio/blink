@@ -49,6 +49,7 @@ import makefileUrl from "material-icon-theme/icons/makefile.svg?url";
 import eslintUrl from "material-icon-theme/icons/eslint.svg?url";
 import biomeUrl from "material-icon-theme/icons/biome.svg?url";
 import typescriptUrl from "material-icon-theme/icons/typescript.svg?url";
+import typescriptDefUrl from "material-icon-theme/icons/typescript-def.svg?url";
 import reactTsUrl from "material-icon-theme/icons/react_ts.svg?url";
 import javascriptUrl from "material-icon-theme/icons/javascript.svg?url";
 import reactUrl from "material-icon-theme/icons/react.svg?url";
@@ -133,6 +134,7 @@ const iconUrls: Record<string, string> = {
   eslint: eslintUrl,
   biome: biomeUrl,
   typescript: typescriptUrl,
+  "typescript-def": typescriptDefUrl,
   react_ts: reactTsUrl,
   javascript: javascriptUrl,
   react: reactUrl,
