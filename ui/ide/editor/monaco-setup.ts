@@ -91,6 +91,7 @@ export async function setupMonaco() {
         import("monaco-editor/esm/vs/language/css/monaco.contribution.js"),
         import("monaco-editor/esm/vs/basic-languages/cpp/cpp.contribution.js"),
         import("monaco-editor/esm/vs/basic-languages/go/go.contribution.js"),
+        import("monaco-editor/esm/vs/basic-languages/html/html.contribution.js"),
         import("monaco-editor/esm/vs/language/html/monaco.contribution.js"),
         import("monaco-editor/esm/vs/basic-languages/javascript/javascript.contribution.js"),
         import("monaco-editor/esm/vs/basic-languages/java/java.contribution.js"),
