@@ -120,12 +120,17 @@ export function TerminalInstance({
     };
 
     const run = async () => {
-      // 1. Kick off font loading in the background immediately — don't block
-      //    xterm opening on it. We need xterm open to measure pixel dimensions.
-      const fontReady = ensureFont();
+      // 1. Load the font BEFORE opening xterm.
+      //    xterm's canvas renderer measures cell width/height from the active
+      //    font at open() time. If JetBrains Mono isn't loaded yet, xterm uses
+      //    Menlo (~7.8 px/col). FitAddon then calculates cols from Menlo metrics
+      //    but the actual rendered glyphs use JetBrains Mono (~8 px/col), so
+      //    the PTY is told 2-3 extra columns that never appear on screen — every
+      //    line Claude Code draws at "full width" wraps to the next line.
+      await ensureFont();
+      if (disposed) return;
 
-      // 2. Open xterm. Font may not be ready yet but that's fine — we need the
-      //    container dimensions, not rendered glyphs, at this point.
+      // 2. Open xterm. Font is now loaded so cell measurements are correct.
       const term = new Terminal({
         cursorBlink: true,
         lineHeight: 1.2,
@@ -159,14 +164,10 @@ export function TerminalInstance({
       termRef.current = term;
       fitRef.current = fit;
 
-      // 4. If we are responsible for spawning the process, wait for the font
-      //    to be ready first so the process's initial output renders correctly,
-      //    then call terminal_create with the EXACT cols/rows xterm measured —
-      //    guaranteeing the process sees the same width xterm shows.
+      // 4. If we are responsible for spawning the process, call terminal_create
+      //    with the EXACT cols/rows xterm measured — the process starts at the
+      //    same width xterm displays, so its initial render is always correct.
       if (spawn) {
-        await fontReady;
-        if (disposed) return;
-
         try {
           await invoke("terminal_create", {
             id,
