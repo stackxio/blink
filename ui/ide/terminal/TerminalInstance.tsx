@@ -57,10 +57,7 @@ async function ensureFont(): Promise<void> {
     'position:absolute;opacity:0;pointer-events:none;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:pre';
   span.textContent = "abcdefghijklmnopqrstuvwxyz0123456789⠿⠶⠦⠧◐◑◒◓❯⏵─│╭╮╰╯█▀▄";
   document.body.appendChild(span);
-  await Promise.race([
-    document.fonts.ready,
-    new Promise<void>((r) => setTimeout(r, 1500)),
-  ]);
+  await Promise.race([document.fonts.ready, new Promise<void>((r) => setTimeout(r, 1500))]);
   document.body.removeChild(span);
 }
 
