@@ -302,13 +302,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           name: ws.name,
           position: 0,
           is_active: ws.id === activeWorkspaceId,
-          open_files: ws.openFiles.map((f, i) => ({
-            path: f.path,
-            name: f.name,
-            position: i,
-            is_active: i === ws.activeFileIdx,
-            is_preview: f.preview,
-          })),
+          open_files: ws.openFiles
+            .filter((f) => !f.deleted)
+            .map((f, i) => ({
+              path: f.path,
+              name: f.name,
+              position: i,
+              is_active: i === ws.activeFileIdx,
+              is_preview: f.preview,
+            })),
         })),
       });
     } catch {
