@@ -125,11 +125,10 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 0 6px;
+    padding: 2px 6px;
     border-radius: var(--radius-sm);
     background: color-mix(in srgb, var(--c-accent) 15%, transparent);
     color: var(--c-accent);
-    height: 20px;
     font-size: var(--font-size-xs);
     white-space: nowrap;
     line-height: 1;
@@ -137,6 +136,8 @@
     svg {
       display: block;
       flex-shrink: 0;
+      position: relative;
+      top: 0;
     }
 
     &--ready {

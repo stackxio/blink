@@ -9,7 +9,7 @@ import {
   Check,
   ArrowUpCircle,
   RotateCcw,
-  Download,
+  CloudDownload,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
@@ -244,7 +244,7 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
         )}
         {isDownloading && (
           <div className="status-bar__update">
-            <Download size={12} />
+            <CloudDownload size={12} />
             <span>Downloading{progress !== null ? ` ${progress}%` : "…"}</span>
           </div>
         )}
