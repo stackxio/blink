@@ -1,13 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import {
-  GitBranch,
-  Terminal,
-  AlertCircle,
-  AlertTriangle,
-  Plus,
-  Check,
-} from "lucide-react";
+import { GitBranch, Terminal, AlertCircle, AlertTriangle, Plus, Check } from "lucide-react";
 import { useAppStore } from "@/store";
 
 interface Props {

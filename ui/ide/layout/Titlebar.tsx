@@ -8,8 +8,16 @@ export default function Titlebar() {
   const navigate = useNavigate();
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
-  const { hasUpdate, isDownloading, isReady, latestVersion, progress, install, restartNow, dismiss } =
-    useUpdateCheck();
+  const {
+    hasUpdate,
+    isDownloading,
+    isReady,
+    latestVersion,
+    progress,
+    install,
+    restartNow,
+    dismiss,
+  } = useUpdateCheck();
 
   return (
     <div className="titlebar">
@@ -43,7 +51,12 @@ export default function Titlebar() {
             >
               Update to {latestVersion}
             </button>
-            <button type="button" className="titlebar__update-dismiss" onClick={dismiss} title="Dismiss">
+            <button
+              type="button"
+              className="titlebar__update-dismiss"
+              onClick={dismiss}
+              title="Dismiss"
+            >
               ×
             </button>
           </div>
