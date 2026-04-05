@@ -10,6 +10,7 @@ export type ProviderConfig =
   | {
       /** Embedded CLI agent panel (Claude, Codex, Gemini, …) */
       type: "agent";
+      model?: string;
     }
   // Legacy types kept for backward-compat; treated as "agent" in the UI
   | {
