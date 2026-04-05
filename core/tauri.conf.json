@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Blink",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "identifier": "com.voxire.blink",
   "build": {
     "frontendDist": "../dist",
@@ -22,7 +22,9 @@
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
         "windowEffects": {
-          "effects": ["sidebar"],
+          "effects": [
+            "sidebar"
+          ],
           "state": "followsWindowActiveState"
         },
         "dragDropEnabled": false
@@ -35,7 +37,9 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/stackxio/blink/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/stackxio/blink/releases/latest/download/latest.json"
+      ],
       "dialog": false,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDQUFGQzZBRTg3NkJFRDUKUldUVnZuYm9hdnlxckNqbmRyMzl3VExQQ1dMcHljTURwbE1KUUJ4VlArS0hRaUxXcmd5VEwwZXQK"
     }
