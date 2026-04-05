@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { X, Settings2 } from "lucide-react";
-import { TerminalInstance } from "@/ide/terminal/TerminalInstance";
+import { TerminalInstance, type SpawnConfig } from "@/ide/terminal/TerminalInstance";
 import { AgentLogo } from "./agent-logos";
 import { ALL_AGENTS, type AgentDef, type AgentSettings } from "./agent-settings";
 
@@ -11,6 +11,8 @@ interface AgentSession {
   termId: string;
   agentId: string;
   label: string;
+  /** Passed to TerminalInstance so it creates the PTY at the correct pixel size. */
+  spawn: SpawnConfig;
 }
 
 let sessionCounter = 0;
@@ -23,21 +25,6 @@ interface Props {
   onSettings: () => void;
 }
 
-/** Estimate terminal cols/rows from a container element's pixel size.
- *  Matches TerminalInstance settings: fontSize=13, lineHeight=1.2, SF Mono.
- *  SF Mono has a character aspect ratio of ~0.601. */
-function measureTermSize(el: HTMLElement): { rows: number; cols: number } {
-  const charW = 13 * 0.601; // ~7.8px per column
-  const charH = 13 * 1.2; // ~15.6px per row
-  // __body has 4px padding on all sides
-  const w = Math.max(1, el.clientWidth - 8);
-  const h = Math.max(1, el.clientHeight - 8);
-  return {
-    cols: Math.max(20, Math.floor(w / charW)),
-    rows: Math.max(5, Math.floor(h / charH)),
-  };
-}
-
 export default function CliAgentPanel({ workspacePath, agentSettings, onSettings }: Props) {
   const [installedBinaries, setInstalledBinaries] = useState<string[]>([]);
   const [sessions, setSessions] = useState<AgentSession[]>([]);
@@ -45,7 +32,6 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   const [renamingTermId, setRenamingTermId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const bodyRef = useRef<HTMLDivElement>(null);
   const sessionCountsRef = useRef<Record<string, number>>({});
 
   // Detect which binaries are available in PATH
@@ -64,7 +50,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     return installedBinaries.includes(agent.binary); // else must be in PATH
   });
 
-  async function createSession(agent: AgentDef) {
+  function createSession(agent: AgentDef) {
     sessionCounter++;
     const termId = `cli-agent-${Date.now()}-${sessionCounter}`;
     const agentCount = (sessionCountsRef.current[agent.id] ?? 0) + 1;
@@ -74,27 +60,12 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
     const cmd = agent.buildCmd({ customPath });
 
-    // Measure the body container so the PTY starts at the real panel size,
-    // preventing TUI distortion caused by a mismatched initial terminal width.
-    const { rows, cols } = bodyRef.current
-      ? measureTermSize(bodyRef.current)
-      : { rows: 24, cols: 80 };
+    // TerminalInstance will open xterm, measure its actual pixel dimensions via
+    // FitAddon, then call terminal_create with the correct cols/rows — ensuring
+    // the process always starts at the width it will be displayed at.
+    const spawn: SpawnConfig = { cmd, cwd: workspacePath };
 
-    try {
-      await invoke("terminal_create", {
-        id: termId,
-        cwd: workspacePath,
-        rows,
-        cols,
-        shell: null,
-        command: cmd,
-      });
-    } catch (err) {
-      console.error("Failed to create CLI agent session:", err);
-      return;
-    }
-
-    setSessions((prev) => [...prev, { termId, agentId: agent.id, label }]);
+    setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn }]);
     setActiveTermId(termId);
   }
 
@@ -232,7 +203,11 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
               className="cli-agent-panel__term-wrap"
               style={{ display: s.termId === activeTermId ? "flex" : "none" }}
             >
-              <TerminalInstance id={s.termId} visible={s.termId === activeTermId} />
+              <TerminalInstance
+                id={s.termId}
+                visible={s.termId === activeTermId}
+                spawn={s.spawn}
+              />
             </div>
           ))
         )}

@@ -85,7 +85,25 @@ function ensureFont(): Promise<void> {
   return fontLoadPromise;
 }
 
-export function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
+/** When provided, TerminalInstance creates the PTY itself at the correct
+ *  post-fit pixel dimensions so the process always starts at the right width. */
+export interface SpawnConfig {
+  cmd: string[];
+  cwd: string | null;
+}
+
+export function TerminalInstance({
+  id,
+  visible,
+  spawn,
+}: {
+  id: string;
+  visible: boolean;
+  /** Pass to have TerminalInstance create+start the PTY after the terminal
+   *  has measured its real pixel size. Omit when the PTY is already running
+   *  (e.g. regular shell terminals created by TerminalPanel). */
+  spawn?: SpawnConfig;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -102,13 +120,12 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
     };
 
     const run = async () => {
-      // 1. Load JetBrains Mono via FontFace API (binary fetch → document.fonts.add).
-      //    This guarantees the font is in the canvas font cache before xterm opens.
-      await ensureFont();
-      if (disposed) return;
+      // 1. Kick off font loading in the background immediately — don't block
+      //    xterm opening on it. We need xterm open to measure pixel dimensions.
+      const fontReady = ensureFont();
 
-      // 2. Create terminal (no unicodeVersion override — ink/Claude Code use
-      //    standard wcwidth v6 tables; setting v11 corrupts column counts).
+      // 2. Open xterm. Font may not be ready yet but that's fine — we need the
+      //    container dimensions, not rendered glyphs, at this point.
       const term = new Terminal({
         cursorBlink: true,
         lineHeight: 1.2,
@@ -128,24 +145,57 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
       term.loadAddon(fit);
       term.open(container);
 
-      // 3. Let xterm use its built-in canvas renderer (no WebGL addon).
-      //    The canvas renderer calls ctx.fillText() per glyph, which uses the
-      //    OS font-substitution stack — so even if JetBrains Mono misses a glyph
-      //    the system automatically falls back to Apple Symbols / Arial Unicode MS
-      //    for Braille, box-drawing, etc. The WebGL addon builds a texture atlas
-      //    once at loadAddon() time; if the custom font isn't in WKWebView's
-      //    canvas cache at that exact instant it gets baked in with Menlo and
-      //    all Braille/TUI glyphs render as empty boxes permanently.
-
-      requestAnimationFrame(() => {
-        try {
-          fit.fit();
-        } catch {}
-      });
+      // 3. Wait one animation frame so the browser has laid out the container,
+      //    then fit to get accurate cols/rows from actual pixel dimensions.
+      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      if (disposed) {
+        term.dispose();
+        return;
+      }
+      try {
+        fit.fit();
+      } catch {}
 
       termRef.current = term;
       fitRef.current = fit;
 
+      // 4. If we are responsible for spawning the process, wait for the font
+      //    to be ready first so the process's initial output renders correctly,
+      //    then call terminal_create with the EXACT cols/rows xterm measured —
+      //    guaranteeing the process sees the same width xterm shows.
+      if (spawn) {
+        await fontReady;
+        if (disposed) return;
+
+        try {
+          await invoke("terminal_create", {
+            id,
+            cwd: spawn.cwd,
+            rows: term.rows,
+            cols: term.cols,
+            shell: null,
+            command: spawn.cmd,
+          });
+        } catch (err) {
+          console.error("[terminal] terminal_create failed:", err);
+          term.dispose();
+          termRef.current = null;
+          fitRef.current = null;
+          mountedRef.current = false;
+          return;
+        }
+
+        if (disposed) {
+          invoke("terminal_close", { id }).catch(() => {});
+          term.dispose();
+          termRef.current = null;
+          fitRef.current = null;
+          mountedRef.current = false;
+          return;
+        }
+      }
+
+      // 5. Wire up I/O.
       term.onData((data) => {
         invoke("terminal_write", { id, data }).catch(() => {});
       });
@@ -163,7 +213,9 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
         })
         .catch(() => {});
 
-      // Debounce resize — TUI apps (ink/Claude Code) do a full repaint per SIGWINCH.
+      // 6. Debounce resize — TUI apps (ink/Claude Code) do a full repaint per
+      //    SIGWINCH. 50ms is fast enough to keep the display in sync while
+      //    avoiding a storm of repaints during a panel drag.
       let resizeTimer: ReturnType<typeof setTimeout> | null = null;
       const ro = new ResizeObserver(() => {
         if (resizeTimer) clearTimeout(resizeTimer);
@@ -172,7 +224,7 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
           try {
             fit.fit();
           } catch {}
-        }, 150);
+        }, 50);
       });
       ro.observe(container);
 
@@ -193,7 +245,7 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
       disposed = true;
       cleanupFn();
     };
-  }, [id]);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (visible && fitRef.current) {

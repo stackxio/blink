@@ -2398,23 +2398,11 @@
     min-width: 0;
     overflow: hidden;
     position: relative;
-    flex-direction: column;
 
-    // xterm.js internal elements — required to prevent the viewport from
-    // leaking outside the container when the panel is resized smaller.
-    .xterm {
-      flex: 1;
-      padding: 4px 8px;
-      overflow: hidden;
-    }
-
+    // Let xterm manage its own overflow — forced scrollbars shift the viewport
+    // width and cause FitAddon to compute different cols vs the visible canvas area.
     .xterm-viewport {
-      overflow-y: scroll !important;
       background: transparent !important;
-    }
-
-    .xterm-screen {
-      flex: 1;
     }
   }
 
