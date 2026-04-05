@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blink</title>
+    <!-- Preload JetBrains Mono so it's available before any terminal opens.
+         rel=preload forces the browser to fetch it at startup, and
+         document.fonts.ready in TerminalInstance waits for it to be usable. -->
+    <link rel="preload" href="/fonts/JetBrainsMono-Regular.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+    <link rel="preload" href="/fonts/JetBrainsMono-Bold.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
     <script>
       (function () {
         var stored = localStorage.getItem("blink-theme");

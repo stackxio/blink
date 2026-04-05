@@ -41,37 +41,15 @@ export function getTerminalTheme() {
 const FONT_FAMILY =
   '"JetBrains Mono", Menlo, "SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", "Arial Unicode MS", monospace';
 
-/** Load JetBrains Mono via the FontFace API, then spin on document.fonts.check()
- *  until WKWebView's canvas context actually sees the font. This extra check is
- *  needed because FontFace.load() resolving doesn't guarantee canvas availability
- *  in WebKit — there's an async internal cache update step after document.fonts.add(). */
+/** Wait for JetBrains Mono to be ready for canvas rendering.
+ *  index.html preloads it via <link rel="preload">, so document.fonts.ready
+ *  resolves only after it is fully loaded and usable in canvas fillText().
+ *  1.5s hard cap as safety net in case the font never loads. */
 async function ensureFont(): Promise<void> {
-  try {
-    const face = new FontFace("JetBrains Mono", "url(/fonts/JetBrainsMono-Regular.ttf)", {
-      weight: "400",
-      style: "normal",
-    });
-    await face.load();
-    document.fonts.add(face);
-  } catch {
-    return; // font load failed — continue with system fallback
-  }
-
-  // Spin until document.fonts.check() confirms the font is usable in canvas,
-  // or bail after 2 seconds. This mirrors Tabby's explicit delay and is needed
-  // specifically for WKWebView where canvas font resolution lags behind the
-  // FontFace API's load signal.
-  const deadline = Date.now() + 2000;
-  await new Promise<void>((resolve) => {
-    const check = () => {
-      if (document.fonts.check('13px "JetBrains Mono"') || Date.now() > deadline) {
-        resolve();
-      } else {
-        requestAnimationFrame(check);
-      }
-    };
-    check();
-  });
+  await Promise.race([
+    document.fonts.ready,
+    new Promise<void>((r) => setTimeout(r, 1500)),
+  ]);
 }
 
 export function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
