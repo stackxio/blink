@@ -1,10 +1,90 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { setupMonaco, observeMonacoTheme } from "@/ide/editor/monaco-setup";
 
 interface SkillFile {
   filename: string;
   content: string;
   is_system: boolean;
+}
+
+function SkillEditor({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<any>(null);
+  const monacoRef = useRef<any>(null);
+  const themeCleanupRef = useRef<(() => void) | null>(null);
+  const suppressRef = useRef(false);
+
+  // Boot Monaco once
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const monacoApi = await setupMonaco();
+      if (cancelled || !hostRef.current) return;
+      monacoRef.current = monacoApi;
+
+      const editor = monacoApi.editor.create(hostRef.current, {
+        value,
+        language: "markdown",
+        theme: "blink",
+        automaticLayout: true,
+        fontFamily: "var(--font-mono)",
+        fontSize: 13,
+        lineHeight: 1.6,
+        wordWrap: "on",
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+        renderLineHighlight: "none",
+        overviewRulerBorder: false,
+        hideCursorInOverviewRuler: true,
+        glyphMargin: false,
+        folding: false,
+        lineNumbers: "off",
+        lineDecorationsWidth: 0,
+        lineNumbersMinChars: 0,
+        padding: { top: 16, bottom: 16 },
+        scrollbar: { verticalScrollbarSize: 6, horizontalScrollbarSize: 6 },
+      });
+      editorRef.current = editor;
+
+      editor.onDidChangeModelContent(() => {
+        suppressRef.current = true;
+        onChange(editor.getValue());
+        suppressRef.current = false;
+      });
+
+      themeCleanupRef.current = observeMonacoTheme(monacoApi, () => {
+        editor.updateOptions({});
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      themeCleanupRef.current?.();
+      editorRef.current?.dispose();
+      editorRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Sync external value changes (tab switch)
+  useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor || suppressRef.current) return;
+    if (editor.getValue() !== value) {
+      const pos = editor.getPosition();
+      editor.setValue(value);
+      if (pos) editor.setPosition(pos);
+    }
+  }, [value]);
+
+  return <div ref={hostRef} style={{ flex: 1, minHeight: 0 }} />;
 }
 
 export default function SettingsSkills() {
@@ -162,7 +242,7 @@ export default function SettingsSkills() {
         only edited.
       </p>
 
-      <div className="settings-card" style={{ display: "flex", minHeight: 400 }}>
+      <div className="settings-card" style={{ display: "flex", height: 560 }}>
         {/* File list */}
         <div
           style={{
@@ -292,6 +372,7 @@ export default function SettingsSkills() {
                   justifyContent: "space-between",
                   borderBottom: "1px solid var(--c-border)",
                   padding: "8px 16px",
+                  flexShrink: 0,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -340,33 +421,13 @@ export default function SettingsSkills() {
                   {saving ? "Saving..." : "Save"}
                 </button>
               </div>
-              <textarea
+              <SkillEditor
+                key={selected}
                 value={editContent}
-                onChange={(e) => {
-                  setEditContent(e.target.value);
+                onChange={(v) => {
+                  setEditContent(v);
                   setDirty(true);
                 }}
-                onKeyDown={(e) => {
-                  if ((e.metaKey || e.ctrlKey) && e.key === "s") {
-                    e.preventDefault();
-                    handleSave();
-                  }
-                }}
-                style={{
-                  minHeight: 350,
-                  flex: 1,
-                  resize: "none",
-                  background: "transparent",
-                  padding: 16,
-                  fontFamily: "monospace",
-                  fontSize: "var(--font-size-xs)",
-                  lineHeight: 1.6,
-                  color: "var(--c-fg)",
-                  border: "none",
-                  outline: "none",
-                }}
-                placeholder="Write your prompt here..."
-                spellCheck={false}
               />
             </>
           ) : (
