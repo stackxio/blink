@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::json;
 use std::process::Command;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command as TokioCommand;
 use tokio::time::{timeout, Duration};
@@ -39,15 +39,18 @@ fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
+use crate::commands::blink_code_bridge::BRIDGE_JS;
+
 fn default_bridge_script(app: &AppHandle) -> std::path::PathBuf {
-    // Production: bundled resource shipped with the app
-    if let Ok(resource_dir) = app.path().resource_dir() {
-        let bundled = resource_dir.join("bridge").join("ide-bridge.js");
-        if bundled.is_file() {
-            return bundled;
+    if !BRIDGE_JS.is_empty() {
+        if let Ok(cache_dir) = app.path().app_cache_dir() {
+            let _ = std::fs::create_dir_all(&cache_dir);
+            let dest = cache_dir.join("ide-bridge.js");
+            if std::fs::write(&dest, BRIDGE_JS).is_ok() {
+                return dest;
+            }
         }
     }
-    // Dev fallback: source TypeScript file relative to the Cargo manifest
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../packages/blink-code/ide-bridge.ts")
         .canonicalize()
