@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 
 export function getTerminalTheme() {
@@ -43,13 +42,13 @@ const FONT_FAMILY =
 
 /** Prime JetBrains Mono for canvas rendering.
  *
- *  Renders a hidden DOM span using the font so the browser populates its
- *  internal font cache — the same cache canvas fillText() uses. Without
- *  this, even a fully-loaded FontFace can still miss in canvas on WKWebView
- *  because CSS/DOM and canvas font caches are separate.
+ *  Renders a hidden DOM span so the browser populates its DOM font cache,
+ *  then calls document.fonts.load() to also prime the canvas font cache
+ *  (WKWebView keeps these two caches separate). Without this, ctx.fillText()
+ *  can miss even a fully-loaded FontFace on the first render frame.
  *
  *  Including Claude Code's actual TUI chars (Braille, geometric shapes,
- *  Dingbats arrows) pre-caches those glyphs specifically.
+ *  Dingbats arrows) pre-caches those specific glyphs.
  */
 async function ensureFont(): Promise<void> {
   const span = document.createElement("span");
@@ -84,9 +83,8 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
     };
 
     const run = async () => {
-      // 1. Ensure font is loaded and available to canvas BEFORE opening xterm.
-      //    The WebGL addon builds its texture atlas synchronously at loadAddon()
-      //    time — if the font isn't in canvas yet, Menlo gets baked in permanently.
+      // 1. Ensure font is loaded and primed in the canvas font cache before
+      //    xterm opens so the first rendered frame uses JetBrains Mono.
       await ensureFont();
       if (disposed) return;
 
@@ -111,26 +109,14 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
       term.loadAddon(fit);
       term.open(container);
 
-      // 3. Load WebGL addon NOW (after font is confirmed ready).
-      //    Atlas is built at loadAddon() time with the currently-available font.
-      let webglAddon: WebglAddon | null = null;
-      try {
-        const webgl = new WebglAddon();
-        webgl.onContextLoss(() => webgl.dispose());
-        term.loadAddon(webgl);
-        webglAddon = webgl;
-      } catch {}
-
-      // 4. Force a fontFamily round-trip to guarantee the WebGL atlas rebuilds
-      //    with JetBrains Mono. This is the technique used by @xterm/addon-web-fonts
-      //    internally (relayout() method). Without this, a race can still cause the
-      //    atlas to be built with a fallback font on the first render frame.
-      if (webglAddon) {
-        const family = term.options.fontFamily;
-        term.options.fontFamily = "monospace";
-        await new Promise<void>((r) => requestAnimationFrame(() => r()));
-        term.options.fontFamily = family;
-      }
+      // 3. Let xterm use its built-in canvas renderer (no WebGL addon).
+      //    The canvas renderer calls ctx.fillText() per glyph, which uses the
+      //    OS font-substitution stack — so even if JetBrains Mono misses a glyph
+      //    the system automatically falls back to Apple Symbols / Arial Unicode MS
+      //    for Braille, box-drawing, etc. The WebGL addon builds a texture atlas
+      //    once at loadAddon() time; if the custom font isn't in WKWebView's
+      //    canvas cache at that exact instant it gets baked in with Menlo and
+      //    all Braille/TUI glyphs render as empty boxes permanently.
 
       requestAnimationFrame(() => {
         try {
