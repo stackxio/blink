@@ -247,7 +247,7 @@ export default function IdeLayout() {
     (delta: number) =>
       setAiPanelWidth(
         Math.max(
-          Math.round(window.innerWidth * 0.40),
+          Math.round(window.innerWidth * 0.35),
           Math.min(window.innerWidth - 200, aiPanelWidth - delta),
         ),
       ),
