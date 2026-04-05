@@ -42,7 +42,7 @@ fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
 fn default_bridge_script(app: &AppHandle) -> std::path::PathBuf {
     // Production: bundled resource shipped with the app
     if let Ok(resource_dir) = app.path().resource_dir() {
-        let bundled = resource_dir.join("ide-bridge.js");
+        let bundled = resource_dir.join("bridge").join("ide-bridge.js");
         if bundled.is_file() {
             return bundled;
         }

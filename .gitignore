@@ -5,6 +5,7 @@ node_modules
 dist
 dist-ssr
 dist-bridge
+core/bridge
 
 # Rust
 core/target
