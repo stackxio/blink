@@ -8,13 +8,7 @@ interface SkillFile {
   is_system: boolean;
 }
 
-function SkillEditor({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
+function SkillEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
