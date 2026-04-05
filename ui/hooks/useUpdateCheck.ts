@@ -4,7 +4,9 @@ import { relaunch } from "@tauri-apps/plugin-process";
 
 type UpdateState =
   | { status: "idle" }
+  | { status: "checking" }
   | { status: "available"; update: Update }
+  | { status: "up_to_date" }
   | { status: "downloading"; progress: number; downloaded: number; total: number }
   | { status: "ready" }
   | { status: "error"; message: string };
@@ -15,22 +17,33 @@ export function useUpdateCheck() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => {
-    // Check 4s after launch — don't block startup
-    const timer = setTimeout(async () => {
-      try {
-        const update = await check();
-        if (!update) return;
-        // Check if user already dismissed this version
+  const runCheck = useCallback(async (silent: boolean) => {
+    if (!silent) setState({ status: "checking" });
+    try {
+      const update = await check();
+      if (!update) {
+        if (!silent) setState({ status: "up_to_date" });
+        return;
+      }
+      if (silent) {
+        // Auto-check: skip if user already dismissed this exact version
         const prev = localStorage.getItem(DISMISS_KEY);
         if (prev === update.version) return;
-        setState({ status: "available", update });
-      } catch {
-        // Silently ignore — no network, updater not configured, etc.
       }
-    }, 4000);
-    return () => clearTimeout(timer);
+      setDismissed(false);
+      setState({ status: "available", update });
+    } catch {
+      if (!silent) setState({ status: "error", message: "Could not reach update server." });
+    }
   }, []);
+
+  useEffect(() => {
+    // Check 4s after launch — don't block startup
+    const timer = setTimeout(() => void runCheck(true), 4000);
+    return () => clearTimeout(timer);
+  }, [runCheck]);
+
+  const checkNow = useCallback(() => void runCheck(false), [runCheck]);
 
   const dismiss = useCallback(() => {
     if (state.status === "available") {
@@ -67,21 +80,28 @@ export function useUpdateCheck() {
   }, []);
 
   const hasUpdate = state.status === "available" && !dismissed;
+  const isChecking = state.status === "checking";
   const isDownloading = state.status === "downloading";
   const isReady = state.status === "ready";
+  const isUpToDate = state.status === "up_to_date";
   const latestVersion = state.status === "available" ? state.update.version : null;
   const progress = state.status === "downloading" ? state.progress : null;
   const downloadedBytes = state.status === "downloading" ? state.downloaded : null;
   const totalBytes = state.status === "downloading" ? state.total : null;
+  const errorMessage = state.status === "error" ? state.message : null;
 
   return {
     hasUpdate,
+    isChecking,
     isDownloading,
     isReady,
+    isUpToDate,
     latestVersion,
     progress,
     downloadedBytes,
     totalBytes,
+    errorMessage,
+    checkNow,
     install,
     restartNow,
     dismiss,

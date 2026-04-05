@@ -16,12 +16,16 @@ export default function SettingsAbout() {
   const [version, setVersion] = useState<string | null>(null);
   const {
     hasUpdate,
+    isChecking,
     isDownloading,
     isReady,
+    isUpToDate,
     latestVersion,
     progress,
     downloadedBytes,
     totalBytes,
+    errorMessage,
+    checkNow,
     install,
     restartNow,
   } = useUpdateCheck();
@@ -42,8 +46,13 @@ export default function SettingsAbout() {
       return `Downloading ${pct}`;
     }
     if (hasUpdate) return `Version ${latestVersion} is available.`;
+    if (isChecking) return "Checking for updates…";
+    if (isUpToDate) return "You're on the latest version.";
+    if (errorMessage) return `Error: ${errorMessage}`;
     return "Check for the latest version of Blink.";
   }
+
+  const showCheckButton = !hasUpdate && !isChecking && !isDownloading && !isReady;
 
   return (
     <div className="settings-section">
@@ -58,27 +67,46 @@ export default function SettingsAbout() {
         </div>
 
         <div className="settings-row settings-row--col">
-          <div className="settings-row__info">
-            <div className="settings-row__label">Updates</div>
-            <div className="settings-row__hint">{updateHint()}</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              width: "100%",
+            }}
+          >
+            <div className="settings-row__info">
+              <div className="settings-row__label">Updates</div>
+              <div className="settings-row__hint">{updateHint()}</div>
+            </div>
+            <div style={{ flexShrink: 0 }}>
+              {isReady && (
+                <button type="button" className="btn btn--default btn--sm" onClick={restartNow}>
+                  Restart Now
+                </button>
+              )}
+              {hasUpdate && !isDownloading && !isReady && (
+                <button type="button" className="btn btn--default btn--sm" onClick={install}>
+                  Install {latestVersion}
+                </button>
+              )}
+              {showCheckButton && (
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={checkNow}
+                  disabled={isChecking}
+                >
+                  Check for Updates
+                </button>
+              )}
+            </div>
           </div>
           {isDownloading && (
             <div className="about-progress">
               <div className="about-progress__bar" style={{ width: `${progress ?? 0}%` }} />
             </div>
           )}
-          <div>
-            {isReady && (
-              <button type="button" className="btn btn--default btn--sm" onClick={restartNow}>
-                Restart Now
-              </button>
-            )}
-            {hasUpdate && !isDownloading && !isReady && (
-              <button type="button" className="btn btn--default btn--sm" onClick={install}>
-                Install {latestVersion}
-              </button>
-            )}
-          </div>
         </div>
 
         <div className="settings-row">
