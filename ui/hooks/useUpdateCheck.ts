@@ -5,7 +5,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 type UpdateState =
   | { status: "idle" }
   | { status: "available"; update: Update }
-  | { status: "downloading"; progress: number }
+  | { status: "downloading"; progress: number; downloaded: number; total: number }
   | { status: "ready" }
   | { status: "error"; message: string };
 
@@ -48,11 +48,11 @@ export function useUpdateCheck() {
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") {
           total = event.data.contentLength ?? 0;
-          setState({ status: "downloading", progress: 0 });
+          setState({ status: "downloading", progress: 0, downloaded: 0, total });
         } else if (event.event === "Progress") {
           downloaded += event.data.chunkLength;
           const pct = total > 0 ? Math.round((downloaded / total) * 100) : 0;
-          setState({ status: "downloading", progress: pct });
+          setState({ status: "downloading", progress: pct, downloaded, total });
         } else if (event.event === "Finished") {
           setState({ status: "ready" });
         }
@@ -71,6 +71,8 @@ export function useUpdateCheck() {
   const isReady = state.status === "ready";
   const latestVersion = state.status === "available" ? state.update.version : null;
   const progress = state.status === "downloading" ? state.progress : null;
+  const downloadedBytes = state.status === "downloading" ? state.downloaded : null;
+  const totalBytes = state.status === "downloading" ? state.total : null;
 
   return {
     hasUpdate,
@@ -78,6 +80,8 @@ export function useUpdateCheck() {
     isReady,
     latestVersion,
     progress,
+    downloadedBytes,
+    totalBytes,
     install,
     restartNow,
     dismiss,
