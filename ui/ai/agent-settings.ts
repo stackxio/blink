@@ -87,7 +87,7 @@ export function loadAgentSettings(): AgentSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULTS };
-    const parsed = JSON.parse(raw) as Partial<AgentSettings>;
+    const parsed = JSON.parse(raw) as Record<string, AgentUserConfig>;
     return { ...DEFAULTS, ...parsed };
   } catch {
     return { ...DEFAULTS };

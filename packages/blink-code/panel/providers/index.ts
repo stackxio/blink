@@ -46,6 +46,12 @@ export function createProvider(p: ProviderConfig, session?: SessionCallbacks): C
     return createCodexProvider({ model: p.model, effort: p.effort });
   }
 
+  // "agent" type is handled by the CLI agent panel; createProvider is never
+  // called for it, but we need to satisfy the exhaustive type check.
+  if (p.type === "agent") {
+    throw new Error("agent provider type is handled by CliAgentPanel, not createProvider");
+  }
+
   // Exhaustive guard — should never reach here
   const _: never = p;
   throw new Error(`Unknown provider type: ${JSON.stringify(_)}`);
