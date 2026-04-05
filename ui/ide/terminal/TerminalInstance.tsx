@@ -46,10 +46,7 @@ const FONT_FAMILY =
  *  resolves only after it is fully loaded and usable in canvas fillText().
  *  1.5s hard cap as safety net in case the font never loads. */
 async function ensureFont(): Promise<void> {
-  await Promise.race([
-    document.fonts.ready,
-    new Promise<void>((r) => setTimeout(r, 1500)),
-  ]);
+  await Promise.race([document.fonts.ready, new Promise<void>((r) => setTimeout(r, 1500))]);
 }
 
 export function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
