@@ -13,6 +13,7 @@ import FileTree, { type FileTreeHandle } from "@/ide/explorer/FileTree";
 import { ChevronsDownUp, SplitSquareHorizontal, X } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
+import { FileViewer, isViewableFile } from "@/ide/editor/FileViewer";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import ProblemsPanel from "@/ide/problems/ProblemsPanel";
 import BlinkCodePanel from "@/ai/BlinkCodePanel";
@@ -417,6 +418,9 @@ export default function IdeLayout() {
       setFileContent("");
     }
     let cancelled = false;
+    // Binary/viewable files (images, PDFs, CSVs handled by FileViewer) don't
+    // need text content — skip the read so we don't wrongly mark them deleted.
+    if (isViewableFile(activeFile.name)) return () => { cancelled = true; };
     invoke<string>("read_file_content", { path: activeFile.path })
       .then((content) => {
         fileContentCacheRef.current.set(activeFile.path, content);
@@ -634,44 +638,52 @@ export default function IdeLayout() {
                       flexDirection: "column",
                     }}
                   >
-                    <Editor
-                      content={fileContent}
-                      filename={activeFile.name}
-                      filePath={activeFile.path}
-                      initialCursorLine={activeFile.cursorLine}
-                      initialCursorCol={activeFile.cursorCol}
-                      initialScrollTop={activeFile.scrollTop}
-                      onSave={handleFileSave}
-                      onChange={(mod) => markModified(activeFile.path, mod)}
-                      onCursorChange={(line, col, scroll) => {
-                        setLiveCursor({ line, col });
-                        pendingFileStateRef.current = {
-                          path: activeFile.path,
-                          state: {
-                            cursorLine: line,
-                            cursorCol: col,
-                            scrollTop: scroll,
-                          },
-                        };
-                        if (fileStateTimerRef.current) {
-                          clearTimeout(fileStateTimerRef.current);
-                        }
-                        fileStateTimerRef.current = setTimeout(() => {
-                          fileStateTimerRef.current = null;
-                          flushPendingFileState();
-                        }, 120);
-                      }}
-                      onNavigate={(path, line, col) => {
-                        const name = path.split("/").pop() || path;
-                        openFile(path, name, false);
-                        setTimeout(
-                          () => updateFileState(path, { cursorLine: line, cursorCol: col }),
-                          50,
-                        );
-                      }}
-                      symbolSearchMode={symbolSearchMode}
-                      onSymbolSearchClose={() => setSymbolSearchMode(null)}
-                    />
+                    {isViewableFile(activeFile.name) ? (
+                      <FileViewer
+                        filePath={activeFile.path}
+                        filename={activeFile.name}
+                        content={fileContent}
+                      />
+                    ) : (
+                      <Editor
+                        content={fileContent}
+                        filename={activeFile.name}
+                        filePath={activeFile.path}
+                        initialCursorLine={activeFile.cursorLine}
+                        initialCursorCol={activeFile.cursorCol}
+                        initialScrollTop={activeFile.scrollTop}
+                        onSave={handleFileSave}
+                        onChange={(mod) => markModified(activeFile.path, mod)}
+                        onCursorChange={(line, col, scroll) => {
+                          setLiveCursor({ line, col });
+                          pendingFileStateRef.current = {
+                            path: activeFile.path,
+                            state: {
+                              cursorLine: line,
+                              cursorCol: col,
+                              scrollTop: scroll,
+                            },
+                          };
+                          if (fileStateTimerRef.current) {
+                            clearTimeout(fileStateTimerRef.current);
+                          }
+                          fileStateTimerRef.current = setTimeout(() => {
+                            fileStateTimerRef.current = null;
+                            flushPendingFileState();
+                          }, 120);
+                        }}
+                        onNavigate={(path, line, col) => {
+                          const name = path.split("/").pop() || path;
+                          openFile(path, name, false);
+                          setTimeout(
+                            () => updateFileState(path, { cursorLine: line, cursorCol: col }),
+                            50,
+                          );
+                        }}
+                        symbolSearchMode={symbolSearchMode}
+                        onSymbolSearchClose={() => setSymbolSearchMode(null)}
+                      />
+                    )}
                   </div>
                   {mdPreview && activeFile.name.endsWith(".md") && (
                     <div className="md-split__preview">
