@@ -19,6 +19,10 @@ export const BINDINGS: Binding[] = [
   { id: "open_file", label: "Open file", defaultKey: "Meta+o" },
   { id: "save_file", label: "Save file", defaultKey: "Meta+s" },
   { id: "open_settings", label: "Settings", defaultKey: "Meta+," },
+  { id: "symbol_search_workspace", label: "Go to symbol in workspace", defaultKey: "Meta+t" },
+  { id: "symbol_search_document", label: "Go to symbol in file", defaultKey: "Meta+Shift+o" },
+  { id: "go_to_definition", label: "Go to definition", defaultKey: "F12" },
+  { id: "peek_definition", label: "Peek definition", defaultKey: "Alt+F12" },
 ];
 
 const STORAGE_KEY = "blink:keybindings";

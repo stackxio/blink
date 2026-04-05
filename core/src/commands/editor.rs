@@ -21,6 +21,8 @@ pub async fn search_in_files(
     case_sensitive: Option<bool>,
     whole_word: Option<bool>,
     is_regex: Option<bool>,
+    include_glob: Option<String>,
+    exclude_glob: Option<String>,
 ) -> Result<Vec<SearchMatch>, String> {
     let max = max_results.unwrap_or(100);
     let case_sensitive = case_sensitive.unwrap_or(false);
@@ -29,6 +31,18 @@ pub async fn search_in_files(
     let root_path = PathBuf::from(&root);
     let mut results = Vec::new();
     let mut stack = vec![root_path.clone()];
+
+    // Compile glob matchers if provided
+    let include_matcher = include_glob
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|pat| glob::Pattern::new(pat).map_err(|e| format!("Invalid include glob: {}", e)))
+        .transpose()?;
+    let exclude_matcher = exclude_glob
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|pat| glob::Pattern::new(pat).map_err(|e| format!("Invalid exclude glob: {}", e)))
+        .transpose()?;
 
     let skip_dirs: &[&str] = &[
         "node_modules",
@@ -106,6 +120,18 @@ pub async fn search_in_files(
                 ];
                 if binary_exts.contains(&ext.as_str()) {
                     continue;
+                }
+
+                // Apply include/exclude glob filters against the file name
+                if let Some(ref inc) = include_matcher {
+                    if !inc.matches(&name) {
+                        continue;
+                    }
+                }
+                if let Some(ref exc) = exclude_matcher {
+                    if exc.matches(&name) {
+                        continue;
+                    }
                 }
 
                 let file = match fs::File::open(&path) {

@@ -86,7 +86,9 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
 
     const container = containerRef.current;
     let disposed = false;
-    let cleanupFn = () => { mountedRef.current = false; };
+    let cleanupFn = () => {
+      mountedRef.current = false;
+    };
 
     const run = async () => {
       // 1. Ensure font is loaded and available to canvas BEFORE opening xterm.
@@ -137,7 +139,11 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
         term.options.fontFamily = family;
       }
 
-      requestAnimationFrame(() => { try { fit.fit(); } catch {} });
+      requestAnimationFrame(() => {
+        try {
+          fit.fit();
+        } catch {}
+      });
 
       termRef.current = term;
       fitRef.current = fit;
@@ -154,7 +160,9 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
       listen<string>(`terminal:output:${id}`, (event) => {
         if (termRef.current) termRef.current.write(event.payload);
       })
-        .then((fn) => { unlisten = fn; })
+        .then((fn) => {
+          unlisten = fn;
+        })
         .catch(() => {});
 
       // Debounce resize — TUI apps (ink/Claude Code) do a full repaint per SIGWINCH.
@@ -163,7 +171,9 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
           resizeTimer = null;
-          try { fit.fit(); } catch {}
+          try {
+            fit.fit();
+          } catch {}
         }, 150);
       });
       ro.observe(container);
@@ -189,7 +199,11 @@ export function TerminalInstance({ id, visible }: { id: string; visible: boolean
 
   useEffect(() => {
     if (visible && fitRef.current) {
-      requestAnimationFrame(() => { try { fitRef.current?.fit(); } catch {} });
+      requestAnimationFrame(() => {
+        try {
+          fitRef.current?.fit();
+        } catch {}
+      });
     }
   }, [visible]);
 

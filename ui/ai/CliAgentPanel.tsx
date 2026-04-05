@@ -28,13 +28,13 @@ interface Props {
  *  SF Mono has a character aspect ratio of ~0.601. */
 function measureTermSize(el: HTMLElement): { rows: number; cols: number } {
   const charW = 13 * 0.601; // ~7.8px per column
-  const charH = 13 * 1.2;   // ~15.6px per row
+  const charH = 13 * 1.2; // ~15.6px per row
   // __body has 4px padding on all sides
   const w = Math.max(1, el.clientWidth - 8);
   const h = Math.max(1, el.clientHeight - 8);
   return {
     cols: Math.max(20, Math.floor(w / charW)),
-    rows: Math.max(5,  Math.floor(h / charH)),
+    rows: Math.max(5, Math.floor(h / charH)),
   };
 }
 
@@ -109,9 +109,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   function commitRename(termId: string) {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      setSessions((prev) =>
-        prev.map((s) => (s.termId === termId ? { ...s, label: trimmed } : s)),
-      );
+      setSessions((prev) => prev.map((s) => (s.termId === termId ? { ...s, label: trimmed } : s)));
     }
     setRenamingTermId(null);
   }
@@ -187,7 +185,10 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                     autoFocus
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") { e.preventDefault(); commitRename(s.termId); }
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitRename(s.termId);
+                      }
                       if (e.key === "Escape") setRenamingTermId(null);
                     }}
                     onBlur={() => commitRename(s.termId)}
@@ -196,7 +197,10 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                 ) : (
                   <span
                     className="cli-agent-panel__tab-label"
-                    onDoubleClick={(e) => { e.stopPropagation(); startRename(s.termId, s.label); }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      startRename(s.termId, s.label);
+                    }}
                   >
                     {s.label}
                   </span>
@@ -239,13 +243,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 
-function EmptyState({
-  agents,
-  onSettings,
-}: {
-  agents: AgentDef[];
-  onSettings: () => void;
-}) {
+function EmptyState({ agents, onSettings }: { agents: AgentDef[]; onSettings: () => void }) {
   const hint =
     agents.length === 0
       ? "Enable agents in Settings and make sure their CLI tools are installed."
@@ -258,11 +256,7 @@ function EmptyState({
       </p>
       <p className="cli-agent-panel__empty-hint">{hint}</p>
       {agents.length === 0 && (
-        <button
-          type="button"
-          className="cli-agent-panel__empty-settings-btn"
-          onClick={onSettings}
-        >
+        <button type="button" className="cli-agent-panel__empty-settings-btn" onClick={onSettings}>
           <Settings2 size={13} />
           Open Settings
         </button>

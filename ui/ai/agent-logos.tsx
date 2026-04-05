@@ -128,7 +128,15 @@ export function PiLogo({ size = 16, className }: IconProps) {
 }
 
 // Map agent ID → logo component
-export function AgentLogo({ agentId, size = 14, className }: { agentId: string; size?: number; className?: string }) {
+export function AgentLogo({
+  agentId,
+  size = 14,
+  className,
+}: {
+  agentId: string;
+  size?: number;
+  className?: string;
+}) {
   switch (agentId) {
     case "claude":
       return <ClaudeIcon size={size} className={className} />;

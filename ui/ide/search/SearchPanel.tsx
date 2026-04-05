@@ -1,6 +1,13 @@
 import { useState, useRef, useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Search, Replace, ChevronRight, FileText, RefreshCw } from "lucide-react";
+import {
+  Search,
+  Replace,
+  ChevronRight,
+  FileText,
+  RefreshCw,
+  SlidersHorizontal,
+} from "lucide-react";
 
 interface SearchResult {
   path: string;
@@ -18,6 +25,8 @@ export interface SearchPanelHandle {
   focusInput: (text?: string) => void;
 }
 
+const HISTORY_KEY = "blink:search-history";
+
 const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
   { workspacePath, onOpenFile },
   ref,
@@ -28,6 +37,17 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
   const [caseSensitive, setCaseSensitive] = useState(false);
   const [wholeWord, setWholeWord] = useState(false);
   const [useRegex, setUseRegex] = useState(false);
+  const [includeGlob, setIncludeGlob] = useState("");
+  const [excludeGlob, setExcludeGlob] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  });
+  const [showHistory, setShowHistory] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -35,6 +55,7 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
   const [replaceResult, setReplaceResult] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   const doSearch = useCallback(
     (q: string) => {
@@ -51,10 +72,19 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
         caseSensitive,
         wholeWord,
         isRegex: useRegex,
+        includeGlob: includeGlob.trim() || null,
+        excludeGlob: excludeGlob.trim() || null,
       })
         .then((res) => {
           setResults(res);
           setSearched(true);
+          if (q.trim()) {
+            setSearchHistory((prev) => {
+              const updated = [q, ...prev.filter((h) => h !== q)].slice(0, 20);
+              localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+              return updated;
+            });
+          }
         })
         .catch(() => {
           setResults([]);
@@ -62,7 +92,7 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
         })
         .finally(() => setSearching(false));
     },
-    [workspacePath, caseSensitive, wholeWord, useRegex],
+    [workspacePath, caseSensitive, wholeWord, useRegex, includeGlob, excludeGlob],
   );
 
   useImperativeHandle(ref, () => ({
@@ -84,6 +114,19 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
     inputRef.current?.focus();
   }, []);
 
+  // Close history dropdown when clicking outside
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setShowHistory(false);
+      }
+    }
+    if (showHistory) {
+      document.addEventListener("mousedown", handleClick);
+      return () => document.removeEventListener("mousedown", handleClick);
+    }
+  }, [showHistory]);
+
   function handleQueryChange(value: string) {
     setQuery(value);
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -93,8 +136,19 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter") {
       if (timerRef.current) clearTimeout(timerRef.current);
+      setShowHistory(false);
       doSearch(query);
+    } else if (e.key === "Escape") {
+      setShowHistory(false);
     }
+  }
+
+  function selectHistoryItem(item: string) {
+    setQuery(item);
+    setShowHistory(false);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => doSearch(item), 100);
+    inputRef.current?.focus();
   }
 
   async function doReplaceAll() {
@@ -169,7 +223,7 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
           >
             <ChevronRight size={14} />
           </button>
-          <div className="search-panel__field">
+          <div className="search-panel__field" style={{ position: "relative" }}>
             <Search size={14} className="search-panel__icon" />
             <input
               ref={inputRef}
@@ -179,7 +233,11 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
               onKeyDown={handleKeyDown}
+              onFocus={() => {
+                if (searchHistory.length > 0) setShowHistory(true);
+              }}
               spellCheck={false}
+              autoComplete="off"
             />
             <div className="search-panel__filters">
               <button
@@ -215,7 +273,34 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
               >
                 .*
               </button>
+              <button
+                type="button"
+                className={`search-panel__filter ${showFilters ? "search-panel__filter--active" : ""}`}
+                onClick={() => setShowFilters((v) => !v)}
+                title="Toggle Include/Exclude Filters"
+              >
+                <SlidersHorizontal size={12} />
+              </button>
             </div>
+            {showHistory && searchHistory.length > 0 && (
+              <div ref={historyRef} className="search-panel__history-dropdown">
+                {searchHistory.map((item, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className="search-panel__history-item"
+                    onMouseDown={(e) => {
+                      // Use onMouseDown so it fires before onBlur hides the dropdown
+                      e.preventDefault();
+                      selectHistoryItem(item);
+                    }}
+                  >
+                    <Search size={11} style={{ flexShrink: 0, opacity: 0.5 }} />
+                    <span>{item}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         {showReplace && (
@@ -244,6 +329,44 @@ const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
               >
                 <RefreshCw size={12} />
               </button>
+            </div>
+          </div>
+        )}
+        {showFilters && (
+          <div className="search-panel__filter-rows">
+            <div className="search-panel__filter-row">
+              <div className="search-panel__toggle-spacer" />
+              <div className="search-panel__filter-field">
+                <span className="search-panel__filter-label">files to include</span>
+                <input
+                  className="search-panel__input"
+                  type="text"
+                  placeholder="e.g. *.ts, src/**"
+                  value={includeGlob}
+                  onChange={(e) => setIncludeGlob(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && query) doSearch(query);
+                  }}
+                  spellCheck={false}
+                />
+              </div>
+            </div>
+            <div className="search-panel__filter-row">
+              <div className="search-panel__toggle-spacer" />
+              <div className="search-panel__filter-field">
+                <span className="search-panel__filter-label">files to exclude</span>
+                <input
+                  className="search-panel__input"
+                  type="text"
+                  placeholder="e.g. *.test.ts"
+                  value={excludeGlob}
+                  onChange={(e) => setExcludeGlob(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && query) doSearch(query);
+                  }}
+                  spellCheck={false}
+                />
+              </div>
             </div>
           </div>
         )}

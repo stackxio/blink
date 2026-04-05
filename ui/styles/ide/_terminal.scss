@@ -79,6 +79,53 @@
       width: 14px;
       height: 14px;
     }
+
+    &--profile {
+      width: auto;
+      padding: 0 4px;
+      gap: 1px;
+    }
+  }
+
+  &__profile-wrap {
+    position: relative;
+  }
+
+  &__profile-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 200;
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 4px;
+    min-width: 120px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  &__profile-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: var(--radius);
+    text-align: left;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+
+    &--active {
+      color: var(--c-accent);
+    }
   }
 
   &__body {

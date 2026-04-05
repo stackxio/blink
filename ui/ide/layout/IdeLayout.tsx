@@ -244,7 +244,8 @@ export default function IdeLayout() {
   );
 
   const handleAiResize = useCallback(
-    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(window.innerWidth - 200, aiPanelWidth - delta))),
+    (delta: number) =>
+      setAiPanelWidth(Math.max(280, Math.min(window.innerWidth - 200, aiPanelWidth - delta))),
     [aiPanelWidth, setAiPanelWidth],
   );
 

@@ -52,7 +52,10 @@ pub async fn terminal_create(
 
     let mut cmd = if let Some(argv) = command {
         // Run a specific command directly (e.g. claude --dangerously-skip-permissions)
-        let exe = argv.first().cloned().unwrap_or_else(|| "/bin/zsh".to_string());
+        let exe = argv
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "/bin/zsh".to_string());
         let mut c = CommandBuilder::new(&exe);
         for arg in argv.iter().skip(1) {
             c.arg(arg);
@@ -60,7 +63,8 @@ pub async fn terminal_create(
         c
     } else {
         // Regular interactive shell
-        let sh = shell.unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string()));
+        let sh = shell
+            .unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string()));
         let shell_name = sh.rsplit('/').next().unwrap_or("zsh");
         let mut c = CommandBuilder::new(&sh);
         if shell_name == "zsh" {

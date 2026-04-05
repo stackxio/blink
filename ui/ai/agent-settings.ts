@@ -13,7 +13,8 @@ export const ALL_AGENTS: AgentDef[] = [
   {
     id: "claude",
     label: "Claude",
-    description: "Anthropic's coding agent for reading code, editing files, and running terminal workflows.",
+    description:
+      "Anthropic's coding agent for reading code, editing files, and running terminal workflows.",
     binary: "claude",
     buildCmd: ({ customPath } = {}) => [customPath || "claude", "--dangerously-skip-permissions"],
   },

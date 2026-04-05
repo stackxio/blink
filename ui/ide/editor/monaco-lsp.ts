@@ -268,11 +268,24 @@ export function registerLspProviders(
   });
 
   const definitionDisposable = monacoApi.languages.registerDefinitionProvider(selector, {
-    provideDefinition: async () => {
+    provideDefinition: async (_model: any, position: any) => {
       try {
-        // Return nothing here; Blink handles navigation via an editor action so
-        // Monaco doesn't attempt to open foreign resources inside the standalone editor.
-        return [];
+        const result = (await client.definition(
+          fileUri,
+          position.lineNumber - 1,
+          position.column - 1,
+        )) as LspLocation[] | LspLocation | null;
+        if (!result) return [];
+        const locations = Array.isArray(result) ? result : [result];
+        return locations.map((loc) => ({
+          uri: monacoApi.Uri.parse(loc.uri),
+          range: {
+            startLineNumber: loc.range.start.line + 1,
+            startColumn: loc.range.start.character + 1,
+            endLineNumber: (loc.range.end?.line ?? loc.range.start.line) + 1,
+            endColumn: (loc.range.end?.character ?? loc.range.start.character) + 1,
+          },
+        }));
       } catch {
         return [];
       }
@@ -498,34 +511,59 @@ export function registerLspProviders(
     },
   });
 
-  // ── Definition action (F12) ───────────────────────────────────────────────────
+  // ── Definition action (F12 / Cmd+Click / Alt+F12 peek) ───────────────────────
 
-  const definitionAction = (editor: any) =>
+  async function navigateToDefinitionAt(line: number, col: number) {
+    if (!onNavigate) return;
+    try {
+      const result = (await client.definition(fileUri, line - 1, col - 1)) as
+        | LspLocation[]
+        | LspLocation
+        | null;
+      const location = Array.isArray(result) ? result[0] : result;
+      if (!location?.uri) return;
+      onNavigate(
+        location.uri.replace("file://", ""),
+        location.range.start.line + 1,
+        location.range.start.character + 1,
+      );
+    } catch {
+      // Ignore provider errors.
+    }
+  }
+
+  async function navigateToDefinition(editor: any) {
+    const position = editor.getPosition();
+    if (!position) return;
+    await navigateToDefinitionAt(position.lineNumber, position.column);
+  }
+
+  const definitionAction = (editor: any) => {
     editor.addAction({
       id: `blink.go-to-definition.${fileUri}`,
       label: "Go to Definition",
       keybindings: [monacoApi.KeyCode.F12, monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.F12],
-      run: async () => {
-        const position = editor.getPosition();
-        if (!position || !onNavigate) return;
-        try {
-          const result = (await client.definition(
-            fileUri,
-            position.lineNumber - 1,
-            position.column - 1,
-          )) as LspLocation[] | LspLocation | null;
-          const location = Array.isArray(result) ? result[0] : result;
-          if (!location?.uri) return;
-          onNavigate(
-            location.uri.replace("file://", ""),
-            location.range.start.line + 1,
-            location.range.start.character + 1,
-          );
-        } catch {
-          // Ignore provider errors.
-        }
-      },
+      run: () => navigateToDefinition(editor),
     });
+    // Alt+F12 — peek definition (navigates in-place; full widget requires model registry)
+    editor.addAction({
+      id: `blink.peek-definition.${fileUri}`,
+      label: "Peek Definition",
+      keybindings: [monacoApi.KeyMod.Alt | monacoApi.KeyCode.F12],
+      run: () => navigateToDefinition(editor),
+    });
+    // Cmd+Click — intercept before Monaco tries to open the file internally
+    editor.onMouseDown((e: any) => {
+      if (!e.event.metaKey && !e.event.ctrlKey) return;
+      // MouseTargetType.CONTENT_TEXT = 6
+      if (e.target.type !== 6) return;
+      const pos = e.target.position;
+      if (!pos) return;
+      e.event.preventDefault();
+      e.event.stopPropagation();
+      void navigateToDefinitionAt(pos.lineNumber, pos.column);
+    });
+  };
 
   return {
     definitionAction,

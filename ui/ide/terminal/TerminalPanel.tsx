@@ -69,7 +69,11 @@ export default function TerminalPanel() {
     }
   }
 
-  async function createNamedSession(name: string, command: string[], cwd?: string | null): Promise<string | null> {
+  async function createNamedSession(
+    name: string,
+    command: string[],
+    cwd?: string | null,
+  ): Promise<string | null> {
     termCounter++;
     const id = `term-${Date.now()}-${termCounter}`;
     try {
@@ -94,7 +98,9 @@ export default function TerminalPanel() {
   // Listen for CLI launch events from the AI panel
   useEffect(() => {
     function handler(e: Event) {
-      const { name, command, cwd } = (e as CustomEvent<{ name: string; command: string[]; cwd: string | null }>).detail;
+      const { name, command, cwd } = (
+        e as CustomEvent<{ name: string; command: string[]; cwd: string | null }>
+      ).detail;
       void createNamedSession(name, command, cwd);
     }
     document.addEventListener("blink:launch-cli-terminal", handler);
@@ -289,4 +295,3 @@ export default function TerminalPanel() {
     </div>
   );
 }
-

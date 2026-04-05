@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronRight, FolderPlus } from "lucide-react";
+import { ChevronRight, FolderPlus, X } from "lucide-react";
 import { ExplorerIcon } from "./explorer-icons";
 
 interface DirEntry {
@@ -101,6 +101,8 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     null,
   );
   const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
+  const [filterText, setFilterText] = useState("");
+  const filterInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bgMenuRef = useRef<HTMLDivElement>(null);
   const expandedRef = useRef<Set<string>>(new Set());
@@ -350,6 +352,19 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     setCreating(null);
   }
 
+  function flattenFiltered(nodes: TreeNode[], query: string): TreeNode[] {
+    const results: TreeNode[] = [];
+    for (const node of nodes) {
+      if (node.name.toLowerCase().includes(query.toLowerCase())) {
+        results.push(node);
+      }
+      if (node.children) {
+        results.push(...flattenFiltered(node.children, query));
+      }
+    }
+    return results;
+  }
+
   if (!rootPath) {
     return (
       <div className="file-tree">
@@ -432,23 +447,79 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
 
   return (
     <div className="file-tree" onContextMenu={handleBgContextMenu}>
-      <TreeItems
-        nodes={tree}
-        depth={0}
-        parentPath={[]}
-        onToggle={toggleDir}
-        onFileSelect={onFileSelect}
-        activeFilePath={activeFilePath}
-        onContextMenu={(e, node) => {
-          e.preventDefault();
-          setCtxMenu({ x: e.clientX, y: e.clientY, node });
-        }}
-        renaming={renaming}
-        onRenameSubmit={handleRenameSubmit}
-        creating={creating}
-        onCreateSubmit={handleCreateSubmit}
-        onMove={handleMove}
-      />
+      {/* Filter bar */}
+      <div className="file-tree__filter-bar">
+        <input
+          ref={filterInputRef}
+          className="file-tree__filter-input"
+          type="text"
+          placeholder="Filter files…"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setFilterText("");
+              filterInputRef.current?.blur();
+            }
+          }}
+          spellCheck={false}
+        />
+        {filterText && (
+          <button
+            type="button"
+            className="file-tree__filter-clear"
+            onClick={() => setFilterText("")}
+          >
+            <X size={11} />
+          </button>
+        )}
+      </div>
+
+      {filterText.trim() ? (
+        <div className="file-tree__filtered-results">
+          {flattenFiltered(tree, filterText.trim()).length === 0 ? (
+            <div className="file-tree__filter-empty">No matches</div>
+          ) : (
+            flattenFiltered(tree, filterText.trim()).map((node) => (
+              <button
+                key={node.path}
+                type="button"
+                className={`file-tree__filter-item${node.path === activeFilePath ? " file-tree__filter-item--active" : ""}`}
+                onClick={() => {
+                  if (!node.is_dir) onFileSelect(node.path, node.name, false);
+                }}
+                title={node.path}
+              >
+                <ExplorerIcon name={node.name} isDir={node.is_dir} expanded={false} />
+                <span className="file-tree__filter-name">{node.name}</span>
+                <span className="file-tree__filter-path">
+                  {rootPath
+                    ? node.path.replace(rootPath + "/", "").replace("/" + node.name, "")
+                    : ""}
+                </span>
+              </button>
+            ))
+          )}
+        </div>
+      ) : (
+        <TreeItems
+          nodes={tree}
+          depth={0}
+          parentPath={[]}
+          onToggle={toggleDir}
+          onFileSelect={onFileSelect}
+          activeFilePath={activeFilePath}
+          onContextMenu={(e, node) => {
+            e.preventDefault();
+            setCtxMenu({ x: e.clientX, y: e.clientY, node });
+          }}
+          renaming={renaming}
+          onRenameSubmit={handleRenameSubmit}
+          creating={creating}
+          onCreateSubmit={handleCreateSubmit}
+          onMove={handleMove}
+        />
+      )}
 
       {/* Context menu */}
       {ctxMenu && (

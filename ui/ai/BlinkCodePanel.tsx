@@ -1532,7 +1532,12 @@ function MessageRow({
         </div>
       )}
       {isLast && !msg.streaming && msg.content && onRetry && (
-        <button type="button" className="blink-msg__regen-btn" onClick={onRetry} title="Regenerate response">
+        <button
+          type="button"
+          className="blink-msg__regen-btn"
+          onClick={onRetry}
+          title="Regenerate response"
+        >
           <RefreshCw size={11} />
         </button>
       )}
@@ -1860,7 +1865,10 @@ function ProviderSettings({
   const baseUrl = ptype === "openai-compat" ? (config.provider.baseUrl ?? "") : null;
 
   useEffect(() => {
-    if (!baseUrl) { setAvailableModels([]); return; }
+    if (!baseUrl) {
+      setAvailableModels([]);
+      return;
+    }
     const apiKey = ptype === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
     fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -1994,7 +2002,9 @@ function ProviderSettings({
                       <option value={currentModel}>{currentModel}</option>
                     )}
                     {availableModels.map((m) => (
-                      <option key={m} value={m}>{m}</option>
+                      <option key={m} value={m}>
+                        {m}
+                      </option>
                     ))}
                   </select>
                 ) : (
@@ -2039,7 +2049,9 @@ function ProviderSettings({
                 <button
                   type="button"
                   className={`toggle ${config.allowTools !== false ? "toggle--on" : ""}`}
-                  onClick={() => onChange({ allowTools: config.allowTools === false ? true : false })}
+                  onClick={() =>
+                    onChange({ allowTools: config.allowTools === false ? true : false })
+                  }
                 >
                   <span className="toggle__thumb" />
                 </button>

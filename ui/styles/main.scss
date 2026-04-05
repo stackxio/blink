@@ -38,16 +38,16 @@
 // JetBrains Mono — monospace font with full Braille, box-drawing, and symbol
 // coverage needed by TUI apps (Claude Code spinners, etc.)
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: "JetBrains Mono";
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+  src: url("/fonts/JetBrainsMono-Regular.ttf") format("truetype");
 }
 @font-face {
-  font-family: 'JetBrains Mono';
+  font-family: "JetBrains Mono";
   font-style: normal;
   font-weight: 700;
   font-display: block;
-  src: url('/fonts/JetBrainsMono-Bold.ttf') format('truetype');
+  src: url("/fonts/JetBrainsMono-Bold.ttf") format("truetype");
 }
