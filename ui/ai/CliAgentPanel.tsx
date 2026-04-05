@@ -203,11 +203,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
               className="cli-agent-panel__term-wrap"
               style={{ display: s.termId === activeTermId ? "flex" : "none" }}
             >
-              <TerminalInstance
-                id={s.termId}
-                visible={s.termId === activeTermId}
-                spawn={s.spawn}
-              />
+              <TerminalInstance id={s.termId} visible={s.termId === activeTermId} spawn={s.spawn} />
             </div>
           ))
         )}
