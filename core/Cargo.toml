@@ -1,6 +1,6 @@
 [package]
 name = "blink"
-version = "0.0.10"
+version = "0.0.11"
 description = "AI control layer for your computer"
 authors = ["Voxire"]
 license = ""
