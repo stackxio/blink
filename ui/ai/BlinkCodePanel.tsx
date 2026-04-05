@@ -19,7 +19,17 @@ import {
   Plus,
   FileText,
   Folder,
+  Download,
+  RefreshCw,
 } from "lucide-react";
+import CliAgentPanel from "./CliAgentPanel";
+import { AgentLogo } from "./agent-logos";
+import {
+  ALL_AGENTS,
+  loadAgentSettings,
+  saveAgentSettings,
+  type AgentSettings,
+} from "./agent-settings";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "@/store";
@@ -112,103 +122,20 @@ const CONTEXT_WINDOWS: Record<string, number> = {
 // ── Provider preset options ───────────────────────────────────────────────────
 
 const PRESETS = [
-  { label: "Ollama (local)", value: "ollama" },
-  { label: "Anthropic (direct)", value: "anthropic" },
-  { label: "Claude Code", value: "claude-code" },
-  { label: "Codex", value: "codex" },
+  { label: "Agent", value: "agent" },
   { label: "Custom…", value: "custom" },
 ];
 
-const CLAUDE_MODELS = [
-  {
-    label: "Opus 4.6",
-    value: "claude-opus-4-6",
-    description: "Most capable for ambitious work",
-  },
-  {
-    label: "Sonnet 4.6",
-    value: "claude-sonnet-4-6",
-    description: "Most efficient for everyday tasks",
-  },
-  {
-    label: "Haiku 4.5",
-    value: "claude-haiku-4-5-20251001",
-    description: "Fastest for quick answers",
-  },
-];
-
-const CLAUDE_EFFORT_LEVELS: Array<{ label: string; value: "low" | "medium" | "high" }> = [
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-];
-
-const CODEX_EFFORT_LEVELS: Array<{ label: string; value: "low" | "medium" | "high" | "xhigh" }> = [
-  { label: "Low", value: "low" },
-  { label: "Medium", value: "medium" },
-  { label: "High", value: "high" },
-  { label: "X-High", value: "xhigh" },
-];
-
-const ANTHROPIC_MODELS = [
-  {
-    label: "Opus 4.6",
-    value: "claude-opus-4-6",
-    description: "Most capable for ambitious work",
-  },
-  {
-    label: "Sonnet 4.6",
-    value: "claude-sonnet-4-6",
-    description: "Most efficient for everyday tasks",
-  },
-  {
-    label: "Haiku 4.5",
-    value: "claude-haiku-4-5-20251001",
-    description: "Fastest for quick answers",
-  },
-];
-
-const CODEX_MODELS = [
-  { label: "GPT-5.4", value: "gpt-5.4", description: "Flagship frontier model" },
-  { label: "GPT-5.4-Mini", value: "gpt-5.4-mini", description: "Fast, lower-cost option" },
-  { label: "GPT-5.3-Codex", value: "gpt-5.3-codex", description: "Industry-leading coding model" },
-  {
-    label: "GPT-5.3-Codex-Spark",
-    value: "gpt-5.3-codex-spark",
-    description: "Near-instant coding iteration",
-  },
-  { label: "GPT-5.2-Codex", value: "gpt-5.2-codex", description: "Previous generation codex" },
-  { label: "GPT-5.2", value: "gpt-5.2", description: "Previous generation" },
-  { label: "GPT-5.1-Codex-Max", value: "gpt-5.1-codex-max", description: "Max capacity model" },
-  { label: "GPT-5.1-Codex", value: "gpt-5.1-codex", description: "Earlier codex generation" },
-];
-
 function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
-  switch (preset) {
-    case "ollama":
-      return {
-        type: "openai-compat",
-        model: "", // auto-filled from /models list
-        baseUrl: "http://localhost:11434/v1",
-        apiKey: "ollama",
-        maxTokens: 4096,
-      };
-    case "anthropic":
-      return {
-        type: "anthropic",
-        model: ANTHROPIC_MODELS[0].value,
-        apiKey: "",
-        thinking: false,
-        thinkingBudget: 10000,
-      };
-    case "claude-code":
-      return { type: "claude-code", model: CLAUDE_MODELS[1].value, effort: "medium" }; // Sonnet 4.6
-    case "codex":
-      return { type: "codex", model: CODEX_MODELS[0].value, effort: "high" }; // GPT-5.4
-    default:
-      // "custom" is handled before calling this function — should never reach here
-      return { type: "openai-compat", model: "", baseUrl: "", apiKey: "", maxTokens: 4096 };
-  }
+  if (preset === "agent") return { type: "agent" };
+  // "custom" — default to Ollama values, user can edit
+  return {
+    type: "openai-compat",
+    model: "",
+    baseUrl: "http://localhost:11434/v1",
+    apiKey: "ollama",
+    maxTokens: 4096,
+  };
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -264,7 +191,9 @@ function BlinkCodePanel() {
   const threadPickerRef = useRef<HTMLDivElement>(null);
 
   const [bridgeReady, setBridgeReady] = useState(false);
+  const [lastUserMessage, setLastUserMessage] = useState<string>("");
   const [availableProviders, setAvailableProviders] = useState<string[]>(["ollama", "custom"]);
+  const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
   const bridgeReadyRef = useRef(false);
   const pendingThinkingDeltasRef = useRef(new Map<string, string>());
   const currentAssistantMsgIdRef = useRef<string | null>(null);
@@ -763,6 +692,7 @@ function BlinkCodePanel() {
 
     const userMsgId = crypto.randomUUID();
     setMessages((prev) => [...prev, { id: userMsgId, role: "user", content: text }]);
+    setLastUserMessage(text);
 
     const assistantMsgId = crypto.randomUUID();
     currentAssistantMsgIdRef.current = assistantMsgId;
@@ -786,10 +716,48 @@ function BlinkCodePanel() {
         type: "chat",
         assistantMsgId,
         text: bridgeText,
+        allowTools: config.allowTools,
         ...(isUltrathink ? { thinking: true } : {}),
         ...(images.length > 0 ? { images } : {}),
       }),
     });
+  }
+
+  async function handleRetry() {
+    if (!lastUserMessage || streaming || !bridgeReady) return;
+    // Remove last assistant + any trailing system error messages
+    setMessages((prev) => {
+      let idx = prev.length - 1;
+      while (idx >= 0 && prev[idx].role !== "user") idx--;
+      return prev.slice(0, idx + 1);
+    });
+    await sendMessageToAI(lastUserMessage);
+  }
+
+  function handleExport() {
+    if (messages.length === 0 || streaming) return;
+    let md = "";
+    for (const msg of messages) {
+      if (!msg.content) continue;
+      if (msg.role === "user") {
+        md += `**You**\n\n${msg.content}\n\n---\n\n`;
+      } else if (msg.role === "assistant") {
+        let prefix = "";
+        if (msg.toolCalls.length > 0) {
+          prefix = `*Used tools: ${msg.toolCalls.map((tc) => tc.name).join(", ")}*\n\n`;
+        }
+        md += `**Blink**\n\n${prefix}${msg.content}\n\n`;
+      } else if (msg.role === "system") {
+        md += `*${msg.content}*\n\n---\n\n`;
+      }
+    }
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `blink-chat-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleSlashCommand(name: string, args: string) {
@@ -1064,6 +1032,39 @@ function BlinkCodePanel() {
     saveBlinkCodeConfig(updated);
   }
 
+  // "agent" is the new type; claude-code/codex are legacy types treated the same way
+  const isCLIProvider =
+    config.provider.type === "agent" ||
+    config.provider.type === "claude-code" ||
+    config.provider.type === "codex";
+
+  // In agent mode the CliAgentPanel has its own header — skip ours entirely
+  if (isCLIProvider) {
+    return (
+      <div className="blink-panel">
+        {settingsOpen ? (
+          <ProviderSettings
+            config={config}
+            availableProviders={availableProviders}
+            agentSettings={agentSettings}
+            onAgentSettingsChange={(s) => {
+              setAgentSettings(s);
+              saveAgentSettings(s);
+            }}
+            onChange={handleConfigChange}
+            onClose={() => setSettingsOpen(false)}
+          />
+        ) : (
+          <CliAgentPanel
+            workspacePath={workspacePath}
+            agentSettings={agentSettings}
+            onSettings={() => setSettingsOpen(true)}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="blink-panel">
       {/* Header */}
@@ -1202,6 +1203,16 @@ function BlinkCodePanel() {
         </div>
 
         <div className="blink-panel__header-actions">
+          {messages.length > 0 && !streaming && (
+            <button
+              type="button"
+              className="blink-panel__icon-btn"
+              title="Export conversation"
+              onClick={handleExport}
+            >
+              <Download size={14} />
+            </button>
+          )}
           <button
             type="button"
             className={`blink-panel__icon-btn${settingsOpen ? " blink-panel__icon-btn--active" : ""}`}
@@ -1218,6 +1229,11 @@ function BlinkCodePanel() {
         <ProviderSettings
           config={config}
           availableProviders={availableProviders}
+          agentSettings={agentSettings}
+          onAgentSettingsChange={(s) => {
+            setAgentSettings(s);
+            saveAgentSettings(s);
+          }}
           onChange={handleConfigChange}
           onClose={() => setSettingsOpen(false)}
         />
@@ -1231,11 +1247,13 @@ function BlinkCodePanel() {
                 <span className="blink-panel__empty-hint">/ for commands</span>
               </div>
             )}
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => (
               <MessageRow
                 key={msg.id}
                 msg={msg}
                 onToggleTool={(callId) => toggleToolCall(msg.id, callId)}
+                isLast={idx === messages.length - 1}
+                onRetry={handleRetry}
               />
             ))}
             <div ref={messagesEndRef} />
@@ -1462,14 +1480,23 @@ function BlinkCodePanel() {
 function MessageRow({
   msg,
   onToggleTool,
+  isLast,
+  onRetry,
 }: {
   msg: PanelMessage;
   onToggleTool: (id: string) => void;
+  isLast?: boolean;
+  onRetry?: () => void;
 }) {
   if (msg.role === "system") {
     return (
       <div className="blink-msg blink-msg--system">
         <span className="blink-msg__system-text">{msg.content}</span>
+        {msg.content.startsWith("Error:") && isLast && onRetry && (
+          <button type="button" className="blink-msg__retry-btn" onClick={onRetry} title="Retry">
+            <RefreshCw size={11} />
+          </button>
+        )}
       </div>
     );
   }
@@ -1503,6 +1530,11 @@ function MessageRow({
           <span className="blink-msg__dot" />
           <span className="blink-msg__dot" />
         </div>
+      )}
+      {isLast && !msg.streaming && msg.content && onRetry && (
+        <button type="button" className="blink-msg__regen-btn" onClick={onRetry} title="Regenerate response">
+          <RefreshCw size={11} />
+        </button>
       )}
     </div>
   );
@@ -1711,15 +1743,10 @@ function ContextCircle({ inputTokens, model }: { inputTokens: number; model: str
 
 function modelPillLabel(config: BlinkCodeConfig): string {
   const p = config.provider;
-  if (p.type === "claude-code") {
-    return CLAUDE_MODELS.find((m) => m.value === p.model)?.label ?? p.model ?? "claude";
-  }
-  if (p.type === "anthropic") {
-    return ANTHROPIC_MODELS.find((m) => m.value === p.model)?.label ?? p.model;
-  }
-  if (p.type === "codex") {
-    return CODEX_MODELS.find((m) => m.value === p.model)?.label ?? p.model ?? "codex";
-  }
+  if (p.type === "agent") return "Agent";
+  if (p.type === "claude-code") return p.model ?? "claude";
+  if (p.type === "anthropic") return p.model;
+  if (p.type === "codex") return p.model ?? "codex";
   return p.model || "—";
 }
 
@@ -1762,19 +1789,12 @@ function ModelPill({
   }, [open]);
 
   const label = modelPillLabel(config);
-  const currentModel =
-    ptype === "claude-code" || ptype === "anthropic" || ptype === "codex"
-      ? (config.provider.model ?? "")
-      : ptype === "openai-compat"
-        ? config.provider.model
-        : "";
+  const currentModel = ptype === "openai-compat" ? config.provider.model : "";
 
-  const currentEffort =
-    ptype === "claude-code"
-      ? (config.provider.effort ?? "medium")
-      : ptype === "codex"
-        ? (config.provider.effort ?? "high")
-        : null;
+  // Agent mode — pill is non-interactive (config lives in settings)
+  if (ptype === "agent" || ptype === "claude-code" || ptype === "codex" || ptype === "anthropic") {
+    return null;
+  }
 
   return (
     <div className="blink-model-pill" ref={ref}>
@@ -1787,117 +1807,23 @@ function ModelPill({
       </button>
       {open && (
         <div className="blink-model-pill__dropdown">
-          {/* Static model list for claude-code */}
-          {ptype === "claude-code" && (
-            <>
-              {CLAUDE_MODELS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    onChange({ provider: { ...config.provider, model: m.value } });
-                    setOpen(false);
-                  }}
-                >
-                  <span className="blink-model-pill__option-label">{m.label}</span>
-                  <span className="blink-model-pill__option-desc">{m.description}</span>
-                </button>
-              ))}
-              <div className="blink-model-pill__divider" />
-              <div className="blink-model-pill__section-label">Effort</div>
-              {CLAUDE_EFFORT_LEVELS.map((e) => (
-                <button
-                  key={e.value}
-                  type="button"
-                  className={`blink-model-pill__option${currentEffort === e.value ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    if (config.provider.type === "claude-code")
-                      onChange({ provider: { ...config.provider, effort: e.value } });
-                    setOpen(false);
-                  }}
-                >
-                  {e.label}
-                </button>
-              ))}
-            </>
+          {fetchedModels.length > 0 ? (
+            fetchedModels.map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`blink-model-pill__option${m === currentModel ? " blink-model-pill__option--active" : ""}`}
+                onClick={() => {
+                  onChange({ provider: { ...config.provider, model: m } });
+                  setOpen(false);
+                }}
+              >
+                {m}
+              </button>
+            ))
+          ) : (
+            <div className="blink-model-pill__empty">No models found</div>
           )}
-
-          {/* Static model list for anthropic */}
-          {ptype === "anthropic" && (
-            <>
-              {ANTHROPIC_MODELS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    onChange({ provider: { ...config.provider, model: m.value } });
-                    setOpen(false);
-                  }}
-                >
-                  <span className="blink-model-pill__option-label">{m.label}</span>
-                  <span className="blink-model-pill__option-desc">{m.description}</span>
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* Static model list for codex */}
-          {ptype === "codex" && (
-            <>
-              {CODEX_MODELS.map((m) => (
-                <button
-                  key={m.value}
-                  type="button"
-                  className={`blink-model-pill__option blink-model-pill__option--with-desc${m.value === currentModel ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    onChange({ provider: { ...config.provider, model: m.value } });
-                    setOpen(false);
-                  }}
-                >
-                  <span className="blink-model-pill__option-label">{m.label}</span>
-                  <span className="blink-model-pill__option-desc">{m.description}</span>
-                </button>
-              ))}
-              <div className="blink-model-pill__divider" />
-              <div className="blink-model-pill__section-label">Effort</div>
-              {CODEX_EFFORT_LEVELS.map((e) => (
-                <button
-                  key={e.value}
-                  type="button"
-                  className={`blink-model-pill__option${currentEffort === e.value ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    if (config.provider.type === "codex")
-                      onChange({ provider: { ...config.provider, effort: e.value } });
-                    setOpen(false);
-                  }}
-                >
-                  {e.label}
-                </button>
-              ))}
-            </>
-          )}
-
-          {/* Fetched models for openai-compat */}
-          {ptype === "openai-compat" &&
-            (fetchedModels.length > 0 ? (
-              fetchedModels.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`blink-model-pill__option${m === currentModel ? " blink-model-pill__option--active" : ""}`}
-                  onClick={() => {
-                    onChange({ provider: { ...config.provider, model: m } });
-                    setOpen(false);
-                  }}
-                >
-                  {m}
-                </button>
-              ))
-            ) : (
-              <div className="blink-model-pill__empty">No models found</div>
-            ))}
         </div>
       )}
     </div>
@@ -1908,54 +1834,42 @@ function ModelPill({
 
 function ProviderSettings({
   config,
-  availableProviders,
+  availableProviders: _availableProviders,
+  agentSettings,
+  onAgentSettingsChange,
   onChange,
   onClose,
 }: {
   config: BlinkCodeConfig;
   availableProviders: string[];
+  agentSettings: AgentSettings;
+  onAgentSettingsChange: (s: AgentSettings) => void;
   onChange: (p: Partial<BlinkCodeConfig>) => void;
   onClose: () => void;
 }) {
   const ptype = config.provider.type;
-  const isCLI = ptype === "claude-code" || ptype === "codex";
 
-  // Derive active preset from current config type
+  // Normalise: legacy claude-code/codex/anthropic → "agent"
   const activePreset =
-    ptype === "anthropic"
-      ? "anthropic"
-      : ptype === "claude-code"
-        ? "claude-code"
-        : ptype === "codex"
-          ? "codex"
-          : ptype === "openai-compat" && config.provider.baseUrl === "http://localhost:11434/v1"
-            ? "ollama"
-            : "custom";
+    ptype === "agent" || ptype === "claude-code" || ptype === "codex" || ptype === "anthropic"
+      ? "agent"
+      : "custom";
 
-  // Live Ollama / openai-compat model list
+  // Live model list for openai-compat
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-
   const baseUrl = ptype === "openai-compat" ? (config.provider.baseUrl ?? "") : null;
 
   useEffect(() => {
-    if (!baseUrl) {
-      setAvailableModels([]);
-      return;
-    }
-    const apiKey =
-      config.provider.type === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
-    const url = `${baseUrl.replace(/\/+$/, "")}/models`;
-    fetch(url, { headers: { Authorization: `Bearer ${apiKey}` } })
+    if (!baseUrl) { setAvailableModels([]); return; }
+    const apiKey = ptype === "openai-compat" ? (config.provider.apiKey ?? "ollama") : "ollama";
+    fetch(`${baseUrl.replace(/\/+$/, "")}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    })
       .then((r) => r.json())
       .then((data: { data?: Array<{ id: string }> }) => {
         const models = (data.data ?? []).map((m) => m.id).sort();
         setAvailableModels(models);
-        // Auto-select first model when field is blank (e.g. fresh Ollama preset)
-        if (
-          models.length > 0 &&
-          config.provider.type === "openai-compat" &&
-          !config.provider.model
-        ) {
+        if (models.length > 0 && ptype === "openai-compat" && !config.provider.model) {
           onChange({ provider: { ...config.provider, model: models[0] } });
         }
       })
@@ -1963,28 +1877,24 @@ function ProviderSettings({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUrl]);
 
+  // Expanded path rows per agent
+  const [expandedPaths, setExpandedPaths] = useState<Record<string, boolean>>({});
+
   function applyPreset(value: string) {
-    if (value === "custom") return; // let user keep current config and manually edit
     onChange({ provider: presetToConfig(value) });
   }
 
-  // Visible presets: always show ollama + anthropic + custom, CLI options only if installed
-  const visiblePresets = PRESETS.filter(
-    (p) =>
-      p.value === "ollama" ||
-      p.value === "anthropic" ||
-      p.value === "custom" ||
-      availableProviders.includes(p.value),
-  );
+  function toggleAgent(id: string, enabled: boolean) {
+    const next = { ...agentSettings, [id]: { ...agentSettings[id], enabled } };
+    onAgentSettingsChange(next);
+  }
 
-  const currentModel =
-    ptype === "claude-code"
-      ? (config.provider.model ?? "")
-      : ptype === "codex"
-        ? (config.provider.model ?? "")
-        : ptype === "openai-compat"
-          ? config.provider.model
-          : "";
+  function setAgentPath(id: string, customPath: string) {
+    const next = { ...agentSettings, [id]: { ...agentSettings[id], customPath } };
+    onAgentSettingsChange(next);
+  }
+
+  const currentModel = ptype === "openai-compat" ? config.provider.model : "";
 
   return (
     <div className="blink-settings-panel">
@@ -1995,191 +1905,159 @@ function ProviderSettings({
         <span className="blink-settings-panel__title">Provider Settings</span>
       </div>
       <div className="blink-settings-panel__body">
-        {/* Provider card */}
+        {/* Mode selector */}
         <div className="blink-settings-panel__card">
-          {/* Preset picker */}
           <div className="blink-settings-panel__field">
-            <label>Preset</label>
+            <label>Mode</label>
             <select value={activePreset} onChange={(e) => applyPreset(e.target.value)}>
-              {visiblePresets.map((p) => (
+              {PRESETS.map((p) => (
                 <option key={p.value} value={p.value}>
                   {p.label}
                 </option>
               ))}
             </select>
           </div>
-
-          {/* Model */}
-          <div className="blink-settings-panel__field">
-            <label>Model</label>
-            {ptype === "anthropic" ? (
-              <select
-                value={config.provider.model}
-                onChange={(e) =>
-                  onChange({ provider: { ...config.provider, model: e.target.value } })
-                }
-              >
-                {ANTHROPIC_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label} — {m.description}
-                  </option>
-                ))}
-              </select>
-            ) : ptype === "claude-code" ? (
-              <select
-                value={currentModel}
-                onChange={(e) =>
-                  onChange({ provider: { ...config.provider, model: e.target.value } })
-                }
-              >
-                {CLAUDE_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label} — {m.description}
-                  </option>
-                ))}
-              </select>
-            ) : ptype === "codex" ? (
-              <select
-                value={currentModel}
-                onChange={(e) =>
-                  onChange({ provider: { ...config.provider, model: e.target.value } })
-                }
-              >
-                {CODEX_MODELS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label} — {m.description}
-                  </option>
-                ))}
-              </select>
-            ) : availableModels.length > 0 ? (
-              <select
-                value={currentModel}
-                onChange={(e) =>
-                  onChange({ provider: { ...config.provider, model: e.target.value } })
-                }
-              >
-                {!availableModels.includes(currentModel) && currentModel && (
-                  <option value={currentModel}>{currentModel}</option>
-                )}
-                {availableModels.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input
-                value={currentModel}
-                onChange={(e) =>
-                  onChange({ provider: { ...config.provider, model: e.target.value } })
-                }
-                placeholder="e.g. llama3.2 or gpt-4o"
-              />
-            )}
-          </div>
         </div>
 
-        {/* Anthropic card — API key + thinking */}
-        {ptype === "anthropic" && (
-          <div className="blink-settings-panel__card">
-            <div className="blink-settings-panel__field">
-              <label>API Key</label>
-              <input
-                type="password"
-                value={config.provider.apiKey}
-                onChange={(e) => {
-                  if (config.provider.type !== "anthropic") return;
-                  onChange({ provider: { ...config.provider, apiKey: e.target.value } });
-                }}
-                placeholder="sk-ant-…"
-              />
-            </div>
-            <div className="blink-settings-panel__field blink-settings-panel__field--row">
-              <label>Extended thinking</label>
-              <button
-                type="button"
-                className={`toggle ${config.provider.thinking ? "toggle--on" : ""}`}
-                onClick={() => {
-                  if (config.provider.type !== "anthropic") return;
-                  onChange({
-                    provider: { ...config.provider, thinking: !config.provider.thinking },
-                  });
-                }}
-              >
-                <span className="toggle__thumb" />
-              </button>
-            </div>
-            {config.provider.thinking && (
+        {/* ── Agent mode: agent list with toggles + paths ── */}
+        {activePreset === "agent" && (
+          <div className="blink-settings-panel__agent-list">
+            {ALL_AGENTS.map((agent) => {
+              const cfg = agentSettings[agent.id] ?? { enabled: false, customPath: "" };
+              const pathExpanded = expandedPaths[agent.id] ?? false;
+              return (
+                <div key={agent.id} className="blink-settings-panel__agent-row">
+                  <div className="blink-settings-panel__agent-info">
+                    <span className="blink-settings-panel__agent-logo">
+                      <AgentLogo agentId={agent.id} size={18} />
+                    </span>
+                    <div className="blink-settings-panel__agent-text">
+                      <span className="blink-settings-panel__agent-name">{agent.label}</span>
+                      <span className="blink-settings-panel__agent-desc">{agent.description}</span>
+                    </div>
+                  </div>
+                  <div className="blink-settings-panel__agent-controls">
+                    {cfg.enabled && (
+                      <button
+                        type="button"
+                        className="blink-settings-panel__agent-path-toggle"
+                        title="Configure path"
+                        onClick={() =>
+                          setExpandedPaths((p) => ({ ...p, [agent.id]: !p[agent.id] }))
+                        }
+                      >
+                        <Settings2 size={11} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={`toggle ${cfg.enabled ? "toggle--on" : ""}`}
+                      onClick={() => toggleAgent(agent.id, !cfg.enabled)}
+                    >
+                      <span className="toggle__thumb" />
+                    </button>
+                  </div>
+                  {cfg.enabled && pathExpanded && (
+                    <div className="blink-settings-panel__agent-path">
+                      <label>Custom path</label>
+                      <input
+                        value={cfg.customPath}
+                        onChange={(e) => setAgentPath(agent.id, e.target.value)}
+                        placeholder={`/usr/local/bin/${agent.binary}`}
+                        spellCheck={false}
+                      />
+                      <span className="blink-settings-panel__agent-path-hint">
+                        Leave empty to use <code>{agent.binary}</code> from PATH
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Custom mode: URL + key + model ── */}
+        {activePreset === "custom" && (
+          <>
+            <div className="blink-settings-panel__card">
               <div className="blink-settings-panel__field">
-                <label>Thinking budget (tokens)</label>
+                <label>Model</label>
+                {availableModels.length > 0 ? (
+                  <select
+                    value={currentModel}
+                    onChange={(e) =>
+                      onChange({ provider: { ...config.provider, model: e.target.value } })
+                    }
+                  >
+                    {!availableModels.includes(currentModel) && currentModel && (
+                      <option value={currentModel}>{currentModel}</option>
+                    )}
+                    {availableModels.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    value={currentModel}
+                    onChange={(e) =>
+                      onChange({ provider: { ...config.provider, model: e.target.value } })
+                    }
+                    placeholder="e.g. llama3.2 or gpt-4o"
+                  />
+                )}
+              </div>
+            </div>
+            <div className="blink-settings-panel__card">
+              <div className="blink-settings-panel__field">
+                <label>Base URL</label>
                 <input
-                  type="number"
-                  min={1024}
-                  max={100000}
-                  step={1000}
-                  value={config.provider.thinkingBudget}
+                  value={ptype === "openai-compat" ? (config.provider.baseUrl ?? "") : ""}
                   onChange={(e) => {
-                    if (config.provider.type !== "anthropic") return;
-                    const v = Math.max(1024, parseInt(e.target.value, 10) || 10000);
-                    onChange({ provider: { ...config.provider, thinkingBudget: v } });
+                    if (config.provider.type !== "openai-compat") return;
+                    onChange({ provider: { ...config.provider, baseUrl: e.target.value } });
                   }}
+                  placeholder="http://localhost:11434/v1"
                 />
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Connection card — only for openai-compat */}
-        {ptype === "openai-compat" && (
-          <div className="blink-settings-panel__card">
-            <div className="blink-settings-panel__field">
-              <label>Base URL</label>
-              <input
-                value={config.provider.baseUrl ?? ""}
-                onChange={(e) => {
-                  if (config.provider.type !== "openai-compat") return;
-                  onChange({ provider: { ...config.provider, baseUrl: e.target.value } });
-                }}
-                placeholder="http://localhost:11434/v1"
-              />
+              <div className="blink-settings-panel__field">
+                <label>API Key</label>
+                <input
+                  type="password"
+                  value={ptype === "openai-compat" ? (config.provider.apiKey ?? "") : ""}
+                  onChange={(e) => {
+                    if (config.provider.type !== "openai-compat") return;
+                    onChange({ provider: { ...config.provider, apiKey: e.target.value } });
+                  }}
+                  placeholder="sk-… (leave empty for Ollama)"
+                />
+              </div>
             </div>
-            <div className="blink-settings-panel__field">
-              <label>API Key</label>
-              <input
-                type="password"
-                value={config.provider.apiKey ?? ""}
-                onChange={(e) => {
-                  if (config.provider.type !== "openai-compat") return;
-                  onChange({ provider: { ...config.provider, apiKey: e.target.value } });
-                }}
-                placeholder="sk-… (leave empty for Ollama)"
-              />
+            <div className="blink-settings-panel__card">
+              <div className="blink-settings-panel__field blink-settings-panel__field--row">
+                <label>Enable tool use</label>
+                <button
+                  type="button"
+                  className={`toggle ${config.allowTools !== false ? "toggle--on" : ""}`}
+                  onClick={() => onChange({ allowTools: config.allowTools === false ? true : false })}
+                >
+                  <span className="toggle__thumb" />
+                </button>
+              </div>
+              {config.allowTools !== false && (
+                <div className="blink-settings-panel__field blink-settings-panel__field--row">
+                  <label>Require permission for tools</label>
+                  <button
+                    type="button"
+                    className={`toggle ${config.requirePermission ? "toggle--on" : ""}`}
+                    onClick={() => onChange({ requirePermission: !config.requirePermission })}
+                  >
+                    <span className="toggle__thumb" />
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
-        )}
-
-        {/* CLI notice */}
-        {isCLI && (
-          <p className="blink-settings-panel__notice">
-            Uses your locally installed <code>{ptype === "claude-code" ? "claude" : "codex"}</code>{" "}
-            CLI. Authentication is managed by the CLI itself.
-          </p>
-        )}
-
-        {/* Permission toggle — not relevant for CLI providers */}
-        {!isCLI && (
-          <div className="blink-settings-panel__card">
-            <div className="blink-settings-panel__field blink-settings-panel__field--row">
-              <label>Require permission for tools</label>
-              <button
-                type="button"
-                className={`toggle ${config.requirePermission ? "toggle--on" : ""}`}
-                onClick={() => onChange({ requirePermission: !config.requirePermission })}
-              >
-                <span className="toggle__thumb" />
-              </button>
-            </div>
-          </div>
+          </>
         )}
       </div>
     </div>

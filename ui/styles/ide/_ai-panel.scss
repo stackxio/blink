@@ -1724,6 +1724,39 @@
     font-style: italic;
     padding: 2px 0;
   }
+
+  &__regen-btn,
+  &__retry-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 6px;
+    padding: 3px 8px;
+    gap: 4px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(color, background, border-color);
+
+    svg {
+      width: 11px;
+      height: 11px;
+    }
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+      border-color: var(--c-accent);
+    }
+  }
+
+  &__retry-btn {
+    margin-left: 8px;
+  }
 }
 
 @keyframes dot-bounce {
@@ -1894,6 +1927,80 @@
     overflow-y: auto;
     line-height: 1.6;
     @include scrollbar(3px);
+  }
+}
+
+// ── CLI Launcher ──────────────────────────────────────────────────────────────
+
+.blink-cli-launcher {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  gap: 10px;
+  text-align: center;
+
+  &__icon {
+    font-size: 32px;
+    line-height: 1;
+    margin-bottom: 4px;
+    opacity: 0.85;
+  }
+
+  &__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__cmd {
+    display: block;
+    padding: 6px 12px;
+    background: var(--c-surface-raised);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--c-accent);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__hint {
+    font-size: 12px;
+    color: var(--c-muted-fg);
+    line-height: 1.5;
+    margin: 0;
+    max-width: 240px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 4px;
+  }
+
+  &__switch {
+    margin-top: 8px;
+    background: transparent;
+    border: none;
+    color: var(--c-muted-fg);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    @include transition(color);
+
+    &:hover {
+      color: var(--c-fg);
+    }
   }
 }
 
@@ -2091,6 +2198,386 @@
       font-size: 11px;
       background: var(--c-surface-raised);
       padding: 1px 5px;
+      border-radius: 3px;
+    }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CliAgentPanel — Warp-style embedded CLI agent terminal
+// ══════════════════════════════════════════════════════════════════════════════
+
+.cli-agent-panel {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  background: var(--c-bg);
+
+  // ── Header: agent launcher pills + settings gear ──
+
+  &__header {
+    @include flex-between;
+    padding: 0 6px 0 8px;
+    height: var(--tab-bar-h);
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  &__agents {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  &__agent-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px 3px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--c-border);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    @include transition(background, color, border-color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+      border-color: var(--c-border-raised, var(--c-border));
+    }
+  }
+
+  &__agent-logo {
+    flex-shrink: 0;
+    opacity: 0.8;
+  }
+
+  &__no-agents {
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    padding: 0 4px;
+  }
+
+  &__header-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  &__icon-btn {
+    @include flex-center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+
+  // ── Session tabs ──
+
+  &__tabs {
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 0 6px;
+    height: 30px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    @include scrollbar(2px);
+  }
+
+  &__tab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+
+    &--active {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+
+  &__tab-logo {
+    flex-shrink: 0;
+    opacity: 0.7;
+  }
+
+  &__tab--active &__tab-logo {
+    opacity: 1;
+  }
+
+  &__tab-label {
+    cursor: default;
+    user-select: none;
+  }
+
+  &__tab-rename {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--c-accent);
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    width: 80px;
+    outline: none;
+    padding: 0 1px;
+    line-height: 1;
+  }
+
+  &__tab-close {
+    @include flex-center;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    opacity: 0;
+    cursor: pointer;
+    @include transition(background, opacity);
+
+    &:hover {
+      background: var(--c-surface);
+    }
+  }
+
+  &__tab:hover &__tab-close,
+  &__tab--active &__tab-close {
+    opacity: 0.5;
+
+    &:hover {
+      opacity: 1;
+    }
+  }
+
+  // ── Terminal body ──
+
+  &__body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__term-wrap {
+    flex: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+    position: relative;
+    flex-direction: column;
+
+    // xterm.js internal elements — required to prevent the viewport from
+    // leaking outside the container when the panel is resized smaller.
+    .xterm {
+      flex: 1;
+      padding: 4px 8px;
+      overflow: hidden;
+    }
+
+    .xterm-viewport {
+      overflow-y: scroll !important;
+      background: transparent !important;
+    }
+
+    .xterm-screen {
+      flex: 1;
+    }
+  }
+
+  // ── Empty state ──
+
+  &__empty {
+    @include flex-col;
+    @include flex-center;
+    flex: 1;
+    gap: 8px;
+    padding: 24px 20px;
+    text-align: center;
+  }
+
+  &__empty-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--c-fg);
+    margin: 0;
+  }
+
+  &__empty-hint {
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    margin: 0;
+    max-width: 240px;
+    line-height: 1.5;
+  }
+
+  &__empty-settings-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--c-border);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 4px;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+}
+
+// ── Agent settings list (inside ProviderSettings when mode = Agent) ──
+
+.blink-settings-panel {
+  &__agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  &__agent-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    margin-bottom: 4px;
+  }
+
+  &__agent-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__agent-logo {
+    @include flex-center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: var(--c-surface-raised);
+    color: var(--c-fg);
+  }
+
+  &__agent-text {
+    @include flex-col;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__agent-name {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__agent-desc {
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    line-height: 1.4;
+    @include truncate;
+  }
+
+  &__agent-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  &__agent-path-toggle {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+  }
+
+  &__agent-path {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 6px;
+    border-top: 1px solid var(--c-border);
+    margin-top: 2px;
+
+    label {
+      font-size: var(--font-size-xs);
+      color: var(--c-muted-fg);
+      font-weight: 500;
+    }
+
+    input {
+      font-family: var(--font-mono);
+      font-size: var(--font-size-xs);
+    }
+  }
+
+  &__agent-path-hint {
+    font-size: 10px;
+    color: var(--c-muted-fg);
+    opacity: 0.7;
+
+    code {
+      font-family: var(--font-mono);
+      background: var(--c-surface-raised);
+      padding: 1px 4px;
       border-radius: 3px;
     }
   }

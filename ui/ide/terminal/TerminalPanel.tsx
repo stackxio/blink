@@ -1,12 +1,34 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
-import { Plus, X, Trash2, SplitSquareHorizontal } from "lucide-react";
+import { Plus, X, Trash2, SplitSquareHorizontal, ChevronDown } from "lucide-react";
 import { useAppStore } from "@/store";
+import { TerminalInstance } from "./TerminalInstance";
 import "@xterm/xterm/css/xterm.css";
+
+// ── Terminal profiles ─────────────────────────────────────────────────────────
+
+interface TerminalProfile {
+  id: string;
+  label: string;
+  shell: string;
+}
+
+const BUILTIN_PROFILES: TerminalProfile[] = [
+  { id: "default", label: "Default", shell: "" }, // empty = use $SHELL
+  { id: "zsh", label: "zsh", shell: "/bin/zsh" },
+  { id: "bash", label: "bash", shell: "/bin/bash" },
+  { id: "sh", label: "sh", shell: "/bin/sh" },
+  { id: "fish", label: "fish", shell: "/opt/homebrew/bin/fish" },
+];
+
+function loadProfile(): TerminalProfile {
+  const stored = localStorage.getItem("blink:terminal-profile");
+  if (stored) {
+    const found = BUILTIN_PROFILES.find((p) => p.id === stored);
+    if (found) return found;
+  }
+  return BUILTIN_PROFILES[0];
+}
 
 let termCounter = 0;
 
@@ -17,20 +39,27 @@ export default function TerminalPanel() {
   const setActiveTerminalId = useAppStore((s) => s.setActiveTerminalId);
   const createdRef = useRef(false);
   const [splitId, setSplitId] = useState<string | null>(null);
+  const [activeProfile, setActiveProfile] = useState<TerminalProfile>(loadProfile);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const [terminalNames, setTerminalNames] = useState<Record<string, string>>({});
 
   const terminalIds = ws?.terminalIds ?? [];
   const activeTerminalId = ws?.activeTerminalId ?? null;
   const workspacePath = ws?.path || null;
 
-  async function createSession(): Promise<string | null> {
+  async function createSession(profileOverride?: TerminalProfile): Promise<string | null> {
     termCounter++;
     const id = `term-${Date.now()}-${termCounter}`;
+    const profile = profileOverride ?? activeProfile;
     try {
       await invoke("terminal_create", {
         id,
         cwd: workspacePath,
         rows: 24,
         cols: 80,
+        shell: profile.shell || null,
+        command: null,
       });
       addTerminalId(id);
       return id;
@@ -40,11 +69,61 @@ export default function TerminalPanel() {
     }
   }
 
+  async function createNamedSession(name: string, command: string[], cwd?: string | null): Promise<string | null> {
+    termCounter++;
+    const id = `term-${Date.now()}-${termCounter}`;
+    try {
+      await invoke("terminal_create", {
+        id,
+        cwd: cwd ?? workspacePath,
+        rows: 24,
+        cols: 80,
+        shell: null,
+        command,
+      });
+      addTerminalId(id);
+      setTerminalNames((prev) => ({ ...prev, [id]: name }));
+      setActiveTerminalId(id);
+      return id;
+    } catch (err) {
+      console.error("Failed to create named terminal:", err);
+      return null;
+    }
+  }
+
+  // Listen for CLI launch events from the AI panel
+  useEffect(() => {
+    function handler(e: Event) {
+      const { name, command, cwd } = (e as CustomEvent<{ name: string; command: string[]; cwd: string | null }>).detail;
+      void createNamedSession(name, command, cwd);
+    }
+    document.addEventListener("blink:launch-cli-terminal", handler);
+    return () => document.removeEventListener("blink:launch-cli-terminal", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacePath]);
+
+  // Close profile menu on outside click
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+    function handler(e: MouseEvent) {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [profileMenuOpen]);
+
   async function closeSession(id: string) {
     try {
       await invoke("terminal_close", { id });
     } catch {}
 
+    setTerminalNames((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     const isLast = terminalIds.length <= 1;
     removeTerminalId(id);
 
@@ -64,8 +143,8 @@ export default function TerminalPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run once on mount
   }, []);
 
-  function getTermName(_id: string, idx: number) {
-    return `Terminal ${idx + 1}`;
+  function getTermName(id: string, idx: number) {
+    return terminalNames[id] ?? `Terminal ${idx + 1}`;
   }
 
   async function createSplit() {
@@ -103,10 +182,41 @@ export default function TerminalPanel() {
           ))}
         </div>
         <div className="terminal-panel__actions">
+          {/* Profile picker */}
+          <div className="terminal-panel__profile-wrap" ref={profileMenuRef}>
+            <button
+              type="button"
+              className="terminal-panel__action terminal-panel__action--profile"
+              title="New terminal with profile"
+              onClick={() => setProfileMenuOpen((v) => !v)}
+            >
+              <Plus />
+              <ChevronDown size={10} />
+            </button>
+            {profileMenuOpen && (
+              <div className="terminal-panel__profile-menu">
+                {BUILTIN_PROFILES.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`terminal-panel__profile-item${p.id === activeProfile.id ? " terminal-panel__profile-item--active" : ""}`}
+                    onClick={() => {
+                      setActiveProfile(p);
+                      localStorage.setItem("blink:terminal-profile", p.id);
+                      setProfileMenuOpen(false);
+                      createSession(p);
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className="terminal-panel__action"
-            onClick={createSession}
+            onClick={() => createSession()}
             title="New Terminal"
           >
             <Plus />
@@ -180,114 +290,3 @@ export default function TerminalPanel() {
   );
 }
 
-function getTerminalTheme() {
-  const style = getComputedStyle(document.documentElement);
-  const get = (v: string) => style.getPropertyValue(v).trim() || undefined;
-  const isDark =
-    document.documentElement.classList.contains("dark") ||
-    (!document.documentElement.classList.contains("light") &&
-      window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-  return {
-    background: get("--c-bg") || (isDark ? "#1e1e1e" : "#ffffff"),
-    foreground: get("--c-fg") || (isDark ? "#d4d4d4" : "#1e1e1e"),
-    cursor: get("--c-fg") || (isDark ? "#d4d4d4" : "#1e1e1e"),
-    selectionBackground: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-    black: isDark ? "#1e1e1e" : "#000000",
-    red: "#f44747",
-    green: "#6a9955",
-    yellow: "#d7ba7d",
-    blue: "#569cd6",
-    magenta: "#c586c0",
-    cyan: "#4ec9b0",
-    white: isDark ? "#d4d4d4" : "#1e1e1e",
-    brightBlack: "#808080",
-    brightRed: "#f44747",
-    brightGreen: "#6a9955",
-    brightYellow: "#d7ba7d",
-    brightBlue: "#569cd6",
-    brightMagenta: "#c586c0",
-    brightCyan: "#4ec9b0",
-    brightWhite: "#ffffff",
-  };
-}
-
-function TerminalInstance({ id, visible }: { id: string; visible: boolean }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const termRef = useRef<Terminal | null>(null);
-  const fitRef = useRef<FitAddon | null>(null);
-  const mountedRef = useRef(false);
-
-  useEffect(() => {
-    if (!containerRef.current || mountedRef.current) return;
-    mountedRef.current = true;
-
-    const term = new Terminal({
-      cursorBlink: true,
-      lineHeight: 1.2,
-      fontSize: 13,
-      scrollback: 5000,
-      fontFamily: '"SF Mono", "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace',
-      theme: getTerminalTheme(),
-    });
-
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(containerRef.current);
-    // Enable WebGL renderer for GPU-accelerated rendering; fall back silently
-    try {
-      const webgl = new WebglAddon();
-      webgl.onContextLoss(() => webgl.dispose());
-      term.loadAddon(webgl);
-    } catch {}
-    requestAnimationFrame(() => fit.fit());
-
-    termRef.current = term;
-    fitRef.current = fit;
-
-    term.onData((data) => {
-      invoke("terminal_write", { id, data }).catch(() => {});
-    });
-
-    term.onResize(({ rows, cols }) => {
-      invoke("terminal_resize", { id, rows, cols }).catch(() => {});
-    });
-
-    let unlisten: (() => void) | null = null;
-    listen<string>(`terminal:output:${id}`, (event) => {
-      if (termRef.current) termRef.current.write(event.payload);
-    })
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch(() => {});
-
-    const ro = new ResizeObserver(() => {
-      requestAnimationFrame(() => {
-        try {
-          fit.fit();
-        } catch {}
-      });
-    });
-    ro.observe(containerRef.current);
-
-    return () => {
-      unlisten?.();
-      ro.disconnect();
-      term.dispose();
-      termRef.current = null;
-      fitRef.current = null;
-      mountedRef.current = false;
-    };
-  }, [id]);
-
-  useEffect(() => {
-    if (visible && fitRef.current) {
-      requestAnimationFrame(() => fitRef.current?.fit());
-    }
-  }, [visible]);
-
-  return (
-    <div ref={containerRef} style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: "hidden" }} />
-  );
-}

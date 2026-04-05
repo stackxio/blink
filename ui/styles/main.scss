@@ -33,3 +33,21 @@
 @use "ide/search-panel";
 @use "ide/markdown-preview";
 @use "ide/local-history";
+
+// ─── Bundled fonts ───
+// JetBrains Mono — monospace font with full Braille, box-drawing, and symbol
+// coverage needed by TUI apps (Claude Code spinners, etc.)
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url('/fonts/JetBrainsMono-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url('/fonts/JetBrainsMono-Bold.ttf') format('truetype');
+}

@@ -228,6 +228,7 @@ pub fn run() {
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,
             commands::terminal::terminal_close,
+            commands::terminal::which_cli,
             commands::workspaces::save_workspaces,
             commands::workspaces::load_workspaces,
             commands::lsp::lsp_start,

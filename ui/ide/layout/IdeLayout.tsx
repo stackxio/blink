@@ -114,13 +114,22 @@ export default function IdeLayout() {
         if (location.pathname !== "/") navigate("/");
       }
     }
+    function onLaunchCliTerminal() {
+      // Open the bottom panel to the terminal tab so TerminalPanel is mounted and handles the event
+      if (!useAppStore.getState().activeWorkspace()?.bottomPanelOpen) {
+        toggleBottomPanel();
+      }
+      setBottomPanelTab("terminal");
+    }
     document.addEventListener("blink:navigate", onNavigate);
     document.addEventListener("blink:file-search", onFileSearch);
     document.addEventListener("blink:open-file", onOpenFile);
+    document.addEventListener("blink:launch-cli-terminal", onLaunchCliTerminal);
     return () => {
       document.removeEventListener("blink:navigate", onNavigate);
       document.removeEventListener("blink:file-search", onFileSearch);
       document.removeEventListener("blink:open-file", onOpenFile);
+      document.removeEventListener("blink:launch-cli-terminal", onLaunchCliTerminal);
     };
   }, [navigate]);
 
@@ -235,7 +244,7 @@ export default function IdeLayout() {
   );
 
   const handleAiResize = useCallback(
-    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(800, aiPanelWidth - delta))),
+    (delta: number) => setAiPanelWidth(Math.max(280, Math.min(window.innerWidth - 200, aiPanelWidth - delta))),
     [aiPanelWidth, setAiPanelWidth],
   );
 

@@ -36,6 +36,8 @@ pub async fn terminal_create(
     cwd: Option<String>,
     rows: Option<u16>,
     cols: Option<u16>,
+    shell: Option<String>,
+    command: Option<Vec<String>>,
 ) -> Result<(), String> {
     let pty_system = native_pty_system();
 
@@ -48,14 +50,24 @@ pub async fn terminal_create(
         })
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let shell_name = shell.rsplit('/').next().unwrap_or("zsh");
-    let mut cmd = CommandBuilder::new(&shell);
-
-    // zsh: disable prompt percent escape that can cause rendering issues
-    if shell_name == "zsh" {
-        cmd.args(&["-o", "nopromptsp"]);
-    }
+    let mut cmd = if let Some(argv) = command {
+        // Run a specific command directly (e.g. claude --dangerously-skip-permissions)
+        let exe = argv.first().cloned().unwrap_or_else(|| "/bin/zsh".to_string());
+        let mut c = CommandBuilder::new(&exe);
+        for arg in argv.iter().skip(1) {
+            c.arg(arg);
+        }
+        c
+    } else {
+        // Regular interactive shell
+        let sh = shell.unwrap_or_else(|| std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string()));
+        let shell_name = sh.rsplit('/').next().unwrap_or("zsh");
+        let mut c = CommandBuilder::new(&sh);
+        if shell_name == "zsh" {
+            c.args(&["-o", "nopromptsp"]);
+        }
+        c
+    };
 
     // Set TERM so the shell knows xterm capabilities
     cmd.env("TERM", "xterm-256color");
@@ -166,4 +178,22 @@ pub async fn terminal_close(
     let mut mgr = state.lock().map_err(|e| e.to_string())?;
     mgr.sessions.remove(&id);
     Ok(())
+}
+
+/// Check which CLI binaries from the given list are available in PATH.
+/// Returns only the names that were found.
+#[tauri::command]
+pub async fn which_cli(names: Vec<String>) -> Vec<String> {
+    names
+        .into_iter()
+        .filter(|name| {
+            std::process::Command::new("which")
+                .arg(name)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status()
+                .map(|s| s.success())
+                .unwrap_or(false)
+        })
+        .collect()
 }

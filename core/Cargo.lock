@@ -231,6 +231,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs",
+ "glob",
  "libc",
  "log",
  "notify",

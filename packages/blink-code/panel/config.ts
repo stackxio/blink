@@ -1,5 +1,6 @@
 export type ProviderConfig =
   | {
+      /** OpenAI-compatible endpoint (Ollama, custom, etc.) */
       type: "openai-compat";
       model: string;
       baseUrl?: string;
@@ -7,7 +8,11 @@ export type ProviderConfig =
       maxTokens?: number;
     }
   | {
-      /** Direct Anthropic Messages API with optional extended thinking. */
+      /** Embedded CLI agent panel (Claude, Codex, Gemini, …) */
+      type: "agent";
+    }
+  // Legacy types kept for backward-compat; treated as "agent" in the UI
+  | {
       type: "anthropic";
       model: string;
       apiKey: string;
@@ -15,13 +20,11 @@ export type ProviderConfig =
       thinkingBudget: number;
     }
   | {
-      /** Bridges to the locally installed `claude` CLI. */
       type: "claude-code";
       model?: string;
       effort?: "low" | "medium" | "high";
     }
   | {
-      /** Bridges to the locally installed `codex` CLI. */
       type: "codex";
       model?: string;
       effort?: "low" | "medium" | "high" | "xhigh";
@@ -31,6 +34,7 @@ export type BlinkCodeConfig = {
   provider: ProviderConfig;
   maxTurns: number;
   requirePermission: boolean;
+  allowTools: boolean;
 };
 
 const STORAGE_KEY = "blink-code-config";
@@ -45,6 +49,7 @@ const DEFAULTS: BlinkCodeConfig = {
   },
   maxTurns: 16,
   requirePermission: false,
+  allowTools: true,
 };
 
 export function loadBlinkCodeConfig(): BlinkCodeConfig {
