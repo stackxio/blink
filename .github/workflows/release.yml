@@ -168,8 +168,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag ${{ needs.preflight.outputs.tag }}
-          git push origin ${{ needs.preflight.outputs.tag }}
+          git tag -f ${{ needs.preflight.outputs.tag }}
+          git push origin ${{ needs.preflight.outputs.tag }} --force
 
       - uses: oven-sh/setup-bun@v2
         with:
