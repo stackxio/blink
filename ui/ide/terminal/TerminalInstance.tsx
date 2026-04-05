@@ -57,7 +57,13 @@ async function ensureFont(): Promise<void> {
     'position:absolute;opacity:0;pointer-events:none;font-family:"JetBrains Mono",monospace;font-size:13px;white-space:pre';
   span.textContent = "abcdefghijklmnopqrstuvwxyz0123456789⠿⠶⠦⠧◐◑◒◓❯⏵─│╭╮╰╯█▀▄";
   document.body.appendChild(span);
-  await Promise.race([document.fonts.ready, new Promise<void>((r) => setTimeout(r, 1500))]);
+  // Use document.fonts.load() not document.fonts.ready — ready is a one-time
+  // settled promise that's already resolved by the time a terminal tab opens.
+  // load() creates a fresh request and resolves when the font is actually usable.
+  await Promise.race([
+    document.fonts.load('13px "JetBrains Mono"'),
+    new Promise<void>((r) => setTimeout(r, 1500)),
+  ]);
   document.body.removeChild(span);
 }
 
