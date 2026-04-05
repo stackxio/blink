@@ -420,7 +420,10 @@ export default function IdeLayout() {
     let cancelled = false;
     // Binary/viewable files (images, PDFs, CSVs handled by FileViewer) don't
     // need text content — skip the read so we don't wrongly mark them deleted.
-    if (isViewableFile(activeFile.name)) return () => { cancelled = true; };
+    if (isViewableFile(activeFile.name))
+      return () => {
+        cancelled = true;
+      };
     invoke<string>("read_file_content", { path: activeFile.path })
       .then((content) => {
         fileContentCacheRef.current.set(activeFile.path, content);
