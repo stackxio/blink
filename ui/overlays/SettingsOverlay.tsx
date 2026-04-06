@@ -63,8 +63,7 @@ export default function SettingsOverlay() {
               key={item.page}
               type="button"
               className={`settings-overlay__nav-item ${
-                settingsPage === item.page ||
-                (settingsPage === "licenses" && item.page === "about")
+                settingsPage === item.page || (settingsPage === "licenses" && item.page === "about")
                   ? "settings-overlay__nav-item--active"
                   : ""
               }`}

@@ -20,7 +20,9 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const errorCount = diagnosticSummary.errors;
   const warningCount = diagnosticSummary.warnings;
 
-  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("codrift:wordWrap") === "true");
+  const [wordWrap, setWordWrap] = useState(
+    () => localStorage.getItem("codrift:wordWrap") === "true",
+  );
   const [tabSize] = useState(() => parseInt(localStorage.getItem("codrift:tabSize") || "2", 10));
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
