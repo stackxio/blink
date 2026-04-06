@@ -607,6 +607,12 @@ pub async fn open_file_dialog(app: tauri::AppHandle) -> Result<Vec<String>, Stri
         .collect())
 }
 
+/// Check whether a path is a directory.
+#[tauri::command]
+pub fn is_dir(path: String) -> bool {
+    std::path::Path::new(&path).is_dir()
+}
+
 /// Open a native folder picker dialog and return the selected path.
 #[tauri::command]
 pub async fn open_folder_dialog(app: tauri::AppHandle) -> Result<Option<String>, String> {

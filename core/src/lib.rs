@@ -12,8 +12,24 @@ mod services;
 mod settings;
 pub mod tools;
 
+/// Path passed as a CLI argument (e.g. `codrift ~/.zshrc`).
+/// Stored here so the frontend can retrieve it once the window has loaded.
+pub struct StartupPath(pub Option<String>);
+
+#[tauri::command]
+fn get_startup_path(state: tauri::State<'_, std::sync::Mutex<StartupPath>>) -> Option<String> {
+    // Take the value so it's only returned once
+    state.lock().unwrap().0.take()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Capture any file/folder path passed as the first CLI argument.
+    // Filter out macOS process serial numbers (-psn_…) and other flags.
+    let startup_path: Option<String> = std::env::args()
+        .skip(1)
+        .find(|a| !a.starts_with('-'));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
@@ -33,14 +49,14 @@ pub fn run() {
         .setup(|app| {
             // Native macOS menu bar
             let about = AboutMetadataBuilder::new()
-                .name(Some("Blink"))
+                .name(Some("Codrift"))
                 .version(Some(env!("CARGO_PKG_VERSION")))
                 .authors(Some(vec!["Voxire".to_string()]))
                 .comments(Some("AI-first code editor"))
                 .website(Some("https://voxire.com"))
                 .build();
 
-            let app_menu = SubmenuBuilder::new(app, "Blink")
+            let app_menu = SubmenuBuilder::new(app, "Codrift")
                 .about(Some(about))
                 .separator()
                 .text("settings", "Settings...")
@@ -108,7 +124,7 @@ pub fn run() {
                 .build()?;
 
             let help_menu = SubmenuBuilder::new(app, "Help")
-                .text("about", "About Blink")
+                .text("about", "About Codrift")
                 .build()?;
 
             let menu = MenuBuilder::new(app)
@@ -156,6 +172,7 @@ pub fn run() {
 
             let conn = db::init::init_db().expect("Failed to initialize database");
             app.manage(std::sync::Mutex::new(conn));
+            app.manage(std::sync::Mutex::new(StartupPath(startup_path)));
             app.manage(commands::terminal::create_terminal_state());
             app.manage(std::sync::Mutex::new(commands::watcher::WatcherState::new()));
             app.manage(lsp::manager::create_lsp_state());
@@ -164,6 +181,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_startup_path,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::updater::check_for_update,
@@ -202,6 +220,7 @@ pub fn run() {
             commands::skills::create_skill,
             commands::skills::delete_skill,
             commands::skills::reset_skills,
+            commands::editor::is_dir,
             commands::editor::read_dir,
             commands::editor::read_file_content,
             commands::editor::read_file_base64,
