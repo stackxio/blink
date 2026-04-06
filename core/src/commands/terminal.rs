@@ -225,9 +225,7 @@ pub async fn which_cli(names: Vec<String>) -> Vec<String> {
             if let Some(ref path) = expanded_path {
                 cmd.env("PATH", path);
             }
-            cmd.status()
-                .map(|s| s.success())
-                .unwrap_or(false)
+            cmd.status().map(|s| s.success()).unwrap_or(false)
         })
         .collect()
 }
