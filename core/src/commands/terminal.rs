@@ -4,6 +4,21 @@ use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
 
+/// Resolve the full user PATH by sourcing the login shell.
+/// macOS .app bundles inherit a stripped PATH (/usr/bin:/bin:…) from launchd,
+/// which misses Homebrew, nvm, npm globals, etc.  Running `$SHELL -l -c echo $PATH`
+/// gives us the same PATH the user sees in their terminal.
+fn login_shell_path() -> Option<String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    std::process::Command::new(&shell)
+        .args(["-l", "-c", "echo $PATH"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
 struct TerminalSession {
     writer: Box<dyn Write + Send>,
     // master_pty kept alive to prevent EOF
@@ -50,6 +65,10 @@ pub async fn terminal_create(
         })
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
+    // Expand PATH via the user's login shell so tools installed through Homebrew,
+    // nvm, npm globals, etc. are reachable even inside a .app bundle.
+    let expanded_path = login_shell_path();
+
     let mut cmd = if let Some(argv) = command {
         // Run a specific command directly (e.g. claude --dangerously-skip-permissions)
         let exe = argv
@@ -75,6 +94,11 @@ pub async fn terminal_create(
 
     // Set TERM so the shell knows xterm capabilities
     cmd.env("TERM", "xterm-256color");
+
+    // Inject expanded PATH so agent binaries can be found
+    if let Some(path) = expanded_path {
+        cmd.env("PATH", path);
+    }
 
     if let Some(dir) = &cwd {
         cmd.cwd(dir);
@@ -186,16 +210,22 @@ pub async fn terminal_close(
 
 /// Check which CLI binaries from the given list are available in PATH.
 /// Returns only the names that were found.
+/// Uses the user's login-shell PATH so Homebrew/nvm/npm globals are visible
+/// even when the app is launched as a .app bundle with launchd's stripped PATH.
 #[tauri::command]
 pub async fn which_cli(names: Vec<String>) -> Vec<String> {
+    let expanded_path = login_shell_path();
     names
         .into_iter()
         .filter(|name| {
-            std::process::Command::new("which")
-                .arg(name)
+            let mut cmd = std::process::Command::new("which");
+            cmd.arg(name)
                 .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null())
-                .status()
+                .stderr(std::process::Stdio::null());
+            if let Some(ref path) = expanded_path {
+                cmd.env("PATH", path);
+            }
+            cmd.status()
                 .map(|s| s.success())
                 .unwrap_or(false)
         })
