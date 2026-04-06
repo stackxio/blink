@@ -97,25 +97,27 @@ export default function IdeLayout() {
   // Load saved workspaces on mount, then check for a CLI startup path
   useEffect(() => {
     loadSavedWorkspaces();
-    invoke<string | null>("get_startup_path").then((path) => {
-      if (!path) return;
-      // Determine if it's a directory (open as workspace) or a file (open in editor)
-      invoke<boolean>("is_dir", { path })
-        .then((isDir) => {
-          if (isDir) {
-            const name = path.split("/").pop() || path;
-            addWorkspace(path, name);
-          } else {
+    invoke<string | null>("get_startup_path")
+      .then((path) => {
+        if (!path) return;
+        // Determine if it's a directory (open as workspace) or a file (open in editor)
+        invoke<boolean>("is_dir", { path })
+          .then((isDir) => {
+            if (isDir) {
+              const name = path.split("/").pop() || path;
+              addWorkspace(path, name);
+            } else {
+              const name = path.split("/").pop() || path;
+              openFile(path, name, false);
+            }
+          })
+          .catch(() => {
+            // Fallback: try opening as a file
             const name = path.split("/").pop() || path;
             openFile(path, name, false);
-          }
-        })
-        .catch(() => {
-          // Fallback: try opening as a file
-          const name = path.split("/").pop() || path;
-          openFile(path, name, false);
-        });
-    }).catch(() => {});
+          });
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on mount
   }, []);
 

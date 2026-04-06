@@ -26,9 +26,7 @@ fn get_startup_path(state: tauri::State<'_, std::sync::Mutex<StartupPath>>) -> O
 pub fn run() {
     // Capture any file/folder path passed as the first CLI argument.
     // Filter out macOS process serial numbers (-psn_…) and other flags.
-    let startup_path: Option<String> = std::env::args()
-        .skip(1)
-        .find(|a| !a.starts_with('-'));
+    let startup_path: Option<String> = std::env::args().skip(1).find(|a| !a.starts_with('-'));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
