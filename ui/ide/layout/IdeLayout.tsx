@@ -54,10 +54,12 @@ export default function IdeLayout() {
   const setSidePanelWidth = useAppStore((s) => s.setSidePanelWidth);
   const setBottomPanelHeight = useAppStore((s) => s.setBottomPanelHeight);
   const loadSavedWorkspaces = useAppStore((s) => s.loadSavedWorkspaces);
+  const openSettings = useAppStore((s) => s.openSettings);
+  const settingsOpen = useAppStore((s) => s.settingsOpen);
 
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
-  const workspaceName = ws?.name ?? "Blink";
+  const workspaceName = ws?.name ?? "Codrift";
   const openFiles = ws?.openFiles ?? [];
   const activeFileIdx = ws?.activeFileIdx ?? -1;
   const closedTabHistory = ws?.closedTabHistory ?? [];
@@ -102,7 +104,11 @@ export default function IdeLayout() {
   useEffect(() => {
     function onNavigate(e: Event) {
       const path = (e as CustomEvent<string>).detail;
-      if (path) navigate(path);
+      if (path === "/settings") {
+        openSettings();
+      } else if (path) {
+        navigate(path);
+      }
     }
     function onFileSearch() {
       setFileSearchOpen((v) => !v);
@@ -131,7 +137,7 @@ export default function IdeLayout() {
       document.removeEventListener("blink:open-file", onOpenFile);
       document.removeEventListener("blink:launch-cli-terminal", onLaunchCliTerminal);
     };
-  }, [navigate]);
+  }, [navigate, openSettings]);
 
   // Fetch git branch for status bar
   useEffect(() => {
@@ -413,13 +419,13 @@ export default function IdeLayout() {
         toggleSidePanel();
       } else if (matchesKey(e, effectiveKey("open_settings", map))) {
         e.preventDefault();
-        navigate("/settings");
+        openSettings();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard handler uses refs and store getState(), doesn't need all deps
-  }, [navigate, toggleBottomPanel, toggleSidePanel]);
+  }, [navigate, openSettings, toggleBottomPanel, toggleSidePanel]);
 
   useEffect(() => {
     if (!activeFile) {
@@ -503,7 +509,7 @@ export default function IdeLayout() {
     return map[ext] || ext.toUpperCase() || "Plain Text";
   }
 
-  const isEditorActive = activeFile && !location.pathname.startsWith("/settings");
+  const isEditorActive = activeFile && !settingsOpen;
 
   return (
     <div className={`ide ${aiPanelOpen ? "ide--ai-open" : ""}`}>

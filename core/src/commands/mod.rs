@@ -6,8 +6,6 @@ pub mod files;
 pub mod git;
 pub mod local_history;
 pub mod lsp;
-pub mod mcp;
-pub mod memory;
 pub mod settings;
 pub mod skills;
 pub mod terminal;

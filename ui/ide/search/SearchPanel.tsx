@@ -25,7 +25,7 @@ export interface SearchPanelHandle {
   focusInput: (text?: string) => void;
 }
 
-const HISTORY_KEY = "blink:search-history";
+const HISTORY_KEY = "codrift:search-history";
 
 const SearchPanel = forwardRef<SearchPanelHandle, Props>(function SearchPanel(
   { workspacePath, onOpenFile },

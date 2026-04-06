@@ -4,6 +4,14 @@ import { changeTheme } from "@/lib/theme";
 
 export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
 export type BottomPanelTab = "terminal" | "problems";
+export type SettingsPage =
+  | "general"
+  | "providers"
+  | "skills"
+  | "appearance"
+  | "archived"
+  | "about"
+  | "licenses";
 
 export interface DiagnosticEntry {
   uri: string;
@@ -54,7 +62,7 @@ export interface Workspace {
 }
 
 function sidebarViewStorageKey(path: string) {
-  return `blink:sidebar-view:${path}`;
+  return `codrift:sidebar-view:${path}`;
 }
 
 function loadSidebarView(path: string): SidePanelView {
@@ -102,6 +110,11 @@ interface AppState {
   aiPanelOpen: boolean;
   aiPanelWidth: number;
   persistWorkspaces: boolean;
+  // Settings overlay
+  settingsOpen: boolean;
+  settingsPage: SettingsPage;
+  openSettings: (page?: SettingsPage) => void;
+  closeSettings: () => void;
   // Diagnostics (global — keyed by file URI)
   diagnostics: Record<string, DiagnosticEntry[]>;
   diagnosticSummary: { errors: number; warnings: number };
@@ -119,6 +132,7 @@ interface AppState {
   toggleAiPanel: () => void;
   setAiPanelWidth: (w: number) => void;
   setPersistWorkspaces: (v: boolean) => void;
+  setSettingsPage: (page: SettingsPage) => void;
 
   // Workspace actions
   addWorkspace: (path: string, name: string) => void;
@@ -186,6 +200,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   aiPanelOpen: true,
   aiPanelWidth: 560,
   persistWorkspaces: true,
+  settingsOpen: false,
+  settingsPage: "general" as SettingsPage,
+  openSettings: (page = "general") => set({ settingsOpen: true, settingsPage: page }),
+  closeSettings: () => set({ settingsOpen: false }),
+  setSettingsPage: (page) => set({ settingsPage: page }),
   diagnostics: {},
   diagnosticSummary: { errors: 0, warnings: 0 },
   setDiagnosticsForUri: (uri, diags) =>

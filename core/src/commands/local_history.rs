@@ -21,7 +21,7 @@ fn percent_encode_path(path: &str) -> String {
 fn history_dir_for_file(file_path: &str) -> PathBuf {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     let encoded = percent_encode_path(file_path);
-    home.join(".blink").join("local-history").join(encoded)
+    home.join(".codrift").join("local-history").join(encoded)
 }
 
 fn format_timestamp_label(timestamp_ms: i64) -> String {

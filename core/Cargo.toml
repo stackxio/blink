@@ -1,5 +1,5 @@
 [package]
-name = "blink"
+name = "codrift"
 version = "0.0.16"
 description = "AI control layer for your computer"
 authors = ["Voxire"]

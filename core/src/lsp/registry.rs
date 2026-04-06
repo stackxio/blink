@@ -18,13 +18,13 @@ pub struct ServerInfo {
 pub fn resolve_server_path(command: &str) -> Option<String> {
     // Check local servers dir first
     if let Some(home) = dirs::home_dir() {
-        let local_path = home.join(".blink").join("servers").join(command);
+        let local_path = home.join(".codrift").join("servers").join(command);
         if local_path.exists() {
             return Some(local_path.to_string_lossy().to_string());
         }
         // Also check node_modules/.bin style
         let local_bin = home
-            .join(".blink")
+            .join(".codrift")
             .join("servers")
             .join("node_modules")
             .join(".bin")

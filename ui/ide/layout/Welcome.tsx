@@ -11,7 +11,7 @@ interface RecentWorkspace {
 
 function getRecentWorkspaces(): RecentWorkspace[] {
   try {
-    return JSON.parse(localStorage.getItem("blink:recent-workspaces") || "[]");
+    return JSON.parse(localStorage.getItem("codrift:recent-workspaces") || "[]");
   } catch {
     return [];
   }

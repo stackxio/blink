@@ -99,10 +99,10 @@ pub async fn lsp_install_server(
         }),
     );
 
-    // Install to ~/.blink/servers/ to avoid polluting global env
+    // Install to ~/.codrift/servers/ to avoid polluting global env
     let servers_dir = dirs::home_dir()
         .ok_or("No home directory")?
-        .join(".blink")
+        .join(".codrift")
         .join("servers");
     std::fs::create_dir_all(&servers_dir).map_err(|e| e.to_string())?;
 

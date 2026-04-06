@@ -5,7 +5,7 @@ import { blinkThemeToCssVars } from "./theme-schema";
 export type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "blink-theme";
-const CUSTOM_THEME_KEY = "blink:custom-theme";
+const CUSTOM_THEME_KEY = "codrift:custom-theme";
 const CUSTOM_STYLE_ID = "blink-custom-theme";
 
 export function getStoredTheme(): Theme {

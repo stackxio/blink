@@ -11,7 +11,7 @@ type UpdateState =
   | { status: "ready" }
   | { status: "error"; message: string };
 
-const DISMISS_KEY = "blink:update-dismissed";
+const DISMISS_KEY = "codrift:update-dismissed";
 
 export function useUpdateCheck() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });

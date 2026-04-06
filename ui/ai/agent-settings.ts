@@ -71,7 +71,7 @@ export interface AgentUserConfig {
 
 export type AgentSettings = Record<string, AgentUserConfig>;
 
-const STORAGE_KEY = "blink:agent-settings";
+const STORAGE_KEY = "codrift:agent-settings";
 
 const DEFAULTS: AgentSettings = {
   claude: { enabled: true, customPath: "" },

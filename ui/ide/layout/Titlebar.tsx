@@ -1,12 +1,11 @@
 import { Settings, Sparkles, ArrowUpCircle, CloudDownload, RotateCcw } from "lucide-react";
-import { useNavigate } from "react-router";
 import { useAppStore } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import WorkspaceTabs from "./WorkspaceTabs";
 
 export default function Titlebar() {
-  const navigate = useNavigate();
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
+  const openSettings = useAppStore((s) => s.openSettings);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
   const {
     hasUpdate,
@@ -47,7 +46,7 @@ export default function Titlebar() {
               type="button"
               className="titlebar__update-action"
               onClick={install}
-              title={`Install Blink ${latestVersion}`}
+              title={`Install Codrift ${latestVersion}`}
             >
               Update to {latestVersion}
             </button>
@@ -74,7 +73,7 @@ export default function Titlebar() {
           type="button"
           className="titlebar__action"
           title="Settings"
-          onClick={() => navigate("/settings")}
+          onClick={() => openSettings()}
         >
           <Settings size={14} />
         </button>

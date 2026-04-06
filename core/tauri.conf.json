@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Blink",
+  "productName": "Codrift",
   "version": "0.0.16",
-  "identifier": "com.voxire.blink",
+  "identifier": "com.stackxio.codrift",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Blink",
+        "title": "Codrift",
         "width": 900,
         "height": 680,
         "resizable": true,

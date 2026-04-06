@@ -1,11 +1,11 @@
 #!/bin/bash
-# Blink CLI — open files/folders in Blink from the terminal
-# Usage: blink [path]  — opens path (file or folder) in Blink
-#        blink .       — opens current directory
-#        blink         — launches Blink
+# Codrift CLI — open files/folders in Codrift from the terminal
+# Usage: codrift [path]  — opens path (file or folder) in Codrift
+#        codrift .       — opens current directory
+#        codrift         — launches Codrift
 
-APP_NAME="Blink"
-APP_BUNDLE="com.voxire.blink"
+APP_NAME="Codrift"
+APP_BUNDLE="com.stackxio.codrift"
 
 if [ -z "$1" ]; then
   # No args — just launch the app

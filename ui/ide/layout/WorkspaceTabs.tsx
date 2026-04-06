@@ -11,7 +11,7 @@ interface RecentWorkspace {
 
 function getRecentWorkspaces(): RecentWorkspace[] {
   try {
-    return JSON.parse(localStorage.getItem("blink:recent-workspaces") || "[]");
+    return JSON.parse(localStorage.getItem("codrift:recent-workspaces") || "[]");
   } catch {
     return [];
   }
@@ -20,12 +20,12 @@ function getRecentWorkspaces(): RecentWorkspace[] {
 function addToRecent(path: string, name: string) {
   const recent = getRecentWorkspaces().filter((r) => r.path !== path);
   recent.unshift({ path, name, lastOpened: Date.now() });
-  localStorage.setItem("blink:recent-workspaces", JSON.stringify(recent.slice(0, 20)));
+  localStorage.setItem("codrift:recent-workspaces", JSON.stringify(recent.slice(0, 20)));
 }
 
 function removeFromRecent(path: string) {
   const recent = getRecentWorkspaces().filter((r) => r.path !== path);
-  localStorage.setItem("blink:recent-workspaces", JSON.stringify(recent));
+  localStorage.setItem("codrift:recent-workspaces", JSON.stringify(recent));
 }
 
 function getDisplayName(ws: Workspace, all: Workspace[]) {

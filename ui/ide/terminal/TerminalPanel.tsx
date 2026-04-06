@@ -22,7 +22,7 @@ const BUILTIN_PROFILES: TerminalProfile[] = [
 ];
 
 function loadProfile(): TerminalProfile {
-  const stored = localStorage.getItem("blink:terminal-profile");
+  const stored = localStorage.getItem("codrift:terminal-profile");
   if (stored) {
     const found = BUILTIN_PROFILES.find((p) => p.id === stored);
     if (found) return found;
@@ -208,7 +208,7 @@ export default function TerminalPanel() {
                     className={`terminal-panel__profile-item${p.id === activeProfile.id ? " terminal-panel__profile-item--active" : ""}`}
                     onClick={() => {
                       setActiveProfile(p);
-                      localStorage.setItem("blink:terminal-profile", p.id);
+                      localStorage.setItem("codrift:terminal-profile", p.id);
                       setProfileMenuOpen(false);
                       createSession(p);
                     }}

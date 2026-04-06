@@ -80,88 +80,88 @@ export default function SettingsGeneral() {
     setSettings(updated);
     // Sync to localStorage so the editor picks up changes instantly via storage events
     if ("auto_save" in patch) {
-      localStorage.setItem("blink:autoSave", String(patch.auto_save));
+      localStorage.setItem("codrift:autoSave", String(patch.auto_save));
     }
     if ("tab_size" in patch) {
-      localStorage.setItem("blink:tabSize", String(patch.tab_size));
+      localStorage.setItem("codrift:tabSize", String(patch.tab_size));
       window.dispatchEvent(
-        new StorageEvent("storage", { key: "blink:tabSize", newValue: String(patch.tab_size) }),
+        new StorageEvent("storage", { key: "codrift:tabSize", newValue: String(patch.tab_size) }),
       );
     }
     if ("word_wrap" in patch) {
-      localStorage.setItem("blink:wordWrap", String(patch.word_wrap));
+      localStorage.setItem("codrift:wordWrap", String(patch.word_wrap));
       window.dispatchEvent(
-        new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(patch.word_wrap) }),
+        new StorageEvent("storage", { key: "codrift:wordWrap", newValue: String(patch.word_wrap) }),
       );
     }
     if ("minimap" in patch) {
-      localStorage.setItem("blink:minimap", String(patch.minimap));
+      localStorage.setItem("codrift:minimap", String(patch.minimap));
       window.dispatchEvent(
-        new StorageEvent("storage", { key: "blink:minimap", newValue: String(patch.minimap) }),
+        new StorageEvent("storage", { key: "codrift:minimap", newValue: String(patch.minimap) }),
       );
     }
     if ("indent_guides" in patch) {
-      localStorage.setItem("blink:indentGuides", String(patch.indent_guides));
+      localStorage.setItem("codrift:indentGuides", String(patch.indent_guides));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:indentGuides",
+          key: "codrift:indentGuides",
           newValue: String(patch.indent_guides),
         }),
       );
     }
     if ("font_size" in patch) {
-      localStorage.setItem("blink:fontSize", String(patch.font_size));
+      localStorage.setItem("codrift:fontSize", String(patch.font_size));
       window.dispatchEvent(
-        new StorageEvent("storage", { key: "blink:fontSize", newValue: String(patch.font_size) }),
+        new StorageEvent("storage", { key: "codrift:fontSize", newValue: String(patch.font_size) }),
       );
     }
     if ("sticky_scroll" in patch) {
-      localStorage.setItem("blink:stickyScroll", String(patch.sticky_scroll));
+      localStorage.setItem("codrift:stickyScroll", String(patch.sticky_scroll));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:stickyScroll",
+          key: "codrift:stickyScroll",
           newValue: String(patch.sticky_scroll),
         }),
       );
     }
     if ("inlay_hints" in patch) {
-      localStorage.setItem("blink:inlayHints", String(patch.inlay_hints));
+      localStorage.setItem("codrift:inlayHints", String(patch.inlay_hints));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:inlayHints",
+          key: "codrift:inlayHints",
           newValue: String(patch.inlay_hints),
         }),
       );
     }
     if ("code_actions" in patch) {
-      localStorage.setItem("blink:codeActions", String(patch.code_actions));
+      localStorage.setItem("codrift:codeActions", String(patch.code_actions));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:codeActions",
+          key: "codrift:codeActions",
           newValue: String(patch.code_actions),
         }),
       );
     }
     if ("diff_editor" in patch) {
-      localStorage.setItem("blink:diffEditor", String(patch.diff_editor));
+      localStorage.setItem("codrift:diffEditor", String(patch.diff_editor));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:diffEditor",
+          key: "codrift:diffEditor",
           newValue: String(patch.diff_editor),
         }),
       );
     }
     if ("inline_completions" in patch) {
-      localStorage.setItem("blink:inlineCompletions", String(patch.inline_completions));
+      localStorage.setItem("codrift:inlineCompletions", String(patch.inline_completions));
       window.dispatchEvent(
         new StorageEvent("storage", {
-          key: "blink:inlineCompletions",
+          key: "codrift:inlineCompletions",
           newValue: String(patch.inline_completions),
         }),
       );
     }
     if ("semantic_highlighting" in patch) {
-      localStorage.setItem("blink:semanticHighlighting", String(patch.semantic_highlighting));
+      localStorage.setItem("codrift:semanticHighlighting", String(patch.semantic_highlighting));
     }
     try {
       await invoke("save_settings", { settings: updated });

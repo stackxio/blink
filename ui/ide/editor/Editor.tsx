@@ -69,17 +69,17 @@ function escapeRegExp(text: string) {
 
 function getStoredEditorOptions() {
   return {
-    autoSave: localStorage.getItem("blink:autoSave") !== "false",
-    tabSize: parseInt(localStorage.getItem("blink:tabSize") || "2", 10),
-    minimap: localStorage.getItem("blink:minimap") !== "false",
-    fontSize: parseInt(localStorage.getItem("blink:fontSize") || "13", 10),
-    wordWrap: localStorage.getItem("blink:wordWrap") === "true",
-    indentGuides: localStorage.getItem("blink:indentGuides") !== "false",
-    stickyScroll: localStorage.getItem("blink:stickyScroll") !== "false",
-    inlayHints: localStorage.getItem("blink:inlayHints") !== "false",
-    codeActions: localStorage.getItem("blink:codeActions") !== "false",
-    inlineCompletions: localStorage.getItem("blink:inlineCompletions") === "true",
-    semanticHighlighting: localStorage.getItem("blink:semanticHighlighting") !== "false",
+    autoSave: localStorage.getItem("codrift:autoSave") !== "false",
+    tabSize: parseInt(localStorage.getItem("codrift:tabSize") || "2", 10),
+    minimap: localStorage.getItem("codrift:minimap") !== "false",
+    fontSize: parseInt(localStorage.getItem("codrift:fontSize") || "13", 10),
+    wordWrap: localStorage.getItem("codrift:wordWrap") === "true",
+    indentGuides: localStorage.getItem("codrift:indentGuides") !== "false",
+    stickyScroll: localStorage.getItem("codrift:stickyScroll") !== "false",
+    inlayHints: localStorage.getItem("codrift:inlayHints") !== "false",
+    codeActions: localStorage.getItem("codrift:codeActions") !== "false",
+    inlineCompletions: localStorage.getItem("codrift:inlineCompletions") === "true",
+    semanticHighlighting: localStorage.getItem("codrift:semanticHighlighting") !== "false",
   };
 }
 
@@ -636,11 +636,11 @@ export default function Editor({
 
           const onStorageChange = (e: StorageEvent) => {
             if (!editorRef.current || !modelRef.current) return;
-            if (e.key === "blink:wordWrap") {
+            if (e.key === "codrift:wordWrap") {
               editorRef.current.updateOptions({ wordWrap: e.newValue === "true" ? "on" : "off" });
-            } else if (e.key === "blink:minimap") {
+            } else if (e.key === "codrift:minimap") {
               editorRef.current.updateOptions({ minimap: { enabled: e.newValue !== "false" } });
-            } else if (e.key === "blink:indentGuides") {
+            } else if (e.key === "codrift:indentGuides") {
               editorRef.current.updateOptions({
                 guides: {
                   indentation: e.newValue === "true",
@@ -648,33 +648,33 @@ export default function Editor({
                   bracketPairs: false,
                 },
               });
-            } else if (e.key === "blink:fontSize") {
+            } else if (e.key === "codrift:fontSize") {
               const fontSize = parseInt(e.newValue ?? "13", 10);
               editorRef.current.updateOptions({
                 fontSize,
                 lineHeight: Math.round(fontSize * 1.6),
               });
-            } else if (e.key === "blink:tabSize") {
+            } else if (e.key === "codrift:tabSize") {
               const tabSize = parseInt(e.newValue ?? "2", 10);
               modelRef.current.updateOptions({ tabSize, insertSpaces: true });
               editorRef.current.updateOptions({ tabSize });
-            } else if (e.key === "blink:stickyScroll") {
+            } else if (e.key === "codrift:stickyScroll") {
               editorRef.current.updateOptions({
                 stickyScroll: { enabled: e.newValue !== "false" },
               });
-            } else if (e.key === "blink:inlayHints") {
+            } else if (e.key === "codrift:inlayHints") {
               editorRef.current.updateOptions({
                 inlayHints: {
                   enabled: e.newValue !== "false" ? ("on" as const) : ("off" as const),
                 },
               });
-            } else if (e.key === "blink:codeActions") {
+            } else if (e.key === "codrift:codeActions") {
               editorRef.current.updateOptions({
                 lightbulb: {
                   enabled: e.newValue !== "false" ? ("on" as const) : ("off" as const),
                 },
               });
-            } else if (e.key === "blink:inlineCompletions") {
+            } else if (e.key === "codrift:inlineCompletions") {
               const enable = e.newValue === "true";
               // Dispose existing
               for (const dispose of inlineCompletionDisposablesRef.current) dispose();

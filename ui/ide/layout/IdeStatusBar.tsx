@@ -20,8 +20,8 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const errorCount = diagnosticSummary.errors;
   const warningCount = diagnosticSummary.warnings;
 
-  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("blink:wordWrap") === "true");
-  const [tabSize] = useState(() => parseInt(localStorage.getItem("blink:tabSize") || "2", 10));
+  const [wordWrap, setWordWrap] = useState(() => localStorage.getItem("codrift:wordWrap") === "true");
+  const [tabSize] = useState(() => parseInt(localStorage.getItem("codrift:tabSize") || "2", 10));
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
@@ -31,10 +31,10 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
   const toggleWordWrap = useCallback(() => {
     const next = !wordWrap;
     setWordWrap(next);
-    localStorage.setItem("blink:wordWrap", String(next));
+    localStorage.setItem("codrift:wordWrap", String(next));
     // Dispatch a storage event so the editor can react to the change
     window.dispatchEvent(
-      new StorageEvent("storage", { key: "blink:wordWrap", newValue: String(next) }),
+      new StorageEvent("storage", { key: "codrift:wordWrap", newValue: String(next) }),
     );
   }, [wordWrap]);
 

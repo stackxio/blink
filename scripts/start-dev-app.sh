@@ -8,7 +8,7 @@ if [ "$(uname)" != "Darwin" ]; then
 fi
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CORE="$PROJECT_ROOT/core"
-APP="$CORE/target/debug/Blink.app"
+APP="$CORE/target/debug/Codrift.app"
 DEV_URL="http://localhost:1420"
 
 # 1. Start frontend dev server in background
@@ -45,17 +45,17 @@ mkdir -p "$APP/Contents/Resources"
 
 # Compile a tiny C launcher so the bundle has a real Mach-O binary (not a shell script).
 # codesign requires a Mach-O main executable — shell scripts are not signable.
-LAUNCHER_C="$CORE/target/debug/blink_launcher.c"
-LAUNCHER_BIN="$APP/Contents/MacOS/Blink"
+LAUNCHER_C="$CORE/target/debug/codrift_launcher.c"
+LAUNCHER_BIN="$APP/Contents/MacOS/Codrift"
 
 cat > "$LAUNCHER_C" << 'CSRC'
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 int main(void) {
-    char *binary = getenv("BLINK_BINARY");
-    char *cwd    = getenv("BLINK_CWD");
-    if (!binary) { fprintf(stderr, "BLINK_BINARY not set\n"); return 1; }
+    char *binary = getenv("CODRIFT_BINARY");
+    char *cwd    = getenv("CODRIFT_CWD");
+    if (!binary) { fprintf(stderr, "CODRIFT_BINARY not set\n"); return 1; }
     if (cwd) chdir(cwd);
     execl(binary, binary, (char *)0);
     perror("execl"); return 1;
@@ -75,11 +75,11 @@ cat > "$APP/Contents/Info.plist" << PLIST
 <plist version="1.0">
 <dict>
   <key>CFBundleExecutable</key>
-  <string>Blink</string>
+  <string>Codrift</string>
   <key>CFBundleIdentifier</key>
-  <string>com.voxire.blink</string>
+  <string>com.stackxio.codrift</string>
   <key>CFBundleName</key>
-  <string>Blink</string>
+  <string>Codrift</string>
   <key>CFBundleIconFile</key>
   <string>icon.icns</string>
   <key>CFBundlePackageType</key>
@@ -92,9 +92,9 @@ cat > "$APP/Contents/Info.plist" << PLIST
   <string>NSApplication</string>
   <key>LSEnvironment</key>
   <dict>
-    <key>BLINK_BINARY</key>
-    <string>$CORE/target/debug/blink</string>
-    <key>BLINK_CWD</key>
+    <key>CODRIFT_BINARY</key>
+    <string>$CORE/target/debug/codrift</string>
+    <key>CODRIFT_CWD</key>
     <string>$CORE</string>
     <key>TAURI_DEV_URL</key>
     <string>$DEV_URL</string>
@@ -112,7 +112,7 @@ touch "$APP"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" 2>/dev/null || true
 
 # 5. Open the .app (keeps running; trap will kill vite on script exit)
-echo "Opening Blink.app (dev)..."
+echo "Opening Codrift.app (dev)..."
 open "$APP"
 
 # Keep script running so vite stays up; Ctrl+C will kill both

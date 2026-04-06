@@ -1,5 +1,5 @@
 {
-  "name": "blink",
+  "name": "codrift",
   "private": true,
   "version": "0.0.16",
   "packageManager": "bun@1.3.10",
@@ -25,7 +25,7 @@
     "icon": "node scripts/icon-prep.mjs && bun run tauri icon core/app-icon.png && node scripts/prune-mobile-icons.mjs",
     "app": "bash scripts/start-dev-app.sh",
     "app:build": "bun run tauri build",
-    "db:reset": "rm -f ~/.blink/blink.db && echo 'Database reset. It will be recreated on next app launch.'"
+    "db:reset": "rm -f ~/.codrift/codrift.db && echo 'Database reset. It will be recreated on next app launch.'"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",

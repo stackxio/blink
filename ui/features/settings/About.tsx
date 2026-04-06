@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
 import { getVersion } from "@tauri-apps/api/app";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
+import type { SettingsPage } from "@/store";
 
 function fmtBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
@@ -11,8 +11,11 @@ function fmtBytes(bytes: number): string {
   return `${kb.toFixed(0)} KB`;
 }
 
-export default function SettingsAbout() {
-  const navigate = useNavigate();
+interface Props {
+  onNavigate: (page: SettingsPage) => void;
+}
+
+export default function SettingsAbout({ onNavigate }: Props) {
   const [version, setVersion] = useState<string | null>(null);
   const {
     hasUpdate,
@@ -49,7 +52,7 @@ export default function SettingsAbout() {
     if (isChecking) return "Checking for updates…";
     if (isUpToDate) return "You're on the latest version.";
     if (errorMessage) return `Error: ${errorMessage}`;
-    return "Check for the latest version of Blink.";
+    return "Check for the latest version of Codrift.";
   }
 
   const showCheckButton = !hasUpdate && !isChecking && !isDownloading && !isReady;
@@ -117,7 +120,7 @@ export default function SettingsAbout() {
           <button
             type="button"
             className="btn btn--secondary btn--sm"
-            onClick={() => navigate("/settings/licenses")}
+            onClick={() => onNavigate("licenses")}
           >
             View
           </button>

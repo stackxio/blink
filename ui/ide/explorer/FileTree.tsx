@@ -31,7 +31,7 @@ interface Props {
 
 function loadExpandedDirs(rootPath: string): Set<string> {
   try {
-    const stored = localStorage.getItem(`blink:expanded:${rootPath}`);
+    const stored = localStorage.getItem(`codrift:expanded:${rootPath}`);
     return stored ? new Set(JSON.parse(stored)) : new Set();
   } catch {
     return new Set();
@@ -39,7 +39,7 @@ function loadExpandedDirs(rootPath: string): Set<string> {
 }
 
 function saveExpandedDirs(rootPath: string, dirs: Set<string>) {
-  localStorage.setItem(`blink:expanded:${rootPath}`, JSON.stringify([...dirs]));
+  localStorage.setItem(`codrift:expanded:${rootPath}`, JSON.stringify([...dirs]));
 }
 
 export interface FileTreeHandle {

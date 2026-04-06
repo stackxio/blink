@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import {
   Settings,
@@ -32,7 +31,7 @@ interface Props {
 }
 
 // ── Recent commands ────────────────────────────────────────────────────────────
-const RECENT_KEY = "blink:recent-commands";
+const RECENT_KEY = "codrift:recent-commands";
 const MAX_RECENT = 8;
 
 function getRecentIds(): string[] {
@@ -98,13 +97,13 @@ export default function CommandPalette({ onClose }: Props) {
   const [query, setQuery] = useState("");
   const [selectedIdx, setSelectedIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
 
   const toggleSidePanel = useAppStore((s) => s.toggleSidePanel);
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
   const setTheme = useAppStore((s) => s.setTheme);
+  const openSettings = useAppStore((s) => s.openSettings);
 
   const commands: Command[] = useMemo(
     () => [
@@ -185,7 +184,7 @@ export default function CommandPalette({ onClose }: Props) {
         group: "Navigate",
         shortcut: "⌘,",
         icon: Settings,
-        action: () => navigate("/settings"),
+        action: () => openSettings(),
       },
 
       // AI
@@ -202,7 +201,7 @@ export default function CommandPalette({ onClose }: Props) {
       // System
       {
         id: "install-cli",
-        label: "Install CLI (blink command)",
+        label: "Install CLI (codrift command)",
         group: "System",
         icon: TerminalSquare,
         action: () => {
@@ -212,7 +211,7 @@ export default function CommandPalette({ onClose }: Props) {
         },
       },
     ],
-    [toggleSidePanel, toggleBottomPanel, toggleAiPanel, setSidePanelView, setTheme, navigate],
+    [toggleSidePanel, toggleBottomPanel, toggleAiPanel, setSidePanelView, setTheme, openSettings],
   );
 
   // ── Filtered + scored list ────────────────────────────────────────────────

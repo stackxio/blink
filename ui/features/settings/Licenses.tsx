@@ -1,15 +1,17 @@
-import { useNavigate } from "react-router";
+import type { SettingsPage } from "@/store";
 
-export default function SettingsLicenses() {
-  const navigate = useNavigate();
+interface Props {
+  onNavigate: (page: SettingsPage) => void;
+}
 
+export default function SettingsLicenses({ onNavigate }: Props) {
   return (
     <div className="settings-section">
       <div style={{ marginBottom: 16 }}>
         <button
           type="button"
           className="btn btn--ghost btn--sm"
-          onClick={() => navigate("/settings/about")}
+          onClick={() => onNavigate("about")}
         >
           <svg
             style={{ width: 14, height: 14 }}

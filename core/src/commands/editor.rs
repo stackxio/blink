@@ -556,12 +556,12 @@ pub async fn list_all_files(root: String, max_files: Option<usize>) -> Result<Ve
     Ok(files)
 }
 
-/// Install the `blink` CLI command to /usr/local/bin using admin privileges
+/// Install the `codrift` CLI command to /usr/local/bin using admin privileges
 #[tauri::command]
 pub async fn install_cli() -> Result<String, String> {
     let script = r#"#!/bin/bash
-APP_BUNDLE="com.voxire.blink"
-APP_NAME="Blink"
+APP_BUNDLE="com.stackxio.codrift"
+APP_NAME="Codrift"
 if [ -z "$1" ]; then
   open -b "$APP_BUNDLE" 2>/dev/null || open -a "$APP_NAME" 2>/dev/null
   exit 0
@@ -570,13 +570,13 @@ TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")" || e
 open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
 "#;
     // Write to a temp file first, then use osascript to move with admin privileges
-    let tmp = "/tmp/blink-cli-install";
+    let tmp = "/tmp/codrift-cli-install";
     fs::write(tmp, script).map_err(|e| format!("Failed to write temp file: {}", e))?;
 
     let output = std::process::Command::new("osascript")
         .args([
             "-e",
-            "do shell script \"cp /tmp/blink-cli-install /usr/local/bin/blink && chmod +x /usr/local/bin/blink\" with administrator privileges",
+            "do shell script \"cp /tmp/codrift-cli-install /usr/local/bin/codrift && chmod +x /usr/local/bin/codrift\" with administrator privileges",
         ])
         .output()
         .map_err(|e| format!("Failed to run osascript: {}", e))?;
@@ -584,7 +584,7 @@ open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args
     let _ = fs::remove_file(tmp);
 
     if output.status.success() {
-        Ok("CLI installed to /usr/local/bin/blink".to_string())
+        Ok("CLI installed to /usr/local/bin/codrift".to_string())
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
         Err(format!(

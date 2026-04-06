@@ -25,7 +25,7 @@ export const BINDINGS: Binding[] = [
   { id: "peek_definition", label: "Peek definition", defaultKey: "Alt+F12" },
 ];
 
-const STORAGE_KEY = "blink:keybindings";
+const STORAGE_KEY = "codrift:keybindings";
 
 export type BindingMap = Record<string, string>;
 

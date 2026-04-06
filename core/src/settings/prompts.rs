@@ -46,12 +46,12 @@ fn prompt_sort_key(name: &str) -> u8 {
 
 fn prompts_dir() -> PathBuf {
     let home = dirs::home_dir().expect("No home directory found");
-    home.join(".blink").join("prompts")
+    home.join(".codrift").join("prompts")
 }
 
 fn memory_dir() -> PathBuf {
     let home = dirs::home_dir().expect("No home directory found");
-    home.join(".blink").join("memory")
+    home.join(".codrift").join("memory")
 }
 
 fn is_system_file(filename: &str) -> bool {
