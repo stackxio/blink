@@ -58,14 +58,18 @@ export function useUpdateCheck() {
     try {
       let downloaded = 0;
       let total = 0;
+      let maxProgress = 0; // never let the displayed % go backwards
       await update.downloadAndInstall((event) => {
         if (event.event === "Started") {
+          // Reset per-phase counters but keep maxProgress so display never rewinds
+          downloaded = 0;
           total = event.data.contentLength ?? 0;
-          setState({ status: "downloading", progress: 0, downloaded: 0, total });
+          setState({ status: "downloading", progress: maxProgress, downloaded: 0, total });
         } else if (event.event === "Progress") {
           downloaded += event.data.chunkLength;
           const pct = total > 0 ? Math.round((downloaded / total) * 100) : 0;
-          setState({ status: "downloading", progress: pct, downloaded, total });
+          maxProgress = Math.max(maxProgress, pct);
+          setState({ status: "downloading", progress: maxProgress, downloaded, total });
         } else if (event.event === "Finished") {
           setState({ status: "ready" });
         }
