@@ -130,9 +130,9 @@ jobs:
           VERSION: ${{ needs.preflight.outputs.version }}
         run: |
           BUNDLE_DIR="core/target/${{ matrix.target }}/release/bundle/macos"
-          TARBALL="Blink_${VERSION}_aarch64.app.tar.gz"
+          TARBALL="Codrift_${VERSION}_aarch64.app.tar.gz"
           pushd "$BUNDLE_DIR"
-          tar -czf "$TARBALL" Blink.app
+          tar -czf "$TARBALL" Codrift.app
           popd
           TAURI_DIR=core bun run tauri signer sign \
             -k "$TAURI_SIGNING_PRIVATE_KEY" \
@@ -196,7 +196,7 @@ jobs:
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
           target_commitish: ${{ needs.preflight.outputs.ref }}
-          name: Blink ${{ needs.preflight.outputs.tag }}
+          name: Codrift ${{ needs.preflight.outputs.tag }}
           generate_release_notes: true
           draft: false
           prerelease: false
