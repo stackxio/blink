@@ -1,13 +1,32 @@
 import { useEffect, useState } from "react";
-import { Settings, Sparkles, ArrowUpCircle, CloudDownload, RotateCcw } from "lucide-react";
+import { Settings, Sparkles, ArrowUpCircle, CloudDownload, RotateCcw, Columns2, Bot, Code2, PanelLeft, PanelRight } from "lucide-react";
+// PanelLeft and PanelRight are used for the layout mode toggle button below
 import { useAppStore } from "@/store";
+import type { FocusMode } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import WorkspaceTabs from "./WorkspaceTabs";
+
+function focusModeIcon(mode: FocusMode) {
+  if (mode === "ai-only") return <Bot size={14} />;
+  if (mode === "editor-only") return <Code2 size={14} />;
+  return <Columns2 size={14} />;
+}
+
+function focusModeTitle(mode: FocusMode) {
+  if (mode === "ai-only") return "Focus: AI only — click to show Editor only";
+  if (mode === "editor-only") return "Focus: Editor only — click to show both";
+  return "Focus: Both panels — click to show AI only";
+}
 
 export default function Titlebar() {
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
   const openSettings = useAppStore((s) => s.openSettings);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
+  const cycleFocusMode = useAppStore((s) => s.cycleFocusMode);
+  const setLayoutMode = useAppStore((s) => s.setLayoutMode);
+  const ws = useAppStore((s) => s.activeWorkspace());
+  const focusMode = ws?.focusMode ?? "both";
+  const layoutMode = ws?.layoutMode ?? "ai-center";
   const {
     hasUpdate,
     isDownloading,
@@ -77,6 +96,25 @@ export default function Titlebar() {
             </button>
           </div>
         )}
+        {aiPanelOpen && focusMode === "both" && (
+          <button
+            type="button"
+            className="titlebar__action"
+            title={layoutMode === "ai-center" ? "AI-center layout — click for Editor-center" : "Editor-center layout — click for AI-center"}
+            onClick={() => setLayoutMode(layoutMode === "ai-center" ? "editor-center" : "ai-center")}
+          >
+            {layoutMode === "ai-center" ? <PanelLeft size={14} /> : <PanelRight size={14} />}
+          </button>
+        )}
+        <button
+          type="button"
+          className="titlebar__action"
+          title={focusModeTitle(focusMode)}
+          onClick={cycleFocusMode}
+          style={focusMode !== "both" ? { color: "var(--c-accent)" } : undefined}
+        >
+          {focusModeIcon(focusMode)}
+        </button>
         <button
           type="button"
           className="titlebar__action"

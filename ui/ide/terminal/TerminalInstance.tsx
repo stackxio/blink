@@ -133,6 +133,7 @@ export function TerminalInstance({
 
       // 2. Open xterm. Font is now loaded so cell measurements are correct.
       const term = new Terminal({
+        allowProposedApi: true,
         cursorBlink: true,
         lineHeight: 1.2,
         fontSize: 13,
