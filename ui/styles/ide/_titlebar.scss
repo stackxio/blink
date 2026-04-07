@@ -56,6 +56,7 @@
       background: color-mix(in srgb, var(--c-success, #73c991) 15%, transparent);
       color: var(--c-success, #73c991);
     }
+
   }
 
   &__update-action {
@@ -92,6 +93,41 @@
     &:hover {
       opacity: 1;
     }
+  }
+
+  &__up-to-date-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+  }
+
+  &__up-to-date-dialog {
+    background: var(--c-popover);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    min-width: 260px;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+
+  &__up-to-date-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--c-fg);
+  }
+
+  &__up-to-date-body {
+    font-size: 13px;
+    color: var(--c-muted-fg);
+    margin-bottom: 8px;
   }
 
   &__action {

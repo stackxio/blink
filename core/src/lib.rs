@@ -167,7 +167,7 @@ pub fn run() {
                         "open_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', metaKey: true}))"),
                         "open_folder" => window.eval("document.dispatchEvent(new CustomEvent('blink:open-folder'))"),
                         "new_file" => window.eval("document.dispatchEvent(new KeyboardEvent('keydown', {key: 'n', metaKey: true}))"),
-                        "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('blink:check-updates'))"),
+                        "check_updates" => window.eval("document.dispatchEvent(new CustomEvent('codrift:check-updates'))"),
                         "inspect" => {
                             if window.is_devtools_open() {
                                 window.close_devtools();
