@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -16,6 +16,9 @@ const DISMISS_KEY = "codrift:update-dismissed";
 export function useUpdateCheck() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
   const [dismissed, setDismissed] = useState(false);
+  // Synchronous lock — prevents a double-click from launching two concurrent
+  // downloadAndInstall calls before the first setState("downloading") lands.
+  const installingRef = useRef(false);
 
   const runCheck = useCallback(async (silent: boolean) => {
     if (!silent) setState({ status: "checking" });
@@ -54,6 +57,8 @@ export function useUpdateCheck() {
 
   const install = useCallback(async () => {
     if (state.status !== "available") return;
+    if (installingRef.current) return; // double-click guard
+    installingRef.current = true;
     const { update } = state;
     try {
       let downloaded = 0;
@@ -75,6 +80,7 @@ export function useUpdateCheck() {
         }
       });
     } catch (e) {
+      installingRef.current = false; // allow retry on error
       setState({ status: "error", message: String(e) });
     }
   }, [state]);

@@ -93,6 +93,7 @@ export default function Titlebar() {
               type="button"
               className="titlebar__update-action"
               onClick={install}
+              disabled={isDownloading}
               title={`Install Codrift ${latestVersion}`}
             >
               Update to {latestVersion}
