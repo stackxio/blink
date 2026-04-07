@@ -44,6 +44,8 @@ interface FindState {
   regex: boolean;
   matchCount: number;
   activeIndex: number;
+  replaceOpen: boolean;
+  replaceQuery: string;
 }
 
 interface InlineEditState {
@@ -64,6 +66,8 @@ const DEFAULT_FIND_STATE: FindState = {
   regex: false,
   matchCount: 0,
   activeIndex: 0,
+  replaceOpen: false,
+  replaceQuery: "",
 };
 
 function escapeRegExp(text: string) {
@@ -203,6 +207,12 @@ export default function Editor({
     left: number;
     loading: boolean;
     data: PeekData | null;
+  } | null>(null);
+
+  const [renameWidget, setRenameWidget] = useState<{
+    top: number;
+    left: number;
+    currentName: string;
   } | null>(null);
 
   useEffect(() => {
@@ -616,6 +626,107 @@ export default function Editor({
     [refreshFind],
   );
 
+  function replaceOne() {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    if (!editor || !model || findMatchesRef.current.length === 0) return;
+    const match = findMatchesRef.current[findStateRef.current.activeIndex];
+    if (!match) return;
+    editor.executeEdits("blink-replace", [
+      { range: match.range, text: findStateRef.current.replaceQuery },
+    ]);
+    refreshFind();
+  }
+
+  function replaceAll() {
+    const editor = editorRef.current;
+    const model = modelRef.current;
+    if (!editor || !model || findMatchesRef.current.length === 0) return;
+    const edits = findMatchesRef.current.map((m: any) => ({
+      range: m.range,
+      text: findStateRef.current.replaceQuery,
+    }));
+    editor.executeEdits("blink-replace-all", edits);
+    refreshFind();
+  }
+
+  async function submitRename(newName: string) {
+    const editor = editorRef.current;
+    const client = lspClientRef.current;
+    const fileUri = currentFileUriRef.current;
+    if (!editor || !client || !fileUri || !newName.trim()) {
+      setRenameWidget(null);
+      return;
+    }
+    const pos = editor.getPosition();
+    if (!pos) {
+      setRenameWidget(null);
+      return;
+    }
+
+    try {
+      const result = (await (client as any).rename(
+        fileUri,
+        pos.lineNumber - 1,
+        pos.column - 1,
+        newName.trim(),
+      )) as any;
+      if (result?.changes) {
+        for (const [uri, edits] of Object.entries(result.changes as Record<string, any[]>)) {
+          const path = uri.replace(/^file:\/\//, "");
+          try {
+            const content = await invoke<string>("read_file_content", { path });
+            const lines = content.split("\n");
+            const sorted = [...edits].sort(
+              (a, b) =>
+                b.range.start.line - a.range.start.line ||
+                b.range.start.character - a.range.start.character,
+            );
+            for (const edit of sorted) {
+              const startLine = edit.range.start.line;
+              const startChar = edit.range.start.character;
+              const endLine = edit.range.end.line;
+              const endChar = edit.range.end.character;
+              if (startLine === endLine) {
+                lines[startLine] =
+                  lines[startLine].slice(0, startChar) +
+                  edit.newText +
+                  lines[startLine].slice(endChar);
+              }
+            }
+            await invoke("write_file_content", { path, content: lines.join("\n") });
+          } catch {}
+        }
+      }
+      if (result?.documentChanges) {
+        for (const change of result.documentChanges) {
+          if (change.textDocument && change.edits) {
+            const path = (change.textDocument.uri as string).replace(/^file:\/\//, "");
+            try {
+              const content = await invoke<string>("read_file_content", { path });
+              const lines = content.split("\n");
+              const sorted = [...change.edits].sort(
+                (a: any, b: any) => b.range.start.line - a.range.start.line,
+              );
+              for (const edit of sorted as any[]) {
+                const sl = edit.range.start.line;
+                const sc = edit.range.start.character;
+                const el = edit.range.end.line;
+                const ec = edit.range.end.character;
+                if (sl === el) {
+                  lines[sl] = lines[sl].slice(0, sc) + edit.newText + lines[sl].slice(ec);
+                }
+              }
+              await invoke("write_file_content", { path, content: lines.join("\n") });
+            } catch {}
+          }
+        }
+      }
+    } catch {}
+    setRenameWidget(null);
+    editor.focus();
+  }
+
   useEffect(() => {
     if (!editorHostRef.current) return;
     let cancelled = false;
@@ -660,6 +771,7 @@ export default function Editor({
             },
             suggest: { preview: true, showWords: false },
             quickSuggestions: true,
+            hover: { enabled: true, delay: 300, sticky: true },
             stickyScroll: { enabled: opts.stickyScroll },
             lightbulb: { enabled: opts.codeActions ? ("on" as const) : ("off" as const) },
             inlayHints: { enabled: opts.inlayHints ? ("on" as const) : ("off" as const) },
@@ -738,6 +850,35 @@ export default function Editor({
                 query: nextQuery,
                 activeIndex: 0,
               }));
+            },
+          });
+
+          editor.addAction({
+            id: "blink.find-replace",
+            label: "Find & Replace",
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyH],
+            run: () => {
+              setFindState((state) => ({ ...state, open: true, replaceOpen: true }));
+            },
+          });
+
+          editor.addAction({
+            id: "blink.rename-symbol",
+            label: "Rename Symbol",
+            keybindings: [monacoApi.KeyCode.F2],
+            run: () => {
+              const pos = editor.getPosition();
+              const model = editor.getModel();
+              if (!pos || !model) return;
+              const word = model.getWordAtPosition(pos);
+              if (!word) return;
+              const coords = editor.getScrolledVisiblePosition(pos);
+              if (!coords) return;
+              setRenameWidget({
+                top: coords.top + 22,
+                left: coords.left,
+                currentName: word.word,
+              });
             },
           });
 
@@ -1157,6 +1298,16 @@ export default function Editor({
       {findState.open && (
         <div className="blink-search">
           <div className="blink-search__row">
+            <button
+              className={`blink-search__toggle ${findState.replaceOpen ? "blink-search__toggle--on" : ""}`}
+              onClick={() =>
+                setFindState((state) => ({ ...state, replaceOpen: !state.replaceOpen }))
+              }
+              title="Toggle Replace"
+              type="button"
+            >
+              ⇄
+            </button>
             <input
               type="text"
               className="blink-search__input"
@@ -1254,6 +1405,36 @@ export default function Editor({
               ✕
             </button>
           </div>
+          {findState.replaceOpen && (
+            <div className="blink-search__replace-row">
+              <input
+                type="text"
+                className="blink-search__input"
+                placeholder="Replace"
+                spellCheck={false}
+                autoCorrect="off"
+                value={findState.replaceQuery}
+                onChange={(e) =>
+                  setFindState((state) => ({ ...state, replaceQuery: e.target.value }))
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setFindState(DEFAULT_FIND_STATE);
+                    findDecorationIdsRef.current =
+                      editorRef.current?.deltaDecorations(findDecorationIdsRef.current, []) ?? [];
+                    editorRef.current?.focus();
+                  }
+                }}
+              />
+              <button className="blink-search__replace-btn" onClick={replaceOne} type="button">
+                Replace
+              </button>
+              <button className="blink-search__replace-btn" onClick={replaceAll} type="button">
+                Replace All
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1310,6 +1491,31 @@ export default function Editor({
           <button type="button" className="monaco-inline-edit__cancel" onClick={closeInlineEdit}>
             Cancel
           </button>
+        </div>
+      )}
+
+      {renameWidget && (
+        <div
+          className="monaco-rename-widget"
+          style={{ top: renameWidget.top, left: Math.max(4, renameWidget.left) }}
+        >
+          <input
+            className="monaco-rename-widget__input"
+            defaultValue={renameWidget.currentName}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void submitRename((e.target as HTMLInputElement).value);
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setRenameWidget(null);
+                editorRef.current?.focus();
+              }
+            }}
+            onFocus={(e) => e.target.select()}
+          />
         </div>
       )}
 

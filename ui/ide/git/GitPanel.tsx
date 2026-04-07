@@ -17,8 +17,10 @@ import {
   ArrowUp,
   ArrowDown,
   History,
+  AlignLeft,
 } from "lucide-react";
 import GitLogViewer from "./GitLogViewer";
+import HunkViewer from "./HunkViewer";
 import { loadBlinkCodeConfig } from "@@/panel/config";
 
 const FILE_RENDER_BATCH = 200;
@@ -80,6 +82,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   const [stagedOpen, setStagedOpen] = useState(true);
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const [showLog, setShowLog] = useState(false);
+  const [hunkFile, setHunkFile] = useState<string | null>(null);
   const [visibleStagedCount, setVisibleStagedCount] = useState(FILE_RENDER_BATCH);
   const [visibleUnstagedCount, setVisibleUnstagedCount] = useState(FILE_RENDER_BATCH);
 
@@ -277,6 +280,20 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
         workspacePath={workspacePath}
         onBack={() => setShowLog(false)}
         onFileSelect={onFileSelect}
+      />
+    );
+  }
+
+  if (hunkFile && workspacePath) {
+    return (
+      <HunkViewer
+        workspacePath={workspacePath}
+        filePath={hunkFile}
+        onClose={() => setHunkFile(null)}
+        onStaged={() => {
+          setHunkFile(null);
+          refresh(true);
+        }}
       />
     );
   }
@@ -497,6 +514,16 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
                     {statusLabel(f.status)}
                   </span>
                 </button>
+                {f.status === "modified" && (
+                  <button
+                    type="button"
+                    className="git-panel__file-action"
+                    onClick={() => setHunkFile(f.path)}
+                    title="Stage hunks"
+                  >
+                    <AlignLeft size={14} />
+                  </button>
+                )}
                 <button
                   type="button"
                   className="git-panel__file-action"

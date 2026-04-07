@@ -759,6 +759,45 @@ pub fn git_show(path: String, hash: String) -> Result<String, String> {
     run_git(&path, &["show", "--stat", "-p", &hash])
 }
 
+#[tauri::command]
+pub async fn git_diff_file(path: String, file_path: String) -> Result<String, String> {
+    let output = std::process::Command::new("git")
+        .args(["-C", &path, "diff", "HEAD", "--", &file_path])
+        .output()
+        .map_err(|e| e.to_string())?;
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+#[tauri::command]
+pub async fn git_stage_hunk(path: String, _file_path: String, patch: String) -> Result<(), String> {
+    // Write patch to a temp file and apply it
+    let tmp_path = format!(
+        "/tmp/codrift-hunk-{}.patch",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+    std::fs::write(&tmp_path, patch.as_bytes()).map_err(|e| e.to_string())?;
+    let output = std::process::Command::new("git")
+        .args([
+            "-C",
+            &path,
+            "apply",
+            "--cached",
+            "--whitespace=nowarn",
+            &tmp_path,
+        ])
+        .output()
+        .map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(&tmp_path);
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).to_string())
+    }
+}
+
 /// Get the content of a file as it exists at HEAD (before any local modifications).
 /// Returns empty string for untracked files.
 #[tauri::command]

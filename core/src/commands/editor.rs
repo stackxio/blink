@@ -621,3 +621,17 @@ pub async fn open_folder_dialog(app: tauri::AppHandle) -> Result<Option<String>,
 
     Ok(folder.map(|p| p.to_string()))
 }
+
+/// Read the `.codrift.json` workspace config from the given workspace root.
+/// Returns the raw JSON string if the file exists, or None if it does not.
+#[tauri::command]
+pub async fn read_workspace_config(workspace_path: String) -> Result<Option<String>, String> {
+    let config_path = std::path::PathBuf::from(&workspace_path).join(".codrift.json");
+    if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("Failed to read .codrift.json: {}", e))?;
+        Ok(Some(content))
+    } else {
+        Ok(None)
+    }
+}

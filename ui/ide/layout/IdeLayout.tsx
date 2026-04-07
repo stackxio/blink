@@ -21,6 +21,7 @@ import GitPanel from "@/ide/git/GitPanel";
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
 import LocalHistoryPanel from "@/ide/history/LocalHistoryPanel";
 import CommandPalette from "./CommandPalette";
+import RecentFilesPopup from "./RecentFilesPopup";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
 import MarkdownPreview from "@/ide/editor/MarkdownPreview";
 import { BookOpen } from "lucide-react";
@@ -82,6 +83,7 @@ export default function IdeLayout() {
   const [fileSearchOpen, setFileSearchOpen] = useState(false);
   const [mdPreview, setMdPreview] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [recentFilesOpen, setRecentFilesOpen] = useState(false);
   const [symbolSearchMode, setSymbolSearchMode] = useState<"document" | "workspace" | null>(null);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
   const [liveCursor, setLiveCursor] = useState<{ line?: number; col?: number }>({});
@@ -447,6 +449,13 @@ export default function IdeLayout() {
         openSettings();
         return;
       }
+      // Cmd+E — recent files (JetBrains style)
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "e") {
+        e.preventDefault();
+        setRecentFilesOpen((v) => !v);
+        return;
+      }
+
       // Cmd+1–9 — switch to workspace by index
       // In JetBrains mode, Cmd+1 = toggle_sidebar (already handled above, so won't reach here for 1)
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
@@ -676,7 +685,15 @@ export default function IdeLayout() {
             />
             {isEditorActive && activeFile && (
               <div className="breadcrumbs-row">
-                <Breadcrumbs filePath={activeFile.path} workspacePath={workspacePath} />
+                <Breadcrumbs
+                  filePath={activeFile.path}
+                  workspacePath={workspacePath}
+                  onFolderClick={(path) => {
+                    setSidePanelView("explorer");
+                    if (!sidePanelOpen) toggleSidePanel();
+                    setTimeout(() => fileTreeRef.current?.refreshPath(path), 50);
+                  }}
+                />
                 <div className="breadcrumbs-row__actions">
                   {activeFile.name.endsWith(".md") && (
                     <button
@@ -971,6 +988,17 @@ export default function IdeLayout() {
 
       {/* Command palette (Cmd+Shift+P) */}
       {commandPaletteOpen && <CommandPalette onClose={() => setCommandPaletteOpen(false)} />}
+
+      {/* Recent files popup (Cmd+E) */}
+      {recentFilesOpen && (
+        <RecentFilesPopup
+          onOpen={(path, name) => {
+            openFile(path, name, false);
+            if (location.pathname !== "/") navigate("/");
+          }}
+          onClose={() => setRecentFilesOpen(false)}
+        />
+      )}
 
       {/* Status bar */}
       <div className="ide__status-bar">

@@ -522,6 +522,120 @@
   }
 }
 
+// ── Hunk Viewer ────────────────────────────────────────────────────────────────
+
+.hunk-viewer {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__back {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 4px;
+
+    &:hover {
+      color: var(--c-accent);
+    }
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    @include truncate;
+    font-size: var(--font-size-sm);
+    color: var(--c-muted-fg);
+  }
+
+  &__close {
+    @include flex-center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--c-fg);
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__message {
+    padding: 16px;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-sm);
+
+    &--error {
+      color: var(--c-error, #f14c4c);
+    }
+  }
+
+  &__hunk {
+    border-bottom: 1px solid var(--c-border);
+    margin-bottom: 0;
+  }
+
+  &__hunk-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 8px 2px 0;
+    background: color-mix(in srgb, var(--c-surface-raised) 50%, transparent);
+    gap: 8px;
+  }
+
+  &__stage-btn {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(border-color, background);
+
+    &:hover:not(:disabled) {
+      border-color: var(--c-accent);
+      background: var(--c-surface-raised);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
 @keyframes git-spin {
   from {
     transform: rotate(0deg);

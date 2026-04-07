@@ -12,7 +12,7 @@ import {
   type BindingMap,
   type Keymap,
 } from "@/lib/key-bindings";
-import { useAppStore } from "@/store";
+import { useAppStore, type Theme } from "@/store";
 
 interface EditorSettings {
   auto_save: boolean;
@@ -44,6 +44,8 @@ export default function SettingsGeneral() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
   const [keymap, setKeymap] = useState<Keymap>(() => loadKeymap());
   const [recording, setRecording] = useState<string | null>(null);
@@ -381,6 +383,16 @@ export default function SettingsGeneral() {
             <span className="toggle__thumb" />
           </button>
         </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Workspace overrides</div>
+            <div className="settings-row__hint">
+              Create a <code>.codrift.json</code> file in your project root to override editor
+              settings per-project (tabSize, fontSize, wordWrap, minimap, indentGuides).
+            </div>
+          </div>
+        </div>
       </div>
 
       <h2 className="settings-section__subtitle">Workspace</h2>
@@ -399,6 +411,30 @@ export default function SettingsGeneral() {
           >
             <span className="toggle__thumb" />
           </button>
+        </div>
+      </div>
+
+      <h2 className="settings-section__subtitle">Appearance</h2>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Theme</div>
+            <div className="settings-row__hint">
+              Choose dark, light, or follow the system setting.
+            </div>
+          </div>
+          <div className="segment-control">
+            {(["dark", "light", "system"] as Theme[]).map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={`segment-control__item ${theme === t ? "segment-control__item--active" : ""}`}
+                onClick={() => setTheme(t)}
+              >
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

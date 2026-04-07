@@ -59,6 +59,8 @@ export interface Workspace {
   expandedDirs: Set<string>;
   // Recently closed tabs (for reopen)
   closedTabHistory: OpenFile[];
+  // Recently opened files
+  recentFiles: Array<{ path: string; name: string }>;
 }
 
 function sidebarViewStorageKey(path: string) {
@@ -101,6 +103,7 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
     activeTerminalId: null,
     expandedDirs: new Set(),
     closedTabHistory: [],
+    recentFiles: [],
   };
 }
 
@@ -170,6 +173,7 @@ interface AppState {
   pinTab: (idx: number) => void;
   unpinTab: (idx: number) => void;
   reopenClosedTab: () => void;
+  addRecentFile: (path: string, name: string) => void;
 
   // Per-workspace split editor
   openFileSplit: (path: string, name: string) => void;
@@ -366,7 +370,16 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ── Per-workspace editor ──
 
+  addRecentFile: (path, name) =>
+    set((s) =>
+      updateWs(s, (ws) => {
+        const filtered = ws.recentFiles.filter((f) => f.path !== path);
+        return { recentFiles: [{ path, name }, ...filtered].slice(0, 20) };
+      }),
+    ),
+
   openFile: (path, name, preview = false, cursorLine = 0, cursorCol = 0) => {
+    get().addRecentFile(path, name);
     set((s) => {
       if (s.workspaces.length === 0) {
         const id = `ws-${Date.now()}`;

@@ -75,6 +75,15 @@
       color: var(--c-fg);
       opacity: 1;
     }
+
+    &--clickable {
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+    }
   }
 
   &__current {

@@ -199,6 +199,13 @@ class LspClient {
     });
   }
 
+  async signatureHelp(uri: string, line: number, character: number): Promise<unknown> {
+    return this.request("textDocument/signatureHelp", {
+      textDocument: { uri },
+      position: { line, character },
+    });
+  }
+
   // ── Diagnostics ──
 
   onDiagnostics(callback: DiagnosticCallback) {

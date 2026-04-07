@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use tauri::menu::{AboutMetadataBuilder, MenuBuilder, MenuItemBuilder, SubmenuBuilder};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 mod commands;
 mod connectors;
@@ -29,6 +29,19 @@ pub fn run() {
     let startup_path: Option<String> = std::env::args().skip(1).find(|a| !a.starts_with('-'));
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            // argv[1] might be a file path
+            if let Some(file_path) = argv.get(1) {
+                let path = file_path.clone();
+                app.emit("open-file", path).ok();
+            }
+            // Focus the existing window
+            if let Some(window) = app.get_webview_window("main") {
+                window.show().ok();
+                window.set_focus().ok();
+                window.unminimize().ok();
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_dialog::init())
@@ -235,6 +248,7 @@ pub fn run() {
             commands::editor::create_directory,
             commands::editor::search_in_files,
             commands::editor::replace_in_files,
+            commands::editor::read_workspace_config,
             commands::terminal::terminal_create,
             commands::terminal::terminal_write,
             commands::terminal::terminal_resize,
@@ -265,6 +279,8 @@ pub fn run() {
             commands::git::git_blame_line,
             commands::git::git_show,
             commands::git::git_file_at_head,
+            commands::git::git_diff_file,
+            commands::git::git_stage_hunk,
             commands::local_history::create_local_history_entry,
             commands::local_history::list_local_history,
             commands::local_history::read_local_history_entry,

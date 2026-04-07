@@ -120,11 +120,9 @@
 
 .blink-search {
   display: flex;
-  align-items: center;
-  padding: 6px 12px;
+  flex-direction: column;
   background: var(--c-bg);
   border-bottom: 1px solid var(--c-border);
-  gap: 8px;
   flex-shrink: 0;
 
   &__row {
@@ -132,6 +130,7 @@
     align-items: center;
     gap: 4px;
     flex: 1;
+    padding: 6px 12px;
   }
 
   &__input {
@@ -214,6 +213,47 @@
       width: auto;
       padding: 0 6px;
     }
+  }
+}
+
+.blink-search__replace-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-top: 1px solid var(--c-border);
+}
+
+.blink-search__replace-btn {
+  height: 24px;
+  padding: 0 10px;
+  font-size: 12px;
+  background: var(--c-surface-raised);
+  color: var(--c-fg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  &:hover {
+    background: var(--c-hover);
+  }
+}
+
+.monaco-rename-widget {
+  position: absolute;
+  z-index: 40;
+  &__input {
+    height: 26px;
+    padding: 0 8px;
+    min-width: 180px;
+    background: var(--c-input);
+    color: var(--c-fg);
+    border: 1px solid var(--c-accent);
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    outline: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -571,6 +611,26 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+// Monaco hover widget — match our theme
+.monaco-hover {
+  border-color: var(--c-border) !important;
+  background: var(--c-popover) !important;
+
+  .hover-row {
+    border-bottom-color: var(--c-border) !important;
+  }
+
+  p,
+  code {
+    color: var(--c-fg) !important;
+  }
+
+  code {
+    font-family: var(--font-mono) !important;
+    font-size: 12px !important;
   }
 }
 

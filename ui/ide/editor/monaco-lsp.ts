@@ -213,6 +213,53 @@ export function registerLspProviders(
     },
   });
 
+  const signatureHelpDisposable = monacoApi.languages.registerSignatureHelpProvider(selector, {
+    signatureHelpTriggerCharacters: ["(", ",", "<"],
+    signatureHelpRetriggerCharacters: [","],
+    provideSignatureHelp: async (_model: any, position: any) => {
+      try {
+        const result = (await client.signatureHelp(
+          fileUri,
+          position.lineNumber - 1,
+          position.column - 1,
+        )) as any;
+        if (!result) return null;
+        const sigs = (result.signatures ?? []).map((sig: any) => ({
+          label: sig.label as string,
+          documentation: sig.documentation
+            ? {
+                value:
+                  typeof sig.documentation === "string"
+                    ? sig.documentation
+                    : (sig.documentation.value ?? ""),
+              }
+            : undefined,
+          parameters: (sig.parameters ?? []).map((p: any) => ({
+            label: p.label,
+            documentation: p.documentation
+              ? {
+                  value:
+                    typeof p.documentation === "string"
+                      ? p.documentation
+                      : (p.documentation.value ?? ""),
+                }
+              : undefined,
+          })),
+        }));
+        return {
+          value: {
+            signatures: sigs,
+            activeSignature: result.activeSignature ?? 0,
+            activeParameter: result.activeParameter ?? 0,
+          },
+          dispose() {},
+        };
+      } catch {
+        return null;
+      }
+    },
+  });
+
   const hoverDisposable = monacoApi.languages.registerHoverProvider(selector, {
     provideHover: async (_model: any, position: any) => {
       try {
@@ -594,6 +641,7 @@ export function registerLspProviders(
     definitionAction,
     dispose() {
       completionDisposable.dispose();
+      signatureHelpDisposable.dispose();
       hoverDisposable.dispose();
       formatDisposable.dispose();
       definitionDisposable.dispose();

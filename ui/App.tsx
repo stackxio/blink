@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useTheme, changeTheme, type Theme } from "@/lib/theme";
 import { useAppStore } from "@/store";
+import { useWorkspaceConfig } from "@/hooks/useWorkspaceConfig";
 import IdeLayout from "@/ide/layout/IdeLayout";
 import Welcome from "@/ide/layout/Welcome";
 import SettingsOverlay from "@/overlays/SettingsOverlay";
@@ -37,9 +39,26 @@ function useSyncSettingsToLocalStorage() {
   }, []);
 }
 
+function useOpenFileEvent() {
+  useEffect(() => {
+    const unlisten = listen<string>("open-file", (event) => {
+      const path = event.payload;
+      if (path) {
+        const name = path.split("/").pop() || path;
+        useAppStore.getState().openFile(path, name, false);
+      }
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, []);
+}
+
 export default function App() {
   useTheme();
   useSyncSettingsToLocalStorage();
+  useOpenFileEvent();
+  useWorkspaceConfig();
   const settingsOpen = useAppStore((s) => s.settingsOpen);
 
   return (
