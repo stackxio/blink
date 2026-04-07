@@ -8,27 +8,8 @@ export type ProviderConfig =
       maxTokens?: number;
     }
   | {
-      /** Embedded CLI agent panel (Claude, Codex, Gemini, …) */
+      /** CLI agent panel (Claude, Codex, Gemini … run in embedded terminal) */
       type: "agent";
-      model?: string;
-    }
-  // Legacy types kept for backward-compat; treated as "agent" in the UI
-  | {
-      type: "anthropic";
-      model: string;
-      apiKey: string;
-      thinking: boolean;
-      thinkingBudget: number;
-    }
-  | {
-      type: "claude-code";
-      model?: string;
-      effort?: "low" | "medium" | "high";
-    }
-  | {
-      type: "codex";
-      model?: string;
-      effort?: "low" | "medium" | "high" | "xhigh";
     };
 
 export type BlinkCodeConfig = {
@@ -58,6 +39,11 @@ export function loadBlinkCodeConfig(): BlinkCodeConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw) as Partial<BlinkCodeConfig>;
+    // Migrate any legacy provider types (claude-code, codex, anthropic) to defaults
+    const provider = parsed.provider as { type?: string } | undefined;
+    if (provider && provider.type !== "openai-compat" && provider.type !== "agent") {
+      return { ...DEFAULTS };
+    }
     return {
       ...DEFAULTS,
       ...parsed,

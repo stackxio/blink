@@ -192,7 +192,6 @@ function BlinkCodePanel() {
 
   const [bridgeReady, setBridgeReady] = useState(false);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
-  const [availableProviders, setAvailableProviders] = useState<string[]>(["ollama", "custom"]);
   const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
   const bridgeReadyRef = useRef(false);
   const pendingThinkingDeltasRef = useRef(new Map<string, string>());
@@ -408,9 +407,6 @@ function BlinkCodePanel() {
           case "bridge_ready": {
             bridgeReadyRef.current = true;
             setBridgeReady(true);
-            if (msg.availableProviders) {
-              setAvailableProviders(msg.availableProviders);
-            }
             if (msg.threads) setThreads(msg.threads);
             if (msg.activeThreadId) setActiveThreadId(msg.activeThreadId);
             if (!msg.resumed) {
@@ -701,9 +697,7 @@ function BlinkCodePanel() {
       { id: assistantMsgId, role: "assistant", content: "", toolCalls: [], streaming: true },
     ]);
     setStreaming(true);
-    // Detect "ultrathink" keyword — enables extended thinking for this turn
-    // (only meaningful for the Anthropic direct provider)
-    const isUltrathink = config.provider.type === "anthropic" && /\bultrathink\b/i.test(text);
+    const isUltrathink = false;
 
     const images = imageItems.map((img) => ({
       data: img.dataUrl.split(",")[1] ?? img.dataUrl,
@@ -794,7 +788,7 @@ function BlinkCodePanel() {
             {
               id: crypto.randomUUID(),
               role: "system",
-              content: `Current model: ${config.provider.model ?? config.provider.type}`,
+              content: `Current model: ${"model" in config.provider ? config.provider.model : config.provider.type}`,
             },
           ]);
         }
@@ -819,7 +813,7 @@ function BlinkCodePanel() {
           {
             id: crypto.randomUUID(),
             role: "system",
-            content: `Provider: ${config.provider.type}${config.provider.model ? ` / ${config.provider.model}` : ""}\nWorkspace: ${workspacePath ?? "(none)"}\nMessages: ${messages.length} messages`,
+            content: `Provider: ${config.provider.type}${"model" in config.provider && config.provider.model ? ` / ${config.provider.model}` : ""}\nWorkspace: ${workspacePath ?? "(none)"}\nMessages: ${messages.length} messages`,
           },
         ]);
         break;
@@ -1032,11 +1026,7 @@ function BlinkCodePanel() {
     saveBlinkCodeConfig(updated);
   }
 
-  // "agent" is the new type; claude-code/codex are legacy types treated the same way
-  const isCLIProvider =
-    config.provider.type === "agent" ||
-    config.provider.type === "claude-code" ||
-    config.provider.type === "codex";
+  const isCLIProvider = config.provider.type === "agent";
 
   // In agent mode the CliAgentPanel has its own header — skip ours entirely
   if (isCLIProvider) {
@@ -1045,7 +1035,6 @@ function BlinkCodePanel() {
         {settingsOpen ? (
           <ProviderSettings
             config={config}
-            availableProviders={availableProviders}
             agentSettings={agentSettings}
             onAgentSettingsChange={(s) => {
               setAgentSettings(s);
@@ -1228,7 +1217,6 @@ function BlinkCodePanel() {
         /* Settings overlay */
         <ProviderSettings
           config={config}
-          availableProviders={availableProviders}
           agentSettings={agentSettings}
           onAgentSettingsChange={(s) => {
             setAgentSettings(s);
@@ -1441,12 +1429,6 @@ function BlinkCodePanel() {
                 </div>
                 <ModePill mode={mode} onChange={setMode} />
                 <ModelPill config={config} onChange={handleConfigChange} />
-                {config.provider.type === "anthropic" &&
-                  (config.provider.thinking || /\bultrathink\b/i.test(input)) && (
-                    <span className="blink-panel__thinking-badge" title="Extended thinking enabled">
-                      <Brain size={11} />
-                    </span>
-                  )}
                 {contextUsage && (
                   <ContextCircle
                     inputTokens={contextUsage.inputTokens}
@@ -1749,9 +1731,6 @@ function ContextCircle({ inputTokens, model }: { inputTokens: number; model: str
 function modelPillLabel(config: BlinkCodeConfig): string {
   const p = config.provider;
   if (p.type === "agent") return "Agent";
-  if (p.type === "claude-code") return p.model ?? "claude";
-  if (p.type === "anthropic") return p.model;
-  if (p.type === "codex") return p.model ?? "codex";
   return p.model || "—";
 }
 
@@ -1797,7 +1776,7 @@ function ModelPill({
   const currentModel = ptype === "openai-compat" ? config.provider.model : "";
 
   // Agent mode — pill is non-interactive (config lives in settings)
-  if (ptype === "agent" || ptype === "claude-code" || ptype === "codex" || ptype === "anthropic") {
+  if (ptype === "agent") {
     return null;
   }
 
@@ -1819,7 +1798,9 @@ function ModelPill({
                 type="button"
                 className={`blink-model-pill__option${m === currentModel ? " blink-model-pill__option--active" : ""}`}
                 onClick={() => {
-                  onChange({ provider: { ...config.provider, model: m } });
+                  if (config.provider.type === "openai-compat") {
+                    onChange({ provider: { ...config.provider, model: m } });
+                  }
                   setOpen(false);
                 }}
               >
@@ -1839,26 +1820,19 @@ function ModelPill({
 
 function ProviderSettings({
   config,
-  availableProviders: _availableProviders,
   agentSettings,
   onAgentSettingsChange,
   onChange,
   onClose,
 }: {
   config: BlinkCodeConfig;
-  availableProviders: string[];
   agentSettings: AgentSettings;
   onAgentSettingsChange: (s: AgentSettings) => void;
   onChange: (p: Partial<BlinkCodeConfig>) => void;
   onClose: () => void;
 }) {
   const ptype = config.provider.type;
-
-  // Normalise: legacy claude-code/codex/anthropic → "agent"
-  const activePreset =
-    ptype === "agent" || ptype === "claude-code" || ptype === "codex" || ptype === "anthropic"
-      ? "agent"
-      : "custom";
+  const activePreset = ptype === "agent" ? "agent" : "custom";
 
   // Live model list for openai-compat
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -1986,7 +1960,7 @@ function ProviderSettings({
         )}
 
         {/* ── Custom mode: URL + key + model ── */}
-        {activePreset === "custom" && (
+        {activePreset === "custom" && config.provider.type === "openai-compat" && (
           <>
             <div className="blink-settings-panel__card">
               <div className="blink-settings-panel__field">
@@ -1995,6 +1969,7 @@ function ProviderSettings({
                   <select
                     value={currentModel}
                     onChange={(e) =>
+                      config.provider.type === "openai-compat" &&
                       onChange({ provider: { ...config.provider, model: e.target.value } })
                     }
                   >
@@ -2011,6 +1986,7 @@ function ProviderSettings({
                   <input
                     value={currentModel}
                     onChange={(e) =>
+                      config.provider.type === "openai-compat" &&
                       onChange({ provider: { ...config.provider, model: e.target.value } })
                     }
                     placeholder="e.g. llama3.2 or gpt-4o"

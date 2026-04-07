@@ -6,8 +6,6 @@ import { exec } from "node:child_process";
 
 import { createProvider } from "./panel/providers";
 import { BlinkEngine } from "./panel/engine";
-import { detectClaude } from "./panel/providers/claude/detector";
-import { detectCodex } from "./panel/providers/codex/detector";
 import type { ProviderConfig } from "./panel/config";
 import type { BlinkMessage, BlinkToolCall } from "./panel/providers/types";
 
@@ -49,7 +47,6 @@ let chatInProgress = false;
 
 type SessionData = {
   messages: BlinkMessage[];
-  cliSessionIds: Record<string, string>;
 };
 
 type ThreadMeta = {
@@ -107,10 +104,10 @@ async function loadThreadData(id: string): Promise<SessionData> {
   try {
     const raw = await fs.readFile(threadFilePath(id), "utf-8");
     const parsed = JSON.parse(raw) as Partial<SessionData> | BlinkMessage[];
-    if (Array.isArray(parsed)) return { messages: parsed, cliSessionIds: {} };
-    return { messages: parsed.messages ?? [], cliSessionIds: parsed.cliSessionIds ?? {} };
+    if (Array.isArray(parsed)) return { messages: parsed };
+    return { messages: parsed.messages ?? [] };
   } catch {
-    return { messages: [], cliSessionIds: {} };
+    return { messages: [] };
   }
 }
 
@@ -150,14 +147,14 @@ async function initThreads(workspacePath: string): Promise<void> {
       workspaceHash(workspacePath),
       "history.json",
     );
-    let legacyData: SessionData = { messages: [], cliSessionIds: {} };
+    let legacyData: SessionData = { messages: [] };
     try {
       const raw = await fs.readFile(legacyFile, "utf-8");
       const parsed = JSON.parse(raw) as Partial<SessionData> | BlinkMessage[];
       if (Array.isArray(parsed)) {
-        legacyData = { messages: parsed, cliSessionIds: {} };
+        legacyData = { messages: parsed };
       } else {
-        legacyData = { messages: parsed.messages ?? [], cliSessionIds: parsed.cliSessionIds ?? {} };
+        legacyData = { messages: parsed.messages ?? [] };
       }
     } catch {}
 
@@ -182,7 +179,7 @@ async function initThreads(workspacePath: string): Promise<void> {
   if (threadsIndex.threads.length === 0) {
     const meta = createThreadMeta();
     threadsIndex = { activeThreadId: meta.id, threads: [meta] };
-    await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+    await saveThreadData(meta.id, { messages: [] });
     await saveThreadsIndex();
   }
 
@@ -192,7 +189,7 @@ async function initThreads(workspacePath: string): Promise<void> {
 /** Save current thread state, update metadata, persist index. */
 async function persistCurrentThread(): Promise<void> {
   if (!currentThreadId || !engine) return;
-  const data: SessionData = { messages: engine.messages, cliSessionIds };
+  const data: SessionData = { messages: engine.messages };
   await saveThreadData(currentThreadId, data);
 
   const meta = threadsIndex.threads.find((t) => t.id === currentThreadId);
@@ -205,27 +202,6 @@ async function persistCurrentThread(): Promise<void> {
     }
   }
   await saveThreadsIndex();
-}
-
-// In-memory CLI session IDs for the current thread
-let cliSessionIds: Record<string, string> = {};
-
-function getCliSessionId(key: string): string | null {
-  return cliSessionIds[key] ?? null;
-}
-
-function saveCliSessionId(key: string, id: string): void {
-  cliSessionIds[key] = id;
-}
-
-// ── CLI detection ────────────────────────────────────────────────────────────
-
-async function detectAvailableProviders(): Promise<string[]> {
-  const available = ["ollama", "custom"];
-  const [hasClaude, hasCodex] = await Promise.all([detectClaude(), detectCodex()]);
-  if (hasClaude) available.push("claude-code");
-  if (hasCodex) available.push("codex");
-  return available;
 }
 
 // ── Tool execution (runs directly in this Bun process) ───────────────────────
@@ -381,27 +357,17 @@ function ensureEngine(): BlinkEngine {
     throw new Error("Bridge is not initialized. Send an init message first.");
   }
 
-  const isCLIProvider =
-    providerBundle.provider.type === "claude-code" || providerBundle.provider.type === "codex";
-
-  const provider = createProvider(providerBundle.provider, {
-    getSessionId: getCliSessionId,
-    saveSessionId: saveCliSessionId,
-  });
-
-  // CLI providers manage their own tool loop — don't pass blink tools or do multi-turn
-  const tools = isCLIProvider || !providerBundle.allowTools ? [] : buildTools();
-  const maxTurns = isCLIProvider ? 1 : providerBundle.maxTurns;
+  const provider = createProvider(providerBundle.provider);
+  const tools = providerBundle.allowTools ? buildTools() : [];
 
   return new BlinkEngine({
     provider,
     tools,
     system: providerBundle.systemPrompt,
-    maxTurns,
-    onPermission:
-      !isCLIProvider && providerBundle.requirePermission
-        ? (toolName, toolInput) => permissionRequest(toolName, toolInput as Record<string, unknown>)
-        : undefined,
+    maxTurns: providerBundle.maxTurns,
+    onPermission: providerBundle.requirePermission
+      ? (toolName, toolInput) => permissionRequest(toolName, toolInput as Record<string, unknown>)
+      : undefined,
   });
 }
 
@@ -505,8 +471,7 @@ rl.on("line", async (line) => {
     // Load active thread data
     const threadData = currentThreadId
       ? await loadThreadData(currentThreadId)
-      : { messages: [], cliSessionIds: {} };
-    cliSessionIds = threadData.cliSessionIds ?? {};
+      : { messages: [] };
     if (threadData.messages.length > 0) {
       engine.setHistory(threadData.messages);
     }
@@ -514,12 +479,9 @@ rl.on("line", async (line) => {
     currentAssistantMsgId = null;
     chatInProgress = false;
 
-    const availableProviders = await detectAvailableProviders();
-
     send("bridge_ready", {
       resumed: threadData.messages.length > 0,
       messageCount: threadData.messages.length,
-      availableProviders,
       threads: threadsIndex.threads,
       activeThreadId: threadsIndex.activeThreadId,
     });
@@ -536,10 +498,9 @@ rl.on("line", async (line) => {
     threadsIndex.threads.unshift(meta);
     threadsIndex.activeThreadId = meta.id;
     currentThreadId = meta.id;
-    cliSessionIds = {};
     engine = ensureEngine();
     engine.clearHistory();
-    await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+    await saveThreadData(meta.id, { messages: [] });
     await saveThreadsIndex();
     send("threads_list", { threads: threadsIndex.threads, activeThreadId: meta.id });
     return;
@@ -556,7 +517,6 @@ rl.on("line", async (line) => {
     await saveThreadsIndex();
 
     const data = await loadThreadData(targetId);
-    cliSessionIds = data.cliSessionIds ?? {};
     engine = ensureEngine();
     engine.clearHistory();
     if (data.messages.length > 0) engine.setHistory(data.messages);
@@ -597,13 +557,12 @@ rl.on("line", async (line) => {
       if (threadsIndex.threads.length === 0) {
         const meta = createThreadMeta();
         threadsIndex.threads.push(meta);
-        await saveThreadData(meta.id, { messages: [], cliSessionIds: {} });
+        await saveThreadData(meta.id, { messages: [] });
       }
       const next = threadsIndex.threads[0];
       threadsIndex.activeThreadId = next.id;
       currentThreadId = next.id;
       const data = await loadThreadData(next.id);
-      cliSessionIds = data.cliSessionIds ?? {};
       engine = ensureEngine();
       engine.clearHistory();
       if (data.messages.length > 0) engine.setHistory(data.messages);
@@ -625,9 +584,8 @@ rl.on("line", async (line) => {
 
   if (msg.type === "clear") {
     engine?.clearHistory();
-    cliSessionIds = {};
     if (currentThreadId) {
-      await saveThreadData(currentThreadId, { messages: [], cliSessionIds: {} });
+      await saveThreadData(currentThreadId, { messages: [] });
       const meta = threadsIndex.threads.find((t) => t.id === currentThreadId);
       if (meta) {
         meta.messageCount = 0;
