@@ -273,9 +273,14 @@ export default function IdeLayout() {
   );
 
   const handleAiResize = useCallback(
-    (delta: number) =>
-      setWsAiPanelWidth(Math.max(300, Math.min(window.innerWidth - 200, wsAiPanelWidth - delta))),
-    [wsAiPanelWidth, setWsAiPanelWidth],
+    (delta: number) => {
+      // In ai-center mode the resizer sits on the RIGHT edge of the AI panel,
+      // so dragging right (positive delta) should grow the panel.
+      // In editor-center mode the resizer sits on the LEFT edge, so invert.
+      const d = layoutMode === "ai-center" ? delta : -delta;
+      setWsAiPanelWidth(Math.max(300, Math.min(window.innerWidth - 200, wsAiPanelWidth + d)));
+    },
+    [wsAiPanelWidth, setWsAiPanelWidth, layoutMode],
   );
 
   const handleBottomResize = useCallback(
@@ -976,9 +981,18 @@ export default function IdeLayout() {
 
           {/* AI panel */}
           {(aiPanelOpen || focusMode === "ai-only") && (
-            <div className="ide__ai-panel" style={{ width: wsAiPanelWidth }}>
-              <PanelResizer onResize={handleAiResize} />
+            <div
+              className="ide__ai-panel"
+              // In AI-only mode let the panel fill all available space (no fixed width).
+              // In normal mode pin it to the saved width.
+              style={focusMode === "ai-only" ? undefined : { width: wsAiPanelWidth }}
+            >
+              {/* Resizer goes on the RIGHT edge in ai-center mode, LEFT in editor-center */}
+              {layoutMode !== "ai-center" && <PanelResizer onResize={handleAiResize} />}
               <BlinkCodePanel />
+              {layoutMode === "ai-center" && focusMode !== "ai-only" && (
+                <PanelResizer onResize={handleAiResize} />
+              )}
             </div>
           )}
         </div>

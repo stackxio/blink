@@ -97,6 +97,7 @@ export function TerminalInstance({
   id,
   visible,
   spawn,
+  onData,
 }: {
   id: string;
   visible: boolean;
@@ -104,6 +105,8 @@ export function TerminalInstance({
    *  has measured its real pixel size. Omit when the PTY is already running
    *  (e.g. regular shell terminals created by TerminalPanel). */
   spawn?: SpawnConfig;
+  /** Called with each raw output chunk from the PTY (after the terminal writes it). */
+  onData?: (chunk: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -214,6 +217,7 @@ export function TerminalInstance({
       let unlisten: (() => void) | null = null;
       listen<string>(`terminal:output:${id}`, (event) => {
         if (termRef.current) termRef.current.write(event.payload);
+        onData?.(event.payload);
       })
         .then((fn) => {
           unlisten = fn;
@@ -267,6 +271,7 @@ export function TerminalInstance({
   return (
     <div
       ref={containerRef}
+      onContextMenu={(e) => e.preventDefault()}
       style={{ flex: 1, minWidth: 0, minHeight: 0, overflow: "hidden", position: "relative" }}
     />
   );

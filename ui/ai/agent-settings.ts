@@ -23,9 +23,10 @@ export const ALL_AGENTS: AgentDef[] = [
       if (skills?.trim()) cmd.push("--system-prompt", skills);
       return cmd;
     },
+    // --continue resumes the most recent session silently (no interactive picker)
     resumeCmd: ({ customPath } = {}) => [
       customPath || "claude",
-      "--resume",
+      "--continue",
       "--dangerously-skip-permissions",
     ],
   },
@@ -35,7 +36,8 @@ export const ALL_AGENTS: AgentDef[] = [
     description: "OpenAI's coding agent for reading, modifying, and running code across tasks.",
     binary: "codex",
     buildCmd: ({ customPath } = {}) => [customPath || "codex"],
-    resumeCmd: ({ customPath } = {}) => [customPath || "codex", "--resume"],
+    // resume --last skips the picker and resumes the most recent session
+    resumeCmd: ({ customPath } = {}) => [customPath || "codex", "resume", "--last"],
   },
   {
     id: "gemini",
@@ -47,6 +49,8 @@ export const ALL_AGENTS: AgentDef[] = [
       if (skills?.trim()) cmd.push("--system-prompt", skills);
       return cmd;
     },
+    // --resume with no arg opens the interactive session picker
+    resumeCmd: ({ customPath } = {}) => [customPath || "gemini", "--resume"],
   },
   {
     id: "opencode",
@@ -54,6 +58,8 @@ export const ALL_AGENTS: AgentDef[] = [
     description: "Open-source coding agent for the terminal, IDE, and desktop.",
     binary: "opencode",
     buildCmd: ({ customPath } = {}) => [customPath || "opencode"],
+    // --continue resumes the most recent OpenCode session
+    resumeCmd: ({ customPath } = {}) => [customPath || "opencode", "--continue"],
   },
   {
     id: "pi",
