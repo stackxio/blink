@@ -610,17 +610,17 @@ export function registerLspProviders(
 // ── Find Usages (GoLand-style peek) ───────────────────────────────────────────
 
 export interface UsageLocation {
-  uri: string;       // file:// URI
-  path: string;      // absolute path (uri without file://)
-  line: number;      // 1-based
+  uri: string; // file:// URI
+  path: string; // absolute path (uri without file://)
+  line: number; // 1-based
   character: number; // 1-based
 }
 
 export async function findUsages(
   client: LspClient,
   fileUri: string,
-  line: number,  // 1-based
-  col: number,   // 1-based
+  line: number, // 1-based
+  col: number, // 1-based
 ): Promise<{ definition: UsageLocation | null; references: UsageLocation[] }> {
   const [defResult, refsResult] = await Promise.allSettled([
     client.definition(fileUri, line - 1, col - 1) as Promise<LspLocation[] | LspLocation | null>,

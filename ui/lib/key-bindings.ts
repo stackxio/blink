@@ -30,17 +30,17 @@ export const BINDINGS: Binding[] = [
  * Only bindings that differ from the VS Code defaults are listed here.
  */
 export const JETBRAINS_DEFAULTS: Partial<Record<string, string>> = {
-  go_to_file: "Meta+Shift+o",         // ⌘⇧O  Go to File
-  command_palette: "Meta+Shift+a",     // ⌘⇧A  Find Action
-  toggle_sidebar: "Meta+1",            // ⌘1   Project tool window
-  toggle_ai_panel: "Meta+Shift+l",    // ⌘⇧L  AI panel (freeing ⌘L for Go to Line)
-  toggle_terminal: "Alt+F12",          // ⌥F12 Terminal
-  go_to_line: "Meta+l",               // ⌘L   Go to Line
+  go_to_file: "Meta+Shift+o", // ⌘⇧O  Go to File
+  command_palette: "Meta+Shift+a", // ⌘⇧A  Find Action
+  toggle_sidebar: "Meta+1", // ⌘1   Project tool window
+  toggle_ai_panel: "Meta+Shift+l", // ⌘⇧L  AI panel (freeing ⌘L for Go to Line)
+  toggle_terminal: "Alt+F12", // ⌥F12 Terminal
+  go_to_line: "Meta+l", // ⌘L   Go to Line
   // next_tab / previous_tab: keep VS Code defaults (Meta+Tab / Meta+Shift+Tab)
   // symbol_search_workspace: keep VS Code default (Meta+t); ⌘⌥O uses Alt which produces ø on macOS
   symbol_search_document: "Meta+F12", // ⌘F12 File Structure
-  go_to_definition: "Meta+b",         // ⌘B   Go to Declaration
-  peek_definition: "Meta+y",          // ⌘Y   Quick Definition
+  go_to_definition: "Meta+b", // ⌘B   Go to Declaration
+  peek_definition: "Meta+y", // ⌘Y   Quick Definition
 };
 
 export type Keymap = "vscode" | "jetbrains";
@@ -69,9 +69,7 @@ export function loadKeymap(): Keymap {
 
 export function saveKeymap(keymap: Keymap) {
   localStorage.setItem(KEYMAP_STORAGE_KEY, keymap);
-  window.dispatchEvent(
-    new StorageEvent("storage", { key: KEYMAP_STORAGE_KEY, newValue: keymap }),
-  );
+  window.dispatchEvent(new StorageEvent("storage", { key: KEYMAP_STORAGE_KEY, newValue: keymap }));
 }
 
 export function effectiveKey(id: string, map: BindingMap, keymap: Keymap = "vscode"): string {

@@ -410,10 +410,7 @@ export default function Editor({
   }, []);
 
   const showPeekPanel = useCallback(
-    async (
-      pos: { line: number; col: number },
-      coords: { top: number; left: number },
-    ) => {
+    async (pos: { line: number; col: number }, coords: { top: number; left: number }) => {
       const editor = editorRef.current;
       const model = modelRef.current;
       const client = lspClientRef.current;
@@ -454,15 +451,13 @@ export default function Editor({
         }
 
         // Definition with line text
-        const defWithText =
-          definition
-            ? { ...definition, lineText: lineText(definition.path, definition.line) }
-            : null;
+        const defWithText = definition
+          ? { ...definition, lineText: lineText(definition.path, definition.line) }
+          : null;
 
         // Filter references that are NOT the definition
         const usageRefs = references.filter(
-          (r) =>
-            !(definition && r.path === definition.path && r.line === definition.line),
+          (r) => !(definition && r.path === definition.path && r.line === definition.line),
         );
 
         // Group usages by file, build dirLabel from path
@@ -477,9 +472,8 @@ export default function Editor({
         const fileGroups = [...groupMap.entries()].map(([filePath, refs]) => {
           const parts = filePath.replace(/\\/g, "/").split("/");
           const fileName = parts[parts.length - 1] ?? filePath;
-          const relFull = wsPath && filePath.startsWith(wsPath)
-            ? filePath.slice(wsPath.length + 1)
-            : filePath;
+          const relFull =
+            wsPath && filePath.startsWith(wsPath) ? filePath.slice(wsPath.length + 1) : filePath;
           const relParts = relFull.replace(/\\/g, "/").split("/");
           const dirLabel = relParts.slice(0, -1).join("/");
           return {
@@ -493,7 +487,11 @@ export default function Editor({
         // Build flat navigable items: def first, then refs in file-group order
         const flatItems: Array<{ path: string; line: number; col: number }> = [];
         if (defWithText) {
-          flatItems.push({ path: defWithText.path, line: defWithText.line, col: defWithText.character });
+          flatItems.push({
+            path: defWithText.path,
+            line: defWithText.line,
+            col: defWithText.character,
+          });
         }
         for (const g of fileGroups) {
           for (const u of g.usages) {
@@ -924,10 +922,9 @@ export default function Editor({
                 },
               );
               providersRef.current = providers;
-              definitionActionRef.current = providers.definitionAction(
-                editor,
-                (pos, coords) => { void showPeekPanel(pos, coords); },
-              );
+              definitionActionRef.current = providers.definitionAction(editor, (pos, coords) => {
+                void showPeekPanel(pos, coords);
+              });
             })
             .catch(() => {});
         } else {

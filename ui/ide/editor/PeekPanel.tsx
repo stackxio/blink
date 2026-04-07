@@ -50,10 +50,7 @@ export default function PeekPanel({ top, left, data, loading, onNavigate, onClos
     selectedIdxRef.current = idx;
     const rows = panelRef.current?.querySelectorAll<HTMLElement>("[data-peek-idx]");
     rows?.forEach((el) => {
-      el.classList.toggle(
-        "peek-panel__row--selected",
-        el.dataset.peekIdx === String(idx),
-      );
+      el.classList.toggle("peek-panel__row--selected", el.dataset.peekIdx === String(idx));
       if (el.dataset.peekIdx === String(idx)) {
         el.scrollIntoView({ block: "nearest" });
       }
@@ -167,12 +164,7 @@ export default function PeekPanel({ top, left, data, loading, onNavigate, onClos
           >
             <ArrowDown size={11} />
           </button>
-          <button
-            type="button"
-            className="peek-panel__close"
-            onClick={onClose}
-            title="Close (Esc)"
-          >
+          <button type="button" className="peek-panel__close" onClick={onClose} title="Close (Esc)">
             <X size={13} />
           </button>
         </div>
