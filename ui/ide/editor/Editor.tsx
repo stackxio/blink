@@ -6,7 +6,10 @@ import SymbolSearch from "./SymbolSearch";
 import { LspClient } from "./lsp-client";
 import { parseDiff } from "./git-gutter";
 import { type ConflictRegion, findConflicts } from "./merge-conflicts";
-import { applyLspDiagnostics, registerLspProviders } from "./monaco-lsp";
+import { applyLspDiagnostics, registerLspProviders, findUsages } from "./monaco-lsp";
+import type { PeekData } from "./PeekPanel";
+import PeekPanel from "./PeekPanel";
+import { loadKeymap } from "@/lib/key-bindings";
 import { registerInlineCompletions } from "./monaco-inline-completions";
 import {
   getLanguageId,
@@ -194,6 +197,13 @@ export default function Editor({
     selection: null,
     selectedText: "",
   });
+
+  const [peekPanel, setPeekPanel] = useState<{
+    top: number;
+    left: number;
+    loading: boolean;
+    data: PeekData | null;
+  } | null>(null);
 
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -398,6 +408,117 @@ export default function Editor({
         });
     }, 250);
   }, []);
+
+  const showPeekPanel = useCallback(
+    async (
+      pos: { line: number; col: number },
+      coords: { top: number; left: number },
+    ) => {
+      const editor = editorRef.current;
+      const model = modelRef.current;
+      const client = lspClientRef.current;
+      const fileUri = currentFileUriRef.current;
+      if (!editor || !model || !client || !fileUri) return;
+
+      // Get the word under cursor for the panel title
+      const wordInfo = model.getWordAtPosition({ lineNumber: pos.line, column: pos.col });
+      const symbolName = wordInfo?.word ?? "";
+
+      // Show panel in loading state immediately
+      setPeekPanel({ top: coords.top, left: coords.left, loading: true, data: null });
+
+      try {
+        const { definition, references } = await findUsages(client, fileUri, pos.line, pos.col);
+
+        // Collect all unique file paths to read
+        const pathsToRead = new Set<string>();
+        if (definition) pathsToRead.add(definition.path);
+        for (const ref of references) pathsToRead.add(ref.path);
+
+        // Read all referenced files in parallel, extract line content
+        const fileContents = new Map<string, string[]>();
+        await Promise.all(
+          [...pathsToRead].map(async (p) => {
+            try {
+              const text = await invoke<string>("read_file_content", { path: p });
+              fileContents.set(p, text.split("\n"));
+            } catch {
+              fileContents.set(p, []);
+            }
+          }),
+        );
+
+        function lineText(path: string, line: number): string {
+          const lines = fileContents.get(path);
+          return lines?.[line - 1] ?? "";
+        }
+
+        // Definition with line text
+        const defWithText =
+          definition
+            ? { ...definition, lineText: lineText(definition.path, definition.line) }
+            : null;
+
+        // Filter references that are NOT the definition
+        const usageRefs = references.filter(
+          (r) =>
+            !(definition && r.path === definition.path && r.line === definition.line),
+        );
+
+        // Group usages by file, build dirLabel from path
+        const groupMap = new Map<string, typeof usageRefs>();
+        for (const ref of usageRefs) {
+          const arr = groupMap.get(ref.path) ?? [];
+          arr.push(ref);
+          groupMap.set(ref.path, arr);
+        }
+
+        const wsPath = workspacePathRef.current ?? "";
+        const fileGroups = [...groupMap.entries()].map(([filePath, refs]) => {
+          const parts = filePath.replace(/\\/g, "/").split("/");
+          const fileName = parts[parts.length - 1] ?? filePath;
+          const relFull = wsPath && filePath.startsWith(wsPath)
+            ? filePath.slice(wsPath.length + 1)
+            : filePath;
+          const relParts = relFull.replace(/\\/g, "/").split("/");
+          const dirLabel = relParts.slice(0, -1).join("/");
+          return {
+            filePath,
+            fileName,
+            dirLabel,
+            usages: refs.map((r) => ({ ...r, lineText: lineText(r.path, r.line) })),
+          };
+        });
+
+        // Build flat navigable items: def first, then refs in file-group order
+        const flatItems: Array<{ path: string; line: number; col: number }> = [];
+        if (defWithText) {
+          flatItems.push({ path: defWithText.path, line: defWithText.line, col: defWithText.character });
+        }
+        for (const g of fileGroups) {
+          for (const u of g.usages) {
+            flatItems.push({ path: u.path, line: u.line, col: u.character });
+          }
+        }
+
+        setPeekPanel({
+          top: coords.top,
+          left: coords.left,
+          loading: false,
+          data: {
+            symbolName,
+            definition: defWithText,
+            fileGroups,
+            totalUsages: usageRefs.length,
+            flatItems,
+          },
+        });
+      } catch {
+        setPeekPanel(null);
+      }
+    },
+    [],
+  );
 
   const closeInlineEdit = useCallback(() => {
     setInlineEdit((state) => ({
@@ -625,7 +746,11 @@ export default function Editor({
           editor.addAction({
             id: "blink.goto-line",
             label: "Go to Line",
-            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyG],
+            // VS Code: ⌘G  |  JetBrains: ⌘L
+            keybindings: [
+              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyG,
+              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyL,
+            ],
             run: async () => {
               await editor.getAction("editor.action.gotoLine")?.run();
             },
@@ -793,10 +918,16 @@ export default function Editor({
                 (path, line, col) => {
                   onNavigateRef.current?.(path, line, col);
                 },
-                { semanticHighlighting: getStoredEditorOptions().semanticHighlighting },
+                {
+                  semanticHighlighting: getStoredEditorOptions().semanticHighlighting,
+                  keymap: loadKeymap(),
+                },
               );
               providersRef.current = providers;
-              definitionActionRef.current = providers.definitionAction(editor);
+              definitionActionRef.current = providers.definitionAction(
+                editor,
+                (pos, coords) => { void showPeekPanel(pos, coords); },
+              );
             })
             .catch(() => {});
         } else {
@@ -1183,6 +1314,19 @@ export default function Editor({
             Cancel
           </button>
         </div>
+      )}
+
+      {peekPanel && (
+        <PeekPanel
+          top={peekPanel.top}
+          left={peekPanel.left}
+          loading={peekPanel.loading}
+          data={peekPanel.data}
+          onNavigate={(path, line, col) => {
+            onNavigateRef.current?.(path, line, col);
+          }}
+          onClose={() => setPeekPanel(null)}
+        />
       )}
 
       {blameInfo && (

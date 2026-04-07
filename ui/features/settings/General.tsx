@@ -4,10 +4,13 @@ import {
   BINDINGS,
   loadBindings,
   saveBindings,
+  loadKeymap,
+  saveKeymap,
   effectiveKey,
   formatKey,
   keyFromEvent,
   type BindingMap,
+  type Keymap,
 } from "@/lib/key-bindings";
 import { useAppStore } from "@/store";
 
@@ -42,6 +45,7 @@ export default function SettingsGeneral() {
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
+  const [keymap, setKeymap] = useState<Keymap>(() => loadKeymap());
   const [recording, setRecording] = useState<string | null>(null);
   const recordingRef = useRef<string | null>(null);
 
@@ -400,9 +404,32 @@ export default function SettingsGeneral() {
 
       <h2 className="settings-section__subtitle">Keyboard shortcuts</h2>
       <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Keymap</div>
+            <div className="settings-row__hint">
+              Switch between VS Code and JetBrains keyboard shortcuts.
+            </div>
+          </div>
+          <div className="segment-control">
+            {(["vscode", "jetbrains"] as Keymap[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`segment-control__item ${keymap === k ? "segment-control__item--active" : ""}`}
+                onClick={() => {
+                  setKeymap(k);
+                  saveKeymap(k);
+                }}
+              >
+                {k === "vscode" ? "VS Code" : "JetBrains"}
+              </button>
+            ))}
+          </div>
+        </div>
         {BINDINGS.map((b) => {
           const isRecording = recording === b.id;
-          const key = effectiveKey(b.id, bindingMap);
+          const key = effectiveKey(b.id, bindingMap, keymap);
           return (
             <div key={b.id} className="settings-row">
               <div className="settings-row__label">{b.label}</div>

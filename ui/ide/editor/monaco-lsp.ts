@@ -168,6 +168,7 @@ export function applyLspDiagnostics(
 
 export interface LspProviderOptions {
   semanticHighlighting?: boolean;
+  keymap?: "vscode" | "jetbrains";
 }
 
 export function registerLspProviders(
@@ -538,21 +539,38 @@ export function registerLspProviders(
     await navigateToDefinitionAt(position.lineNumber, position.column);
   }
 
-  const definitionAction = (editor: any) => {
+  const isJetBrains = options?.keymap === "jetbrains";
+
+  const definitionAction = (
+    editor: any,
+    onPeek?: (pos: { line: number; col: number }, coords: { top: number; left: number }) => void,
+  ) => {
+    const goToDefinitionKeys = isJetBrains
+      ? [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyB] // ⌘B
+      : [monacoApi.KeyCode.F12, monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.F12];
     editor.addAction({
       id: `blink.go-to-definition.${fileUri}`,
       label: "Go to Definition",
-      keybindings: [monacoApi.KeyCode.F12, monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.F12],
+      keybindings: goToDefinitionKeys,
       run: () => navigateToDefinition(editor),
     });
-    // Alt+F12 — peek definition (navigates in-place; full widget requires model registry)
+    const peekDefinitionKeys = isJetBrains
+      ? [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyY] // ⌘Y
+      : [monacoApi.KeyMod.Alt | monacoApi.KeyCode.F12];
+    // Peek usages (GoLand-style floating panel)
     editor.addAction({
       id: `blink.peek-definition.${fileUri}`,
-      label: "Peek Definition",
-      keybindings: [monacoApi.KeyMod.Alt | monacoApi.KeyCode.F12],
-      run: () => navigateToDefinition(editor),
+      label: "Peek Usages",
+      keybindings: peekDefinitionKeys,
+      run: () => {
+        const position = editor.getPosition();
+        if (!position || !onPeek) return;
+        const coords = editor.getScrolledVisiblePosition(position);
+        if (!coords) return;
+        onPeek({ line: position.lineNumber, col: position.column }, coords);
+      },
     });
-    // Cmd+Click — intercept before Monaco tries to open the file internally
+    // Cmd+Click — show GoLand-style peek panel instead of navigating directly
     editor.onMouseDown((e: any) => {
       if (!e.event.metaKey && !e.event.ctrlKey) return;
       // MouseTargetType.CONTENT_TEXT = 6
@@ -561,6 +579,13 @@ export function registerLspProviders(
       if (!pos) return;
       e.event.preventDefault();
       e.event.stopPropagation();
+      if (onPeek) {
+        const coords = editor.getScrolledVisiblePosition(pos);
+        if (coords) {
+          onPeek({ line: pos.lineNumber, col: pos.column }, coords);
+          return;
+        }
+      }
       void navigateToDefinitionAt(pos.lineNumber, pos.column);
     });
   };
@@ -580,4 +605,46 @@ export function registerLspProviders(
       inlayHintsDisposable.dispose();
     },
   };
+}
+
+// ── Find Usages (GoLand-style peek) ───────────────────────────────────────────
+
+export interface UsageLocation {
+  uri: string;       // file:// URI
+  path: string;      // absolute path (uri without file://)
+  line: number;      // 1-based
+  character: number; // 1-based
+}
+
+export async function findUsages(
+  client: LspClient,
+  fileUri: string,
+  line: number,  // 1-based
+  col: number,   // 1-based
+): Promise<{ definition: UsageLocation | null; references: UsageLocation[] }> {
+  const [defResult, refsResult] = await Promise.allSettled([
+    client.definition(fileUri, line - 1, col - 1) as Promise<LspLocation[] | LspLocation | null>,
+    client.references(fileUri, line - 1, col - 1) as Promise<LspLocation[] | null>,
+  ]);
+
+  const defRaw = defResult.status === "fulfilled" ? defResult.value : null;
+  const defLoc = Array.isArray(defRaw) ? (defRaw[0] ?? null) : (defRaw as LspLocation | null);
+  const definition: UsageLocation | null = defLoc
+    ? {
+        uri: defLoc.uri,
+        path: defLoc.uri.replace(/^file:\/\//, ""),
+        line: defLoc.range.start.line + 1,
+        character: defLoc.range.start.character + 1,
+      }
+    : null;
+
+  const refsRaw = refsResult.status === "fulfilled" ? (refsResult.value ?? []) : [];
+  const references: UsageLocation[] = refsRaw.map((loc) => ({
+    uri: loc.uri,
+    path: loc.uri.replace(/^file:\/\//, ""),
+    line: loc.range.start.line + 1,
+    character: loc.range.start.character + 1,
+  }));
+
+  return { definition, references };
 }

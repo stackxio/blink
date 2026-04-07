@@ -25,7 +25,28 @@ export const BINDINGS: Binding[] = [
   { id: "peek_definition", label: "Peek definition", defaultKey: "Alt+F12" },
 ];
 
+/**
+ * JetBrains macOS keymap overrides.
+ * Only bindings that differ from the VS Code defaults are listed here.
+ */
+export const JETBRAINS_DEFAULTS: Partial<Record<string, string>> = {
+  go_to_file: "Meta+Shift+o",         // ⌘⇧O  Go to File
+  command_palette: "Meta+Shift+a",     // ⌘⇧A  Find Action
+  toggle_sidebar: "Meta+1",            // ⌘1   Project tool window
+  toggle_ai_panel: "Meta+Shift+l",    // ⌘⇧L  AI panel (freeing ⌘L for Go to Line)
+  toggle_terminal: "Alt+F12",          // ⌥F12 Terminal
+  go_to_line: "Meta+l",               // ⌘L   Go to Line
+  // next_tab / previous_tab: keep VS Code defaults (Meta+Tab / Meta+Shift+Tab)
+  // symbol_search_workspace: keep VS Code default (Meta+t); ⌘⌥O uses Alt which produces ø on macOS
+  symbol_search_document: "Meta+F12", // ⌘F12 File Structure
+  go_to_definition: "Meta+b",         // ⌘B   Go to Declaration
+  peek_definition: "Meta+y",          // ⌘Y   Quick Definition
+};
+
+export type Keymap = "vscode" | "jetbrains";
+
 const STORAGE_KEY = "codrift:keybindings";
+const KEYMAP_STORAGE_KEY = "codrift:keymap";
 
 export type BindingMap = Record<string, string>;
 
@@ -41,8 +62,25 @@ export function saveBindings(map: BindingMap) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
-export function effectiveKey(id: string, map: BindingMap): string {
-  return map[id] ?? BINDINGS.find((b) => b.id === id)?.defaultKey ?? "";
+export function loadKeymap(): Keymap {
+  const stored = localStorage.getItem(KEYMAP_STORAGE_KEY);
+  return stored === "jetbrains" ? "jetbrains" : "vscode";
+}
+
+export function saveKeymap(keymap: Keymap) {
+  localStorage.setItem(KEYMAP_STORAGE_KEY, keymap);
+  window.dispatchEvent(
+    new StorageEvent("storage", { key: KEYMAP_STORAGE_KEY, newValue: keymap }),
+  );
+}
+
+export function effectiveKey(id: string, map: BindingMap, keymap: Keymap = "vscode"): string {
+  // User override always wins
+  if (map[id]) return map[id];
+  // Keymap-specific default
+  if (keymap === "jetbrains" && JETBRAINS_DEFAULTS[id]) return JETBRAINS_DEFAULTS[id]!;
+  // VS Code default
+  return BINDINGS.find((b) => b.id === id)?.defaultKey ?? "";
 }
 
 /** "Meta+n" → "⌘N", "Meta+Shift+p" → "⇧⌘P" */
@@ -55,6 +93,8 @@ export function formatKey(key: string): string {
           return "⌘";
         case "Ctrl":
           return "⌃";
+        case "F12":
+          return "F12";
         case "Alt":
           return "⌥";
         case "Shift":
@@ -76,11 +116,14 @@ export function matchesKey(e: KeyboardEvent, key: string): boolean {
   if (!key) return false;
   const parts = key.split("+");
   const mainKey = parts[parts.length - 1];
-  const needsMeta = parts.includes("Meta");
+  const needsMeta = parts.includes("Meta"); // cross-platform: matches Cmd (macOS) or Ctrl (Win/Linux)
+  const needsCtrl = parts.includes("Ctrl"); // literal Ctrl key (e.g. Ctrl+`)
   const needsShift = parts.includes("Shift");
   const needsAlt = parts.includes("Alt");
 
-  if (needsMeta !== (e.metaKey || e.ctrlKey)) return false;
+  if (needsMeta && !(e.metaKey || e.ctrlKey)) return false;
+  if (!needsMeta && !needsCtrl && (e.metaKey || e.ctrlKey)) return false;
+  if (needsCtrl && !e.ctrlKey) return false;
   if (needsShift !== e.shiftKey) return false;
   if (needsAlt !== e.altKey) return false;
   return e.key === mainKey || e.key.toLowerCase() === mainKey.toLowerCase();

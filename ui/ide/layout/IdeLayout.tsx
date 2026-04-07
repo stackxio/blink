@@ -3,7 +3,7 @@ import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useAppStore } from "@/store";
-import { loadBindings, matchesKey, effectiveKey } from "@/lib/key-bindings";
+import { loadBindings, loadKeymap, matchesKey, effectiveKey } from "@/lib/key-bindings";
 import Titlebar from "./Titlebar";
 import ActivityBar from "./ActivityBar";
 import TabBar from "./TabBar";
@@ -338,68 +338,81 @@ export default function IdeLayout() {
   // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (e.ctrlKey && e.key === "`") {
+      const map = loadBindings();
+      const km = loadKeymap();
+
+      // toggle_terminal: Ctrl+` (VS Code) | Alt+F12 (JetBrains)
+      if (matchesKey(e, effectiveKey("toggle_terminal", map, km))) {
         e.preventDefault();
         toggleBottomPanel();
         return;
       }
-      // Cmd+L — toggle AI panel
-      if ((e.metaKey || e.ctrlKey) && e.key === "l") {
+      // toggle_ai_panel: Cmd+L (both keymaps)
+      if (matchesKey(e, effectiveKey("toggle_ai_panel", map, km))) {
         e.preventDefault();
         toggleAiPanel();
         return;
       }
-      // Cmd+Shift+P — command palette / Cmd+P — file search
-      if ((e.metaKey || e.ctrlKey) && (e.key === "p" || e.key === "P")) {
+      // go_to_file: Cmd+P (VS Code) | Cmd+Shift+O (JetBrains)
+      if (matchesKey(e, effectiveKey("go_to_file", map, km))) {
         e.preventDefault();
-        if (e.shiftKey) {
-          setCommandPaletteOpen((v) => !v);
-        } else {
-          setFileSearchOpen((v) => !v);
-        }
+        setFileSearchOpen((v) => !v);
         return;
       }
-      // Cmd+Shift+O — document symbol search
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "o" || e.key === "O")) {
+      // command_palette: Cmd+Shift+P (VS Code) | Cmd+Shift+A (JetBrains)
+      if (matchesKey(e, effectiveKey("command_palette", map, km))) {
+        e.preventDefault();
+        setCommandPaletteOpen((v) => !v);
+        return;
+      }
+      // symbol_search_document: Cmd+Shift+O (VS Code) | Cmd+F12 (JetBrains)
+      if (matchesKey(e, effectiveKey("symbol_search_document", map, km))) {
         e.preventDefault();
         setSymbolSearchMode((m) => (m === "document" ? null : "document"));
         return;
       }
-      // Cmd+T — workspace symbol search
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === "t") {
+      // symbol_search_workspace: Cmd+T (VS Code) | Cmd+Alt+O (JetBrains)
+      if (matchesKey(e, effectiveKey("symbol_search_workspace", map, km))) {
         e.preventDefault();
         setSymbolSearchMode((m) => (m === "workspace" ? null : "workspace"));
         return;
       }
-      // Cmd+Shift+T — reopen last closed tab
+      // Cmd+Shift+T — reopen last closed tab (hardcoded, not in keybinding settings)
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "t" || e.key === "T")) {
         e.preventDefault();
         reopenClosedTab();
         return;
       }
-      // Cmd+Shift+F — focus sidebar search with selected text
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === "f" || e.key === "F")) {
+      // search_in_files: Cmd+Shift+F (same in both keymaps)
+      if (matchesKey(e, effectiveKey("search_in_files", map, km))) {
         e.preventDefault();
         const selectedText = window.getSelection()?.toString()?.trim() || "";
         setSidePanelView("search");
         setTimeout(() => searchPanelRef.current?.focusInput(selectedText), 50);
         return;
       }
-      // Cmd+Tab / Cmd+Shift+Tab — cycle through open files
-      if ((e.metaKey || e.ctrlKey) && e.key === "Tab") {
+      // next_tab: Cmd+Tab (VS Code) | Cmd+Tab (JetBrains, same default)
+      if (matchesKey(e, effectiveKey("next_tab", map, km))) {
         e.preventDefault();
         const ws = useAppStore.getState().activeWorkspace();
         if (ws && ws.openFiles.length > 1) {
           const count = ws.openFiles.length;
-          const nextIdx = e.shiftKey
-            ? (ws.activeFileIdx - 1 + count) % count
-            : (ws.activeFileIdx + 1) % count;
-          setActiveFile(nextIdx);
+          setActiveFile((ws.activeFileIdx + 1) % count);
         }
         return;
       }
-      // Cmd+W — close active tab
-      if ((e.metaKey || e.ctrlKey) && e.key === "w") {
+      // previous_tab: Cmd+Shift+Tab (VS Code) | Cmd+Shift+Tab (JetBrains, same default)
+      if (matchesKey(e, effectiveKey("previous_tab", map, km))) {
+        e.preventDefault();
+        const ws = useAppStore.getState().activeWorkspace();
+        if (ws && ws.openFiles.length > 1) {
+          const count = ws.openFiles.length;
+          setActiveFile((ws.activeFileIdx - 1 + count) % count);
+        }
+        return;
+      }
+      // close_tab: Cmd+W (same in both)
+      if (matchesKey(e, effectiveKey("close_tab", map, km))) {
         e.preventDefault();
         const ws = useAppStore.getState().activeWorkspace();
         if (ws && ws.activeFileIdx >= 0) {
@@ -407,8 +420,8 @@ export default function IdeLayout() {
         }
         return;
       }
-      // Cmd+O — open file
-      if ((e.metaKey || e.ctrlKey) && e.key === "o") {
+      // open_file: Cmd+O (same in both)
+      if (matchesKey(e, effectiveKey("open_file", map, km))) {
         e.preventDefault();
         invoke<string[]>("open_file_dialog")
           .then((paths) => {
@@ -421,7 +434,21 @@ export default function IdeLayout() {
           .catch(() => {});
         return;
       }
+      // toggle_sidebar: Cmd+B (VS Code) | Cmd+1 (JetBrains)
+      // Check before workspace digit switch so JetBrains Cmd+1 toggles sidebar, not workspace
+      if (matchesKey(e, effectiveKey("toggle_sidebar", map, km))) {
+        e.preventDefault();
+        toggleSidePanel();
+        return;
+      }
+      // open_settings: Cmd+, (same in both)
+      if (matchesKey(e, effectiveKey("open_settings", map, km))) {
+        e.preventDefault();
+        openSettings();
+        return;
+      }
       // Cmd+1–9 — switch to workspace by index
+      // In JetBrains mode, Cmd+1 = toggle_sidebar (already handled above, so won't reach here for 1)
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
         const digit = parseInt(e.key, 10);
         if (digit >= 1 && digit <= 9) {
@@ -430,23 +457,14 @@ export default function IdeLayout() {
           if (target) {
             e.preventDefault();
             state.setActiveWorkspace(target.id);
-            return;
           }
         }
-      }
-      const map = loadBindings();
-      if (matchesKey(e, effectiveKey("toggle_sidebar", map))) {
-        e.preventDefault();
-        toggleSidePanel();
-      } else if (matchesKey(e, effectiveKey("open_settings", map))) {
-        e.preventDefault();
-        openSettings();
       }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard handler uses refs and store getState(), doesn't need all deps
-  }, [navigate, openSettings, toggleBottomPanel, toggleSidePanel]);
+  }, [navigate, openSettings, toggleAiPanel, toggleBottomPanel, toggleSidePanel]);
 
   useEffect(() => {
     if (!activeFile) {
