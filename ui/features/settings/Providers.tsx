@@ -88,7 +88,18 @@ export default function SettingsProviders() {
             </div>
             <div className="settings-row__hint">Connect to a local Ollama server</div>
           </div>
-          <span className="settings-row__value" style={isOllamaActive ? { color: "var(--c-success)", borderColor: "var(--c-success)", background: "color-mix(in srgb, var(--c-success) 10%, transparent)" } : undefined}>
+          <span
+            className="settings-row__value"
+            style={
+              isOllamaActive
+                ? {
+                    color: "var(--c-success)",
+                    borderColor: "var(--c-success)",
+                    background: "color-mix(in srgb, var(--c-success) 10%, transparent)",
+                  }
+                : undefined
+            }
+          >
             {isOllamaActive ? "ACTIVE" : "SET ACTIVE"}
           </span>
         </button>
@@ -151,7 +162,18 @@ export default function SettingsProviders() {
             </div>
             <div className="settings-row__hint">Any OpenAI-compatible endpoint</div>
           </div>
-          <span className="settings-row__value" style={isCustomActive ? { color: "var(--c-success)", borderColor: "var(--c-success)", background: "color-mix(in srgb, var(--c-success) 10%, transparent)" } : undefined}>
+          <span
+            className="settings-row__value"
+            style={
+              isCustomActive
+                ? {
+                    color: "var(--c-success)",
+                    borderColor: "var(--c-success)",
+                    background: "color-mix(in srgb, var(--c-success) 10%, transparent)",
+                  }
+                : undefined
+            }
+          >
             {isCustomActive ? "ACTIVE" : "SET ACTIVE"}
           </span>
         </button>

@@ -46,7 +46,9 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   // Load combined skills once — passed to agents that support --system-prompt
   useEffect(() => {
     invoke<string>("get_combined_skills")
-      .then((s) => { skillsRef.current = s; })
+      .then((s) => {
+        skillsRef.current = s;
+      })
       .catch(() => {});
   }, []);
 
