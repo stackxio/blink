@@ -10,7 +10,7 @@ import TabBar from "./TabBar";
 import PanelResizer from "./PanelResizer";
 import IdeStatusBar from "./IdeStatusBar";
 import FileTree, { type FileTreeHandle } from "@/ide/explorer/FileTree";
-import { ChevronsDownUp, SplitSquareHorizontal, X } from "lucide-react";
+import { ChevronsDownUp, FilePlus, FolderPlus, SplitSquareHorizontal, X } from "lucide-react";
 import FileSearch from "@/ide/explorer/FileSearch";
 import Editor from "@/ide/editor/Editor";
 import { FileViewer, isViewableFile } from "@/ide/editor/FileViewer";
@@ -599,6 +599,22 @@ export default function IdeLayout() {
                     <button
                       type="button"
                       className="side-panel__action-btn"
+                      onClick={() => fileTreeRef.current?.newFile()}
+                      title="New File"
+                    >
+                      <FilePlus size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="side-panel__action-btn"
+                      onClick={() => fileTreeRef.current?.newFolder()}
+                      title="New Folder"
+                    >
+                      <FolderPlus size={14} />
+                    </button>
+                    <button
+                      type="button"
+                      className="side-panel__action-btn"
                       onClick={() => fileTreeRef.current?.collapseAll()}
                       title="Collapse All"
                     >
@@ -870,6 +886,31 @@ export default function IdeLayout() {
                     )}
                   </button>
                 ))}
+                {/* Close bottom panel — always visible regardless of active tab */}
+                <button
+                  type="button"
+                  onClick={toggleBottomPanel}
+                  title="Close Panel"
+                  style={{
+                    marginLeft: "auto",
+                    marginRight: 6,
+                    height: 22,
+                    width: 22,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "transparent",
+                    border: "none",
+                    borderRadius: 4,
+                    color: "var(--c-muted-fg)",
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--c-fg)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--c-muted-fg)")}
+                >
+                  <X size={13} />
+                </button>
               </div>
               {/* Panel content */}
               <div

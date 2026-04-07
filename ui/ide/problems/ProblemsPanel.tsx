@@ -20,12 +20,10 @@ export default function ProblemsPanel() {
   const errors = entries.filter((d) => d.severity === 1).length;
   const warnings = entries.filter((d) => d.severity === 2).length;
 
-  function handleClick(uri: string, line: number) {
+  function handleClick(uri: string, line: number, character: number) {
     const path = uri.replace("file://", "");
     const name = path.split("/").pop() || path;
-    openFile(path, name, false);
-    // TODO: jump to line once editor exposes a navigate API
-    void line;
+    openFile(path, name, false, line + 1, character + 1);
   }
 
   return (
@@ -73,7 +71,7 @@ export default function ProblemsPanel() {
               <button
                 key={i}
                 type="button"
-                onClick={() => handleClick(entry.uri, entry.line)}
+                onClick={() => handleClick(entry.uri, entry.line, entry.character)}
                 style={{
                   display: "flex",
                   alignItems: "flex-start",

@@ -46,6 +46,8 @@ export interface FileTreeHandle {
   collapseAll: () => void;
   refresh: () => void;
   refreshPath: (path: string) => void;
+  newFile: () => void;
+  newFolder: () => void;
 }
 
 function cloneAtPath(
@@ -182,6 +184,12 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
         })
         .catch(() => {});
     },
+    newFile: () => {
+      if (rootPath) setCreating({ parentPath: rootPath, type: "file" });
+    },
+    newFolder: () => {
+      if (rootPath) setCreating({ parentPath: rootPath, type: "dir" });
+    },
   }));
 
   useEffect(() => {
@@ -304,22 +312,33 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     }
   }
 
+  function startCreating(parentPath: string, type: "file" | "dir", nodeToExpand?: TreeNode, nodePath?: number[]) {
+    setCreating({ parentPath, type });
+    setCtxMenu(null);
+    // Auto-expand collapsed directory so the InlineInput becomes visible
+    if (nodeToExpand && nodePath && nodeToExpand.is_dir && !nodeToExpand.expanded) {
+      void toggleDir(nodeToExpand, nodePath);
+    }
+  }
+
   function handleNewFile() {
     if (!ctxMenu) return;
-    const parentPath = ctxMenu.node.is_dir
+    const isDir = ctxMenu.node.is_dir;
+    const parentPath = isDir
       ? ctxMenu.node.path
       : ctxMenu.node.path.replace(/\/[^/]+$/, "");
-    setCreating({ parentPath, type: "file" });
-    setCtxMenu(null);
+    const nodePath = isDir ? findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined : undefined;
+    startCreating(parentPath, "file", isDir ? ctxMenu.node : undefined, nodePath);
   }
 
   function handleNewFolder() {
     if (!ctxMenu) return;
-    const parentPath = ctxMenu.node.is_dir
+    const isDir = ctxMenu.node.is_dir;
+    const parentPath = isDir
       ? ctxMenu.node.path
       : ctxMenu.node.path.replace(/\/[^/]+$/, "");
-    setCreating({ parentPath, type: "dir" });
-    setCtxMenu(null);
+    const nodePath = isDir ? findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined : undefined;
+    startCreating(parentPath, "dir", isDir ? ctxMenu.node : undefined, nodePath);
   }
 
   async function handleRenameSubmit(newName: string) {
@@ -502,6 +521,17 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
           )}
         </div>
       ) : (
+        <>
+          {/* Root-level new file/folder input */}
+          {creating && creating.parentPath === rootPath && (
+            <InlineInput
+              defaultValue=""
+              depth={0}
+              onSubmit={handleCreateSubmit}
+              onCancel={() => setCreating(null)}
+              placeholder={creating.type === "file" ? "filename…" : "folder name…"}
+            />
+          )}
         <TreeItems
           nodes={tree}
           depth={0}
@@ -519,6 +549,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
           onCreateSubmit={handleCreateSubmit}
           onMove={handleMove}
         />
+        </>
       )}
 
       {/* Context menu */}
