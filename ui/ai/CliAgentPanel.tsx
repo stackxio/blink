@@ -158,19 +158,22 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   useEffect(() => { workspacePathRef.current = workspacePath; }, [workspacePath]);
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
 
-  // ── Auto-resume all saved sessions on mount ──────────────────────────────────
-  const didAutoResume = useRef(false);
+  // ── Auto-resume all saved sessions once a real workspace path is known ────────
+  // workspacePath starts null because loadSavedWorkspaces() is async (invoke call).
+  // We must wait for it to resolve — if we fire with null we read the wrong key.
+  const didAutoResumeRef = useRef(false);
   useEffect(() => {
-    if (didAutoResume.current) return;
-    didAutoResume.current = true;
+    if (workspacePath === null) return; // workspace still loading — wait
+    if (didAutoResumeRef.current) return; // already ran (workspace switch guard)
+    didAutoResumeRef.current = true;
 
     const saved = loadSavedSessions(workspacePath);
     if (saved.length === 0) return;
 
-    // Clear persisted sessions immediately (new sessions will be persisted as they run)
+    // Clear immediately so a crash-loop can't keep re-spawning
     persistSavedSessions(workspacePath, []);
 
-    // Stagger starts slightly so PTYs don't all race at once
+    // Stagger starts so PTYs don't all race at once
     saved.forEach((s, i) => {
       setTimeout(() => {
         const agent = ALL_AGENTS.find((a) => a.id === s.agentId);
@@ -180,8 +183,8 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         createSessionDirect(agent, cmd, s.label);
       }, i * 200);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspacePath]);
 
   // ── Persist active sessions to localStorage whenever they change ─────────────
   useEffect(() => {
