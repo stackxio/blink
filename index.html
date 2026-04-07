@@ -31,6 +31,9 @@
               : "dark";
         document.documentElement.classList.add(resolved);
         document.documentElement.style.colorScheme = resolved;
+        // Set background immediately to avoid white flash before CSS loads
+        document.documentElement.style.background = resolved === "light" ? "#f5f5f5" : "#1e1e1e";
+        document.body && (document.body.style.background = resolved === "light" ? "#f5f5f5" : "#1e1e1e");
       })();
     </script>
   </head>
