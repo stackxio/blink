@@ -312,7 +312,12 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     }
   }
 
-  function startCreating(parentPath: string, type: "file" | "dir", nodeToExpand?: TreeNode, nodePath?: number[]) {
+  function startCreating(
+    parentPath: string,
+    type: "file" | "dir",
+    nodeToExpand?: TreeNode,
+    nodePath?: number[],
+  ) {
     setCreating({ parentPath, type });
     setCtxMenu(null);
     // Auto-expand collapsed directory so the InlineInput becomes visible
@@ -324,20 +329,20 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   function handleNewFile() {
     if (!ctxMenu) return;
     const isDir = ctxMenu.node.is_dir;
-    const parentPath = isDir
-      ? ctxMenu.node.path
-      : ctxMenu.node.path.replace(/\/[^/]+$/, "");
-    const nodePath = isDir ? findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined : undefined;
+    const parentPath = isDir ? ctxMenu.node.path : ctxMenu.node.path.replace(/\/[^/]+$/, "");
+    const nodePath = isDir
+      ? (findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined)
+      : undefined;
     startCreating(parentPath, "file", isDir ? ctxMenu.node : undefined, nodePath);
   }
 
   function handleNewFolder() {
     if (!ctxMenu) return;
     const isDir = ctxMenu.node.is_dir;
-    const parentPath = isDir
-      ? ctxMenu.node.path
-      : ctxMenu.node.path.replace(/\/[^/]+$/, "");
-    const nodePath = isDir ? findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined : undefined;
+    const parentPath = isDir ? ctxMenu.node.path : ctxMenu.node.path.replace(/\/[^/]+$/, "");
+    const nodePath = isDir
+      ? (findNodePath(treeRef.current, ctxMenu.node.path) ?? undefined)
+      : undefined;
     startCreating(parentPath, "dir", isDir ? ctxMenu.node : undefined, nodePath);
   }
 
@@ -532,23 +537,23 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
               placeholder={creating.type === "file" ? "filename…" : "folder name…"}
             />
           )}
-        <TreeItems
-          nodes={tree}
-          depth={0}
-          parentPath={[]}
-          onToggle={toggleDir}
-          onFileSelect={onFileSelect}
-          activeFilePath={activeFilePath}
-          onContextMenu={(e, node) => {
-            e.preventDefault();
-            setCtxMenu({ x: e.clientX, y: e.clientY, node });
-          }}
-          renaming={renaming}
-          onRenameSubmit={handleRenameSubmit}
-          creating={creating}
-          onCreateSubmit={handleCreateSubmit}
-          onMove={handleMove}
-        />
+          <TreeItems
+            nodes={tree}
+            depth={0}
+            parentPath={[]}
+            onToggle={toggleDir}
+            onFileSelect={onFileSelect}
+            activeFilePath={activeFilePath}
+            onContextMenu={(e, node) => {
+              e.preventDefault();
+              setCtxMenu({ x: e.clientX, y: e.clientY, node });
+            }}
+            renaming={renaming}
+            onRenameSubmit={handleRenameSubmit}
+            creating={creating}
+            onCreateSubmit={handleCreateSubmit}
+            onMove={handleMove}
+          />
         </>
       )}
 

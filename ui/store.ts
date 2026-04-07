@@ -150,7 +150,13 @@ interface AppState {
   setBottomPanelTab: (tab: BottomPanelTab) => void;
 
   // Per-workspace editor actions
-  openFile: (path: string, name: string, preview?: boolean, cursorLine?: number, cursorCol?: number) => void;
+  openFile: (
+    path: string,
+    name: string,
+    preview?: boolean,
+    cursorLine?: number,
+    cursorCol?: number,
+  ) => void;
   closeFile: (idx: number) => void;
   closeAllFiles: () => void;
   closeOtherFiles: (idx: number) => void;

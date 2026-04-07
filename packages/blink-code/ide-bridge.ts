@@ -469,9 +469,7 @@ rl.on("line", async (line) => {
     engine = ensureEngine();
 
     // Load active thread data
-    const threadData = currentThreadId
-      ? await loadThreadData(currentThreadId)
-      : { messages: [] };
+    const threadData = currentThreadId ? await loadThreadData(currentThreadId) : { messages: [] };
     if (threadData.messages.length > 0) {
       engine.setHistory(threadData.messages);
     }
