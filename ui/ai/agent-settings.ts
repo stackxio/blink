@@ -31,6 +31,7 @@ export const ALL_AGENTS: AgentDef[] = [
     description: "OpenAI's coding agent for reading, modifying, and running code across tasks.",
     binary: "codex",
     buildCmd: ({ customPath } = {}) => [customPath || "codex"],
+    resumeCmd: ({ customPath } = {}) => [customPath || "codex", "--resume"],
   },
   {
     id: "gemini",
