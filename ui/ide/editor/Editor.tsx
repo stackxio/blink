@@ -882,18 +882,21 @@ export default function Editor({
             },
           });
 
-          editor.addAction({
-            id: "blink.goto-line",
-            label: "Go to Line",
-            // VS Code: ⌘G  |  JetBrains: ⌘L
-            keybindings: [
-              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyG,
-              monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyL,
-            ],
-            run: async () => {
-              await editor.getAction("editor.action.gotoLine")?.run();
-            },
-          });
+          {
+            // ⌘L is Monaco's built-in "expand line selection" — only override it
+            // in JetBrains mode where ⌘L means Go to Line. In VS Code mode keep ⌘G only.
+            const isJetBrains = loadKeymap() === "jetbrains";
+            editor.addAction({
+              id: "blink.goto-line",
+              label: "Go to Line",
+              keybindings: isJetBrains
+                ? [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyL]
+                : [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyG],
+              run: async () => {
+                await editor.getAction("editor.action.gotoLine")?.run();
+              },
+            });
+          }
 
           editor.addAction({
             id: "blink.format",
