@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
+import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 
 export function getTerminalTheme() {
@@ -159,9 +160,24 @@ export function TerminalInstance({
       // Use Unicode 11 width tables so special chars (◇ ◆ — ─ etc.) render correctly
       term.unicode.activeVersion = "11";
 
-      // 3. Wait one animation frame so the browser has laid out the container,
-      //    then fit to get accurate cols/rows from actual pixel dimensions.
-      await new Promise<void>((r) => requestAnimationFrame(() => r()));
+      // Activate WebGL renderer for pixel-accurate character cell measurement.
+      // The canvas 2D renderer in WKWebView has imprecise text metrics which
+      // causes FitAddon to calculate a wrong column count.  With WebGL the GPU
+      // measures cells exactly, so the PTY is told the correct width and TUI
+      // apps like Claude Code stop getting garbled when typing.
+      // Fall back silently to the canvas renderer if WebGL is unavailable.
+      try {
+        const webgl = new WebglAddon();
+        webgl.onContextLoss(() => webgl.dispose());
+        term.loadAddon(webgl);
+      } catch {
+        // WebGL unavailable — canvas renderer is used automatically
+      }
+
+      // 3. Wait TWO animation frames so WKWebView's flex layout is fully resolved
+      //    before we measure cell dimensions.  One frame is sometimes not enough
+      //    for the AI panel's resizable flex column to reach its final pixel size.
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       if (disposed) {
         term.dispose();
         return;
@@ -205,7 +221,21 @@ export function TerminalInstance({
         }
       }
 
-      // 5. Wire up I/O.
+      // 5. After the PTY starts, force one more fit after a short delay.
+      //    TUI apps (Claude Code, Codex, Gemini…) render their initial UI
+      //    as soon as they receive the first PTY bytes.  If any layout
+      //    settling happened between step 3 and now the cols/rows would be
+      //    stale.  A SIGWINCH at ~300 ms makes every TUI app do a clean
+      //    full-width re-render with the correct dimensions.
+      let sigwinchTimer: ReturnType<typeof setTimeout> | null = spawn
+        ? setTimeout(() => {
+            sigwinchTimer = null;
+            if (disposed) return;
+            try { fit.fit(); } catch {}
+          }, 300)
+        : null;
+
+      // 6. Wire up I/O.
       term.onData((data) => {
         invoke("terminal_write", { id, data }).catch(() => {});
       });
@@ -243,6 +273,7 @@ export function TerminalInstance({
         unlisten?.();
         ro.disconnect();
         if (resizeTimer) clearTimeout(resizeTimer);
+        if (sigwinchTimer) clearTimeout(sigwinchTimer);
         term.dispose();
         termRef.current = null;
         fitRef.current = null;
