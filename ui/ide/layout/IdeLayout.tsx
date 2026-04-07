@@ -719,11 +719,7 @@ export default function IdeLayout() {
                         }}
                         onNavigate={(path, line, col) => {
                           const name = path.split("/").pop() || path;
-                          openFile(path, name, false);
-                          setTimeout(
-                            () => updateFileState(path, { cursorLine: line, cursorCol: col }),
-                            50,
-                          );
+                          openFile(path, name, false, line, col);
                         }}
                         symbolSearchMode={symbolSearchMode}
                         onSymbolSearchClose={() => setSymbolSearchMode(null)}

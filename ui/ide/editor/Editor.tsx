@@ -211,6 +211,29 @@ export default function Editor({
     onNavigateRef.current = onNavigate;
   }, [onNavigate]);
 
+  // Reposition cursor when navigating to a definition in an already-open file.
+  // (The mount effect only runs on file switch; this handles same-file and re-navigate.)
+  const prevCursorLineRef = useRef(initialCursorLine);
+  const prevCursorColRef = useRef(initialCursorCol);
+  useEffect(() => {
+    if (
+      initialCursorLine === prevCursorLineRef.current &&
+      initialCursorCol === prevCursorColRef.current
+    )
+      return;
+    prevCursorLineRef.current = initialCursorLine;
+    prevCursorColRef.current = initialCursorCol;
+    if (!initialCursorLine || initialCursorLine <= 0) return;
+    const editor = editorRef.current;
+    if (!editor) return;
+    const model = editor.getModel();
+    if (!model) return;
+    const lineNumber = Math.min(initialCursorLine, model.getLineCount());
+    const column = Math.min(initialCursorCol || 1, model.getLineMaxColumn(lineNumber));
+    editor.setPosition({ lineNumber, column });
+    editor.revealPositionInCenterIfOutsideViewport({ lineNumber, column });
+  }, [initialCursorLine, initialCursorCol]);
+
   useEffect(() => {
     findStateRef.current = findState;
   }, [findState]);

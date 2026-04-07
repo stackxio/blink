@@ -150,7 +150,7 @@ interface AppState {
   setBottomPanelTab: (tab: BottomPanelTab) => void;
 
   // Per-workspace editor actions
-  openFile: (path: string, name: string, preview?: boolean) => void;
+  openFile: (path: string, name: string, preview?: boolean, cursorLine?: number, cursorCol?: number) => void;
   closeFile: (idx: number) => void;
   closeAllFiles: () => void;
   closeOtherFiles: (idx: number) => void;
@@ -360,7 +360,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // ── Per-workspace editor ──
 
-  openFile: (path, name, preview = false) => {
+  openFile: (path, name, preview = false, cursorLine = 0, cursorCol = 0) => {
     set((s) => {
       if (s.workspaces.length === 0) {
         const id = `ws-${Date.now()}`;
@@ -370,8 +370,8 @@ export const useAppStore = create<AppState>((set, get) => ({
           name,
           modified: false,
           preview,
-          cursorLine: 0,
-          cursorCol: 0,
+          cursorLine,
+          cursorCol,
           scrollTop: 0,
           deleted: false,
         };
@@ -383,11 +383,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         const { openFiles } = ws;
         const existing = openFiles.findIndex((f) => f.path === path);
         if (existing !== -1) {
+          // File already open — switch to it and apply cursor if provided
           return {
             activeFileIdx: existing,
-            openFiles: preview
-              ? openFiles
-              : openFiles.map((f, i) => (i === existing ? { ...f, preview: false } : f)),
+            openFiles: openFiles.map((f, i) => {
+              if (i !== existing) return f;
+              const updated = preview ? f : { ...f, preview: false };
+              if (cursorLine > 0) return { ...updated, cursorLine, cursorCol };
+              return updated;
+            }),
           };
         }
         if (preview) {
@@ -399,8 +403,8 @@ export const useAppStore = create<AppState>((set, get) => ({
               name,
               modified: false,
               preview: true,
-              cursorLine: 0,
-              cursorCol: 0,
+              cursorLine,
+              cursorCol,
               scrollTop: 0,
               deleted: false,
             };
@@ -415,8 +419,8 @@ export const useAppStore = create<AppState>((set, get) => ({
               name,
               modified: false,
               preview,
-              cursorLine: 0,
-              cursorCol: 0,
+              cursorLine,
+              cursorCol,
               scrollTop: 0,
               deleted: false,
             },
