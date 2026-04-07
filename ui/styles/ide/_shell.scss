@@ -161,6 +161,12 @@
     .ide__editor-col {
       display: none !important;
     }
+    // Panel must grow to fill the full workspace width when editor is hidden
+    .ide__ai-panel {
+      flex: 1 !important;
+      width: auto !important;
+      min-width: 0 !important;
+    }
   }
 
   &__workspace--focus-editor {
