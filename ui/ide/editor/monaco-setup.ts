@@ -40,9 +40,9 @@ function normalizeColor(value: string) {
   return `${rgb}${alpha}`;
 }
 
-function defineBlinkTheme(monacoApi: any) {
+function defineCodriftTheme(monacoApi: any) {
   const isDark = document.documentElement.classList.contains("dark");
-  monacoApi.editor.defineTheme("blink", {
+  monacoApi.editor.defineTheme("codrift", {
     base: isDark ? "vs-dark" : "vs",
     inherit: true,
     rules: [],
@@ -71,7 +71,7 @@ function defineBlinkTheme(monacoApi: any) {
       "scrollbarSlider.activeBackground": isDark ? "#8b8b8b88" : "#88888877",
     },
   });
-  monacoApi.editor.setTheme("blink");
+  monacoApi.editor.setTheme("codrift");
 }
 
 export async function setupMonaco() {
@@ -127,19 +127,19 @@ export async function setupMonaco() {
         },
       };
 
-      defineBlinkTheme(monacoApi);
+      defineCodriftTheme(monacoApi);
       return monacoApi;
     })();
   }
 
   const monacoApi = await monacoPromise;
-  defineBlinkTheme(monacoApi);
+  defineCodriftTheme(monacoApi);
   return monacoApi;
 }
 
 export function observeMonacoTheme(monacoApi: any, onThemeChange: () => void) {
   const observer = new MutationObserver(() => {
-    defineBlinkTheme(monacoApi);
+    defineCodriftTheme(monacoApi);
     onThemeChange();
   });
   observer.observe(document.documentElement, {
@@ -233,7 +233,7 @@ export function releaseModel(monacoApi: any, uri: string) {
   if (nextRefs <= 0) {
     modelRefs.delete(uri);
     if (model) {
-      monacoApi.editor.setModelMarkers(model, "blink-lsp", []);
+      monacoApi.editor.setModelMarkers(model, "codrift-lsp", []);
       model.dispose();
     }
     return;

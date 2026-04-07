@@ -6,7 +6,7 @@ export interface AgentDef {
   description: string;
   /** Primary binary name used for PATH detection */
   binary: string;
-  buildCmd: (opts?: { customPath?: string }) => string[];
+  buildCmd: (opts?: { customPath?: string; skills?: string }) => string[];
 }
 
 export const ALL_AGENTS: AgentDef[] = [
@@ -16,7 +16,11 @@ export const ALL_AGENTS: AgentDef[] = [
     description:
       "Anthropic's coding agent for reading code, editing files, and running terminal workflows.",
     binary: "claude",
-    buildCmd: ({ customPath } = {}) => [customPath || "claude", "--dangerously-skip-permissions"],
+    buildCmd: ({ customPath, skills } = {}) => {
+      const cmd = [customPath || "claude", "--dangerously-skip-permissions"];
+      if (skills?.trim()) cmd.push("--system-prompt", skills);
+      return cmd;
+    },
   },
   {
     id: "codex",
@@ -30,7 +34,11 @@ export const ALL_AGENTS: AgentDef[] = [
     label: "Gemini",
     description: "Google's open-source terminal agent for coding, problem-solving, and task work.",
     binary: "gemini",
-    buildCmd: ({ customPath } = {}) => [customPath || "gemini"],
+    buildCmd: ({ customPath, skills } = {}) => {
+      const cmd = [customPath || "gemini"];
+      if (skills?.trim()) cmd.push("--system-prompt", skills);
+      return cmd;
+    },
   },
   {
     id: "opencode",

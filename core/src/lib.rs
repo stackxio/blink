@@ -218,6 +218,7 @@ pub fn run() {
             commands::skills::create_skill,
             commands::skills::delete_skill,
             commands::skills::reset_skills,
+            commands::skills::get_combined_skills,
             commands::editor::is_dir,
             commands::editor::read_dir,
             commands::editor::read_file_content,

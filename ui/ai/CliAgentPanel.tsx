@@ -33,6 +33,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
   const sessionCountsRef = useRef<Record<string, number>>({});
+  const skillsRef = useRef<string>("");
 
   // Detect which binaries are available in PATH
   useEffect(() => {
@@ -40,6 +41,13 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     invoke<string[]>("which_cli", { names: binaries })
       .then(setInstalledBinaries)
       .catch(() => setInstalledBinaries(binaries)); // dev fallback: assume all
+  }, []);
+
+  // Load combined skills once — passed to agents that support --system-prompt
+  useEffect(() => {
+    invoke<string>("get_combined_skills")
+      .then((s) => { skillsRef.current = s; })
+      .catch(() => {});
   }, []);
 
   // Compute visible agents: enabled in settings AND (in PATH OR custom path specified)
@@ -58,7 +66,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     const label = agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`;
 
     const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
-    const cmd = agent.buildCmd({ customPath });
+    const cmd = agent.buildCmd({ customPath, skills: skillsRef.current });
 
     // TerminalInstance will open xterm, measure its actual pixel dimensions via
     // FitAddon, then call terminal_create with the correct cols/rows — ensuring

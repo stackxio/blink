@@ -43,3 +43,9 @@ pub fn delete_skill(filename: String) -> Result<(), String> {
 pub fn reset_skills() -> Result<(), String> {
     prompts::reset_defaults().map_err(|e| e.to_string())
 }
+
+/// Return all skill files concatenated — used to inject into CLI agent sessions.
+#[tauri::command]
+pub fn get_combined_skills() -> String {
+    prompts::load_system_prompt()
+}

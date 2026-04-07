@@ -491,7 +491,7 @@ export default function Editor({
           const opts = getStoredEditorOptions();
           editor = monacoApi.editor.create(editorHostRef.current, {
             automaticLayout: true,
-            theme: "blink",
+            theme: "codrift",
             fontFamily: "var(--font-mono)",
             fontSize: opts.fontSize,
             lineHeight: Math.round(opts.fontSize * 1.6),

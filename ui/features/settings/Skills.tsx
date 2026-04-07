@@ -26,7 +26,7 @@ function SkillEditor({ value, onChange }: { value: string; onChange: (v: string)
       const editor = monacoApi.editor.create(hostRef.current, {
         value,
         language: "markdown",
-        theme: "blink",
+        theme: "codrift",
         automaticLayout: true,
         fontFamily: "var(--font-mono)",
         fontSize: 13,

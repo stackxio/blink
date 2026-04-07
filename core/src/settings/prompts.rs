@@ -85,7 +85,7 @@ pub fn load_system_prompt_with_mode(mode: &str) -> String {
     ensure_defaults();
 
     match mode {
-        "none" => "You are Blink, an AI operating layer built by Voxire.".to_string(),
+        "none" => "You are Codrift, an AI operating layer built by Voxire.".to_string(),
         "minimal" => {
             let dir = prompts_dir();
             let mut parts: Vec<String> = Vec::new();
