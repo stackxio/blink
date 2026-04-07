@@ -219,16 +219,14 @@ export default function IdeLayout() {
       if (!fileEntry) return;
       // Don't reload if user has unsaved changes
       if (fileEntry.modified) return;
-      // If this is the active file, reload content
       const isActive = ws.openFiles[ws.activeFileIdx]?.path === changedPath;
-      if (isActive) {
-        invoke<string>("read_file_content", { path: changedPath })
-          .then((content) => {
-            fileContentCacheRef.current.set(changedPath, content);
-            setFileContent(content);
-          })
-          .catch(() => {});
-      }
+      // Always bust the cache so switching to this tab shows fresh content
+      invoke<string>("read_file_content", { path: changedPath })
+        .then((content) => {
+          fileContentCacheRef.current.set(changedPath, content);
+          if (isActive) setFileContent(content);
+        })
+        .catch(() => {});
     });
     return () => {
       unlisten.then((fn) => fn()).catch(() => {});

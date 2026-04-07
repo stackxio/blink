@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
+import { Unicode11Addon } from "@xterm/addon-unicode11";
 import "@xterm/xterm/css/xterm.css";
 
 export function getTerminalTheme() {
@@ -147,8 +148,12 @@ export function TerminalInstance({
       });
 
       const fit = new FitAddon();
+      const unicode11 = new Unicode11Addon();
       term.loadAddon(fit);
+      term.loadAddon(unicode11);
       term.open(container);
+      // Use Unicode 11 width tables so special chars (◇ ◆ — ─ etc.) render correctly
+      term.unicode.activeVersion = "11";
 
       // 3. Wait one animation frame so the browser has laid out the container,
       //    then fit to get accurate cols/rows from actual pixel dimensions.

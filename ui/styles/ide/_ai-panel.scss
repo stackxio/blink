@@ -2233,6 +2233,39 @@
     overflow: hidden;
   }
 
+  &__agent-group {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--c-border);
+    overflow: hidden;
+
+    .cli-agent-panel__agent-btn {
+      border: none;
+      border-radius: 0;
+    }
+  }
+
+  &__resume-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    height: 100%;
+    border: none;
+    border-left: 1px solid var(--c-border);
+    background: transparent;
+    color: var(--c-muted-fg);
+    font-size: 11px;
+    cursor: pointer;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-hover);
+      color: var(--c-fg);
+    }
+  }
+
   &__agent-btn {
     display: flex;
     align-items: center;

@@ -7,6 +7,8 @@ export interface AgentDef {
   /** Primary binary name used for PATH detection */
   binary: string;
   buildCmd: (opts?: { customPath?: string; skills?: string }) => string[];
+  /** If defined, a "Resume" button appears that runs this command instead */
+  resumeCmd?: (opts?: { customPath?: string }) => string[];
 }
 
 export const ALL_AGENTS: AgentDef[] = [
@@ -21,6 +23,7 @@ export const ALL_AGENTS: AgentDef[] = [
       if (skills?.trim()) cmd.push("--system-prompt", skills);
       return cmd;
     },
+    resumeCmd: ({ customPath } = {}) => [customPath || "claude", "--resume"],
   },
   {
     id: "codex",

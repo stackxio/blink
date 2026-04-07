@@ -60,7 +60,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     return installedBinaries.includes(agent.binary); // else must be in PATH
   });
 
-  function createSession(agent: AgentDef) {
+  function createSession(agent: AgentDef, cmd?: string[]) {
     sessionCounter++;
     const termId = `cli-agent-${Date.now()}-${sessionCounter}`;
     const agentCount = (sessionCountsRef.current[agent.id] ?? 0) + 1;
@@ -68,15 +68,22 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     const label = agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`;
 
     const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
-    const cmd = agent.buildCmd({ customPath, skills: skillsRef.current });
+    const resolvedCmd = cmd ?? agent.buildCmd({ customPath, skills: skillsRef.current });
 
     // TerminalInstance will open xterm, measure its actual pixel dimensions via
     // FitAddon, then call terminal_create with the correct cols/rows — ensuring
     // the process always starts at the width it will be displayed at.
-    const spawn: SpawnConfig = { cmd, cwd: workspacePath };
+    const spawn: SpawnConfig = { cmd: resolvedCmd, cwd: workspacePath };
 
     setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn }]);
     setActiveTermId(termId);
+  }
+
+  function resumeSession(agent: AgentDef) {
+    if (!agent.resumeCmd) return;
+    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+    const cmd = agent.resumeCmd({ customPath });
+    createSession(agent, cmd);
   }
 
   function startRename(termId: string, currentLabel: string) {
@@ -115,16 +122,27 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       <div className="cli-agent-panel__header">
         <div className="cli-agent-panel__agents">
           {visibleAgents.map((agent) => (
-            <button
-              key={agent.id}
-              type="button"
-              className="cli-agent-panel__agent-btn"
-              onClick={() => createSession(agent)}
-              title={`New ${agent.label} session`}
-            >
-              <AgentLogo agentId={agent.id} size={12} className="cli-agent-panel__agent-logo" />
-              {agent.label}
-            </button>
+            <div key={agent.id} className="cli-agent-panel__agent-group">
+              <button
+                type="button"
+                className="cli-agent-panel__agent-btn"
+                onClick={() => createSession(agent)}
+                title={`New ${agent.label} session`}
+              >
+                <AgentLogo agentId={agent.id} size={12} className="cli-agent-panel__agent-logo" />
+                {agent.label}
+              </button>
+              {agent.resumeCmd && (
+                <button
+                  type="button"
+                  className="cli-agent-panel__resume-btn"
+                  onClick={() => resumeSession(agent)}
+                  title={`Resume previous ${agent.label} session`}
+                >
+                  ↩
+                </button>
+              )}
+            </div>
           ))}
           {visibleAgents.length === 0 && (
             <span className="cli-agent-panel__no-agents">
