@@ -5,6 +5,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
+import { CanvasAddon } from "@xterm/addon-canvas";
 import "@xterm/xterm/css/xterm.css";
 
 export function getTerminalTheme() {
@@ -141,12 +142,19 @@ export function TerminalInstance({
         cursorBlink: true,
         lineHeight: 1.2,
         fontSize: 13,
+        // Non-zero letterSpacing adds fractional pixels between chars, causing
+        // FitAddon to drift column counts.  Explicit 0 prevents accidental overrides.
+        letterSpacing: 0,
         scrollback: 5000,
         fontFamily: FONT_FAMILY,
-        // Bold face of most monospace fonts lacks Braille; keep it normal weight.
+        // Keep bold text at normal weight — switching to a bold face changes glyph
+        // metrics and misaligns the cursor after bold segments in TUI apps.
         fontWeightBold: "normal",
         // Don't force bold for bright colors — would switch font face, lose Braille.
         drawBoldTextInBrightColors: false,
+        // Pixel-render box-drawing / block elements independent of font.  Critical
+        // for TUI borders, lines, and progress bars to render at exact cell boundaries.
+        customGlyphs: true,
         // Scale Nerd Font / Powerline icons to fit their cell.
         rescaleOverlappingGlyphs: true,
         theme: getTerminalTheme(),
@@ -171,7 +179,14 @@ export function TerminalInstance({
         webgl.onContextLoss(() => webgl.dispose());
         term.loadAddon(webgl);
       } catch {
-        // WebGL unavailable — canvas renderer is used automatically
+        // WebGL unavailable — load canvas renderer explicitly.
+        // Without this, xterm falls back to the DOM renderer which is the
+        // slowest and least accurate option for TUI column measurement.
+        try {
+          term.loadAddon(new CanvasAddon());
+        } catch {
+          // DOM renderer is the last resort — no action needed
+        }
       }
 
       // 3. Wait TWO animation frames so WKWebView's flex layout is fully resolved
