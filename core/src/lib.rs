@@ -22,8 +22,31 @@ fn get_startup_path(state: tauri::State<'_, std::sync::Mutex<StartupPath>>) -> O
     state.lock().unwrap().0.take()
 }
 
+#[tauri::command]
+fn restart_for_update() {
+    // Spawn the new process with CODRIFT_RELAUNCH=1 so it waits before acquiring
+    // the single-instance lock (giving us time to fully release it).
+    if let Ok(exe) = std::env::current_exe() {
+        std::process::Command::new(exe)
+            .env("CODRIFT_RELAUNCH", "1")
+            .spawn()
+            .ok();
+    }
+    // Exit immediately — releases the single-instance lock right away.
+    std::process::exit(0);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // If this process was spawned by restart_for_update, the previous instance may
+    // still be in the process of releasing its single-instance lock.  Waiting here,
+    // *before* tauri::Builder (which initialises the single-instance plugin), gives
+    // the old instance enough time to fully exit so we don't get a false "already
+    // running" collision and end up with a frozen / stuck window.
+    if std::env::var("CODRIFT_RELAUNCH").is_ok() {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+
     // Capture any file/folder path passed as the first CLI argument.
     // Filter out macOS process serial numbers (-psn_…) and other flags.
     let startup_path: Option<String> = std::env::args().skip(1).find(|a| !a.starts_with('-'));
@@ -193,6 +216,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_startup_path,
+            restart_for_update,
             commands::settings::get_settings,
             commands::settings::save_settings,
             commands::updater::check_for_update,

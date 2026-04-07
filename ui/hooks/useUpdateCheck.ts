@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import { invoke } from "@tauri-apps/api/core";
 
 type UpdateState =
   | { status: "idle" }
@@ -80,7 +80,11 @@ export function useUpdateCheck() {
   }, [state]);
 
   const restartNow = useCallback(async () => {
-    await relaunch();
+    // Use our custom Rust command instead of relaunch() from tauri-plugin-process.
+    // restart_for_update spawns the new binary with CODRIFT_RELAUNCH=1 then calls
+    // process::exit(0) immediately, so the old single-instance lock is released before
+    // the new process tries to acquire it — preventing the "stuck after update" race.
+    await invoke("restart_for_update");
   }, []);
 
   const hasUpdate = state.status === "available" && !dismissed;
