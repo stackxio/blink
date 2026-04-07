@@ -19,7 +19,7 @@ export async function loadMemory(workspacePath: string | null): Promise<MemoryPa
   let userMdPath: string | null = null;
   try {
     const homeDir = await invoke<string>("get_home_dir");
-    userMdPath = `${homeDir}/.blink/user.md`;
+    userMdPath = `${homeDir}/.codrift/user.md`;
     userMd = await invoke<string>("read_file_content", { path: userMdPath });
   } catch {
     userMd = null;
@@ -31,7 +31,7 @@ export async function loadMemory(workspacePath: string | null): Promise<MemoryPa
 
   let blinkMd: string | null = null;
   try {
-    const path = joinWithWorkspace(workspacePath, "BLINK.md");
+    const path = joinWithWorkspace(workspacePath, "CODRIFT.md");
     blinkMd = await invoke<string>("read_file_content", { path });
   } catch {
     blinkMd = null;

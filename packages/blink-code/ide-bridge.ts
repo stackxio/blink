@@ -76,7 +76,7 @@ function workspaceHash(workspacePath: string): string {
 
 function workspaceThreadsDir(workspacePath: string): string {
   const hash = workspaceHash(workspacePath);
-  return path.join(os.homedir(), ".blink", "sessions", hash, "threads");
+  return path.join(os.homedir(), ".codrift", "sessions", hash, "threads");
 }
 
 function threadFilePath(id: string): string {
@@ -145,7 +145,7 @@ async function initThreads(workspacePath: string): Promise<void> {
   if (threadsIndex.threads.length === 0) {
     const legacyFile = path.join(
       os.homedir(),
-      ".blink",
+      ".codrift",
       "sessions",
       workspaceHash(workspacePath),
       "history.json",

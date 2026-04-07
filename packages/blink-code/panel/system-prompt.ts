@@ -31,7 +31,7 @@ export async function buildSystemPrompt(
   }
 
   if (memory.blinkMd) {
-    lines.push("", "### Project memory (BLINK.md)", memory.blinkMd);
+    lines.push("", "### Project memory (CODRIFT.md)", memory.blinkMd);
   }
   if (memory.skillsSummary) {
     lines.push("", "### Available skills (names only)", memory.skillsSummary);

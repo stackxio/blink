@@ -38,7 +38,7 @@ export type BlinkCodeConfig = {
   allowTools: boolean;
 };
 
-const STORAGE_KEY = "blink-code-config";
+const STORAGE_KEY = "codrift-code-config";
 
 const DEFAULTS: BlinkCodeConfig = {
   provider: {

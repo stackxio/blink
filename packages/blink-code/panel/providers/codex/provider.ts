@@ -24,7 +24,7 @@ export function createCodexProvider(opts: Opts): ChatProvider {
       const lastUser = [...messages].reverse().find((m) => m.role === "user");
       const prompt = typeof lastUser?.content === "string" ? lastUser.content : "";
 
-      const codexHome = path.join(os.homedir(), ".blink", "codex");
+      const codexHome = path.join(os.homedir(), ".codrift", "codex");
 
       const child = spawn("codex", ["app-server"], {
         stdio: ["pipe", "pipe", "pipe"],
