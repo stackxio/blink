@@ -1,4 +1,5 @@
 import { createRoot } from "react-dom/client";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import "./styles/main.scss";
 import App from "./App";
 
@@ -16,4 +17,13 @@ document.addEventListener("contextmenu", (e) => {
   e.preventDefault();
 });
 
-createRoot(document.getElementById("root")!).render(<App />);
+const root = createRoot(document.getElementById("root")!);
+root.render(<App />);
+
+// Show the window only after the first paint to avoid the white-flash on launch.
+// The window starts hidden (visible: false in tauri.conf.json).
+requestAnimationFrame(() => {
+  requestAnimationFrame(() => {
+    getCurrentWindow().show().catch(() => {});
+  });
+});
