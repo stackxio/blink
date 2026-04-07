@@ -223,7 +223,12 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       {/* ── Terminal body ── */}
       <div className="cli-agent-panel__body">
         {sessions.length === 0 ? (
-          <EmptyState agents={visibleAgents} onSettings={onSettings} />
+          <EmptyState
+            agents={visibleAgents}
+            onSettings={onSettings}
+            onLaunch={(agent) => createSession(agent)}
+            onResume={(agent) => resumeSession(agent)}
+          />
         ) : (
           sessions.map((s) => (
             <div
@@ -242,24 +247,68 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
 // ── EmptyState ────────────────────────────────────────────────────────────────
 
-function EmptyState({ agents, onSettings }: { agents: AgentDef[]; onSettings: () => void }) {
-  const hint =
-    agents.length === 0
-      ? "Enable agents in Settings and make sure their CLI tools are installed."
-      : "Use the agent buttons above to open an embedded terminal session.";
-
-  return (
-    <div className="cli-agent-panel__empty">
-      <p className="cli-agent-panel__empty-title">
-        {agents.length === 0 ? "No agents available" : "Start an agent session"}
-      </p>
-      <p className="cli-agent-panel__empty-hint">{hint}</p>
-      {agents.length === 0 && (
+function EmptyState({
+  agents,
+  onSettings,
+  onLaunch,
+  onResume,
+}: {
+  agents: AgentDef[];
+  onSettings: () => void;
+  onLaunch: (agent: AgentDef) => void;
+  onResume: (agent: AgentDef) => void;
+}) {
+  if (agents.length === 0) {
+    return (
+      <div className="cli-agent-panel__empty">
+        <p className="cli-agent-panel__empty-title">No agents available</p>
+        <p className="cli-agent-panel__empty-hint">
+          Enable agents in Settings and make sure their CLI tools are installed.
+        </p>
         <button type="button" className="cli-agent-panel__empty-settings-btn" onClick={onSettings}>
           <Settings2 size={13} />
           Open Settings
         </button>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="cli-agent-panel__launcher">
+      <p className="cli-agent-panel__launcher-heading">Start an agent session</p>
+      <div className="cli-agent-panel__agent-cards">
+        {agents.map((agent) => (
+          <div key={agent.id} className="cli-agent-panel__agent-card">
+            <div className="cli-agent-panel__agent-card-logo">
+              <AgentLogo agentId={agent.id} size={22} />
+            </div>
+            <div className="cli-agent-panel__agent-card-body">
+              <span className="cli-agent-panel__agent-card-name">{agent.label}</span>
+              <span className="cli-agent-panel__agent-card-desc">{agent.description}</span>
+            </div>
+            <div className="cli-agent-panel__agent-card-actions">
+              <button
+                type="button"
+                className="cli-agent-panel__agent-card-btn cli-agent-panel__agent-card-btn--primary"
+                onClick={() => onLaunch(agent)}
+                title={`New ${agent.label} session`}
+              >
+                ▶ Start
+              </button>
+              {agent.resumeCmd && (
+                <button
+                  type="button"
+                  className="cli-agent-panel__agent-card-btn"
+                  onClick={() => onResume(agent)}
+                  title={`Resume previous ${agent.label} session`}
+                >
+                  ↩ Resume
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

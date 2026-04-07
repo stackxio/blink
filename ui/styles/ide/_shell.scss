@@ -7,10 +7,6 @@
   height: 100%;
   overflow: hidden;
 
-  &--ai-open {
-    grid-template-columns: var(--activity-bar-w) auto 1fr auto;
-  }
-
   // ── Titlebar ──
   &__titlebar {
     grid-row: 1;
@@ -50,15 +46,33 @@
   &__main {
     grid-row: 2;
     grid-column: 3;
-    @include flex-col;
-    @include full-height;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     background: var(--c-bg);
   }
 
+  // ── Workspace: flex row holding editor-col and ai-panel ──
+  &__workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  // ── Editor column: flex col holding editor-area + bottom panel ──
+  &__editor-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
   &__editor-area {
     flex: 1;
-    @include full-height;
+    min-width: 0;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -99,15 +113,14 @@
     }
   }
 
-  // ── AI panel — 4th grid column ──
+  // ── AI panel — inside __workspace flex row ──
   &__ai-panel {
-    grid-row: 2;
-    grid-column: 4;
     display: flex;
+    flex-direction: row;
     overflow: hidden;
     background: var(--c-bg);
-    border-left: 1px solid var(--c-border);
-    min-width: 35%;
+    flex-shrink: 0;
+    min-width: 400px;
   }
 
   // ── Status bar ──
@@ -117,5 +130,42 @@
     z-index: 6;
     background: var(--c-bg);
     border-top: 1px solid var(--c-border);
+  }
+
+  // ── Layout modes ──
+
+  // ai-center: AI panel in center (order 1), editor on right (order 2)
+  &__workspace--ai-center {
+    .ide__ai-panel {
+      order: 1;
+      border-right: 1px solid var(--c-border);
+    }
+    .ide__editor-col {
+      order: 2;
+    }
+  }
+
+  // editor-center: editor in center (order 1), AI panel on right (order 2)
+  &__workspace--editor-center {
+    .ide__ai-panel {
+      order: 2;
+      border-left: 1px solid var(--c-border);
+    }
+    .ide__editor-col {
+      order: 1;
+    }
+  }
+
+  // Focus modes
+  &__workspace--focus-ai {
+    .ide__editor-col {
+      display: none !important;
+    }
+  }
+
+  &__workspace--focus-editor {
+    .ide__ai-panel {
+      display: none !important;
+    }
   }
 }

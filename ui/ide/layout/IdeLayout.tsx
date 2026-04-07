@@ -33,9 +33,8 @@ export default function IdeLayout() {
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const toggleSidePanel = useAppStore((s) => s.toggleSidePanel);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
-  const aiPanelWidth = useAppStore((s) => s.aiPanelWidth);
   const toggleAiPanel = useAppStore((s) => s.toggleAiPanel);
-  const setAiPanelWidth = useAppStore((s) => s.setAiPanelWidth);
+  const setWsAiPanelWidth = useAppStore((s) => s.setWsAiPanelWidth);
   const addWorkspace = useAppStore((s) => s.addWorkspace);
   const openFile = useAppStore((s) => s.openFile);
   const closeFile = useAppStore((s) => s.closeFile);
@@ -73,6 +72,9 @@ export default function IdeLayout() {
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
   const bottomPanelTab = ws?.bottomPanelTab ?? "terminal";
   const sidePanelView = ws?.sidePanelView ?? "explorer";
+  const layoutMode = ws?.layoutMode ?? "ai-center";
+  const focusMode = ws?.focusMode ?? "both";
+  const wsAiPanelWidth = ws?.aiPanelWidth ?? 520;
   const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);
   const diagnosticSummary = useAppStore((s) => s.diagnosticSummary);
   const errorCount = diagnosticSummary.errors;
@@ -272,13 +274,8 @@ export default function IdeLayout() {
 
   const handleAiResize = useCallback(
     (delta: number) =>
-      setAiPanelWidth(
-        Math.max(
-          Math.round(window.innerWidth * 0.35),
-          Math.min(window.innerWidth - 200, aiPanelWidth - delta),
-        ),
-      ),
-    [aiPanelWidth, setAiPanelWidth],
+      setWsAiPanelWidth(Math.max(300, Math.min(window.innerWidth - 200, wsAiPanelWidth - delta))),
+    [wsAiPanelWidth, setWsAiPanelWidth],
   );
 
   const handleBottomResize = useCallback(
@@ -557,8 +554,17 @@ export default function IdeLayout() {
 
   const isEditorActive = activeFile && !settingsOpen;
 
+  const workspaceClasses = [
+    "ide__workspace",
+    `ide__workspace--${layoutMode}`,
+    focusMode === "ai-only" ? "ide__workspace--focus-ai" : "",
+    focusMode === "editor-only" ? "ide__workspace--focus-editor" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className={`ide ${aiPanelOpen ? "ide--ai-open" : ""}`}>
+    <div className="ide">
       {/* Titlebar with workspace tabs */}
       <div className="ide__titlebar">
         <Titlebar />
@@ -665,310 +671,319 @@ export default function IdeLayout() {
 
       {/* Main area */}
       <div className="ide__main">
-        <div className={`ide__editor-area${splitOpen ? " ide__editor-area--split" : ""}`}>
-          {/* Primary pane */}
-          <div className="editor-pane-wrap">
-            <TabBar
-              files={openFiles}
-              activeIdx={activeFileIdx}
-              workspacePath={workspacePath}
-              onSelect={setActiveFile}
-              onClose={handleCloseFile}
-              onCloseAll={handleCloseAllFiles}
-              onCloseOthers={handleCloseOtherFiles}
-              onPin={pinTab}
-              onUnpin={unpinTab}
-              onReopenClosed={reopenClosedTab}
-              hasClosedHistory={closedTabHistory.length > 0}
-            />
-            {isEditorActive && activeFile && (
-              <div className="breadcrumbs-row">
-                <Breadcrumbs
-                  filePath={activeFile.path}
+        <div className={workspaceClasses}>
+          {/* Editor column (editor area + bottom panel) */}
+          <div className="ide__editor-col">
+            <div className={`ide__editor-area${splitOpen ? " ide__editor-area--split" : ""}`}>
+              {/* Primary pane */}
+              <div className="editor-pane-wrap">
+                <TabBar
+                  files={openFiles}
+                  activeIdx={activeFileIdx}
                   workspacePath={workspacePath}
-                  onFolderClick={(path) => {
-                    setSidePanelView("explorer");
-                    if (!sidePanelOpen) toggleSidePanel();
-                    setTimeout(() => fileTreeRef.current?.refreshPath(path), 50);
-                  }}
+                  onSelect={setActiveFile}
+                  onClose={handleCloseFile}
+                  onCloseAll={handleCloseAllFiles}
+                  onCloseOthers={handleCloseOtherFiles}
+                  onPin={pinTab}
+                  onUnpin={unpinTab}
+                  onReopenClosed={reopenClosedTab}
+                  hasClosedHistory={closedTabHistory.length > 0}
                 />
-                <div className="breadcrumbs-row__actions">
-                  {activeFile.name.endsWith(".md") && (
-                    <button
-                      type="button"
-                      className={`md-toggle ${mdPreview ? "md-toggle--active" : ""}`}
-                      onClick={() => setMdPreview((v) => !v)}
-                      title="Toggle Markdown Preview"
+                {isEditorActive && activeFile && (
+                  <div className="breadcrumbs-row">
+                    <Breadcrumbs
+                      filePath={activeFile.path}
+                      workspacePath={workspacePath}
+                      onFolderClick={(path) => {
+                        setSidePanelView("explorer");
+                        if (!sidePanelOpen) toggleSidePanel();
+                        setTimeout(() => fileTreeRef.current?.refreshPath(path), 50);
+                      }}
+                    />
+                    <div className="breadcrumbs-row__actions">
+                      {activeFile.name.endsWith(".md") && (
+                        <button
+                          type="button"
+                          className={`md-toggle ${mdPreview ? "md-toggle--active" : ""}`}
+                          onClick={() => setMdPreview((v) => !v)}
+                          title="Toggle Markdown Preview"
+                        >
+                          <BookOpen size={13} />
+                          Preview
+                        </button>
+                      )}
+                      {!splitOpen && (
+                        <button
+                          type="button"
+                          className="breadcrumbs-row__btn"
+                          title="Split Right"
+                          onClick={() => openFileSplit(activeFile.path, activeFile.name)}
+                        >
+                          <SplitSquareHorizontal size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div
+                  style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}
+                >
+                  {isEditorActive ? (
+                    <div
+                      className={mdPreview && activeFile.name.endsWith(".md") ? "md-split" : ""}
+                      style={{ flex: 1, display: "flex", overflow: "hidden" }}
                     >
-                      <BookOpen size={13} />
-                      Preview
-                    </button>
-                  )}
-                  {!splitOpen && (
-                    <button
-                      type="button"
-                      className="breadcrumbs-row__btn"
-                      title="Split Right"
-                      onClick={() => openFileSplit(activeFile.path, activeFile.name)}
-                    >
-                      <SplitSquareHorizontal size={13} />
-                    </button>
+                      <div
+                        className="md-split__editor"
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          display: "flex",
+                          flexDirection: "column",
+                        }}
+                      >
+                        {isViewableFile(activeFile.name) ? (
+                          <FileViewer
+                            filePath={activeFile.path}
+                            filename={activeFile.name}
+                            content={fileContent}
+                          />
+                        ) : (
+                          <Editor
+                            content={fileContent}
+                            filename={activeFile.name}
+                            filePath={activeFile.path}
+                            initialCursorLine={activeFile.cursorLine}
+                            initialCursorCol={activeFile.cursorCol}
+                            initialScrollTop={activeFile.scrollTop}
+                            onSave={handleFileSave}
+                            onChange={(mod) => markModified(activeFile.path, mod)}
+                            onCursorChange={(line, col, scroll) => {
+                              setLiveCursor({ line, col });
+                              pendingFileStateRef.current = {
+                                path: activeFile.path,
+                                state: {
+                                  cursorLine: line,
+                                  cursorCol: col,
+                                  scrollTop: scroll,
+                                },
+                              };
+                              if (fileStateTimerRef.current) {
+                                clearTimeout(fileStateTimerRef.current);
+                              }
+                              fileStateTimerRef.current = setTimeout(() => {
+                                fileStateTimerRef.current = null;
+                                flushPendingFileState();
+                              }, 120);
+                            }}
+                            onNavigate={(path, line, col) => {
+                              const name = path.split("/").pop() || path;
+                              openFile(path, name, false, line, col);
+                            }}
+                            symbolSearchMode={symbolSearchMode}
+                            onSymbolSearchClose={() => setSymbolSearchMode(null)}
+                          />
+                        )}
+                      </div>
+                      {mdPreview && activeFile.name.endsWith(".md") && (
+                        <div className="md-split__preview">
+                          <MarkdownPreview content={fileContent} />
+                        </div>
+                      )}
+                    </div>
+                  ) : workspacePath ? (
+                    <div className="empty-state">
+                      <p className="empty-state__text">
+                        Select a file from the explorer to start editing
+                      </p>
+                    </div>
+                  ) : (
+                    <Outlet />
                   )}
                 </div>
               </div>
-            )}
-            <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              {isEditorActive ? (
-                <div
-                  className={mdPreview && activeFile.name.endsWith(".md") ? "md-split" : ""}
-                  style={{ flex: 1, display: "flex", overflow: "hidden" }}
-                >
+
+              {/* Split pane */}
+              {splitOpen &&
+                (() => {
+                  const splitFile =
+                    splitActiveIdx >= 0 && splitActiveIdx < splitFiles.length
+                      ? splitFiles[splitActiveIdx]
+                      : null;
+                  return (
+                    <>
+                      <div className="editor-split-divider" />
+                      <div className="editor-pane-wrap">
+                        <TabBar
+                          files={splitFiles}
+                          activeIdx={splitActiveIdx}
+                          workspacePath={workspacePath}
+                          onSelect={setActiveSplitFile}
+                          onClose={closeFileSplit}
+                          onCloseAll={closeSplit}
+                          onCloseOthers={(idx) => {
+                            const keep = splitFiles[idx];
+                            if (keep) {
+                              closeSplit();
+                              openFileSplit(keep.path, keep.name);
+                            }
+                          }}
+                        />
+                        {splitFile && (
+                          <div className="breadcrumbs-row">
+                            <Breadcrumbs filePath={splitFile.path} workspacePath={workspacePath} />
+                            <div className="breadcrumbs-row__actions">
+                              <button
+                                type="button"
+                                className="breadcrumbs-row__btn"
+                                title="Close Split"
+                                onClick={closeSplit}
+                              >
+                                <X size={13} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                        <div
+                          style={{
+                            flex: 1,
+                            overflow: "hidden",
+                            display: "flex",
+                            flexDirection: "column",
+                          }}
+                        >
+                          {splitFile ? (
+                            <SplitEditorPane
+                              file={splitFile}
+                              workspacePath={workspacePath}
+                              onSave={async (path, content) => {
+                                await invoke("write_file_content", { path, content });
+                              }}
+                              onModified={(path, mod) => markModified(path, mod)}
+                            />
+                          ) : (
+                            <div className="empty-state">
+                              <p className="empty-state__text">Open a file to edit in split view</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+            </div>
+
+            {bottomPanelOpen && (
+              <>
+                <PanelResizer direction="vertical" onResize={handleBottomResize} />
+                <div className="ide__bottom-panel" style={{ height: bottomPanelHeight }}>
+                  {/* Tab bar */}
                   <div
-                    className="md-split__editor"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      borderBottom: "1px solid var(--c-border)",
+                      background: "var(--c-surface)",
+                      flexShrink: 0,
+                      height: 32,
+                      paddingLeft: 8,
+                    }}
+                  >
+                    {(["terminal", "problems"] as const).map((tab) => (
+                      <button
+                        key={tab}
+                        type="button"
+                        onClick={() => setBottomPanelTab(tab)}
+                        style={{
+                          height: "100%",
+                          padding: "0 12px",
+                          border: "none",
+                          borderBottom:
+                            bottomPanelTab === tab
+                              ? "2px solid var(--c-accent)"
+                              : "2px solid transparent",
+                          background: "transparent",
+                          color: bottomPanelTab === tab ? "var(--c-fg)" : "var(--c-muted-fg)",
+                          fontSize: "var(--font-size-xs)",
+                          fontFamily: "inherit",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                        {tab === "problems" && errorCount + warningCount > 0 && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              background: errorCount > 0 ? "var(--c-danger)" : "var(--c-warning)",
+                              color: "#fff",
+                              borderRadius: 8,
+                              padding: "0 5px",
+                              lineHeight: "16px",
+                            }}
+                          >
+                            {errorCount + warningCount}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                    {/* Close bottom panel — always visible regardless of active tab */}
+                    <button
+                      type="button"
+                      onClick={toggleBottomPanel}
+                      title="Close Panel"
+                      style={{
+                        marginLeft: "auto",
+                        marginRight: 6,
+                        height: 22,
+                        width: 22,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "transparent",
+                        border: "none",
+                        borderRadius: 4,
+                        color: "var(--c-muted-fg)",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "var(--c-fg)")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--c-muted-fg)")}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                  {/* Panel content */}
+                  <div
                     style={{
                       flex: 1,
                       overflow: "hidden",
                       display: "flex",
                       flexDirection: "column",
+                      height: "calc(100% - 32px)",
                     }}
                   >
-                    {isViewableFile(activeFile.name) ? (
-                      <FileViewer
-                        filePath={activeFile.path}
-                        filename={activeFile.name}
-                        content={fileContent}
-                      />
-                    ) : (
-                      <Editor
-                        content={fileContent}
-                        filename={activeFile.name}
-                        filePath={activeFile.path}
-                        initialCursorLine={activeFile.cursorLine}
-                        initialCursorCol={activeFile.cursorCol}
-                        initialScrollTop={activeFile.scrollTop}
-                        onSave={handleFileSave}
-                        onChange={(mod) => markModified(activeFile.path, mod)}
-                        onCursorChange={(line, col, scroll) => {
-                          setLiveCursor({ line, col });
-                          pendingFileStateRef.current = {
-                            path: activeFile.path,
-                            state: {
-                              cursorLine: line,
-                              cursorCol: col,
-                              scrollTop: scroll,
-                            },
-                          };
-                          if (fileStateTimerRef.current) {
-                            clearTimeout(fileStateTimerRef.current);
-                          }
-                          fileStateTimerRef.current = setTimeout(() => {
-                            fileStateTimerRef.current = null;
-                            flushPendingFileState();
-                          }, 120);
-                        }}
-                        onNavigate={(path, line, col) => {
-                          const name = path.split("/").pop() || path;
-                          openFile(path, name, false, line, col);
-                        }}
-                        symbolSearchMode={symbolSearchMode}
-                        onSymbolSearchClose={() => setSymbolSearchMode(null)}
-                      />
-                    )}
+                    {bottomPanelTab === "terminal" ? <TerminalPanel /> : <ProblemsPanel />}
                   </div>
-                  {mdPreview && activeFile.name.endsWith(".md") && (
-                    <div className="md-split__preview">
-                      <MarkdownPreview content={fileContent} />
-                    </div>
-                  )}
                 </div>
-              ) : workspacePath ? (
-                <div className="empty-state">
-                  <p className="empty-state__text">
-                    Select a file from the explorer to start editing
-                  </p>
-                </div>
-              ) : (
-                <Outlet />
-              )}
-            </div>
+              </>
+            )}
           </div>
+          {/* end ide__editor-col */}
 
-          {/* Split pane */}
-          {splitOpen &&
-            (() => {
-              const splitFile =
-                splitActiveIdx >= 0 && splitActiveIdx < splitFiles.length
-                  ? splitFiles[splitActiveIdx]
-                  : null;
-              return (
-                <>
-                  <div className="editor-split-divider" />
-                  <div className="editor-pane-wrap">
-                    <TabBar
-                      files={splitFiles}
-                      activeIdx={splitActiveIdx}
-                      workspacePath={workspacePath}
-                      onSelect={setActiveSplitFile}
-                      onClose={closeFileSplit}
-                      onCloseAll={closeSplit}
-                      onCloseOthers={(idx) => {
-                        const keep = splitFiles[idx];
-                        if (keep) {
-                          closeSplit();
-                          openFileSplit(keep.path, keep.name);
-                        }
-                      }}
-                    />
-                    {splitFile && (
-                      <div className="breadcrumbs-row">
-                        <Breadcrumbs filePath={splitFile.path} workspacePath={workspacePath} />
-                        <div className="breadcrumbs-row__actions">
-                          <button
-                            type="button"
-                            className="breadcrumbs-row__btn"
-                            title="Close Split"
-                            onClick={closeSplit}
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        flex: 1,
-                        overflow: "hidden",
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
-                    >
-                      {splitFile ? (
-                        <SplitEditorPane
-                          file={splitFile}
-                          workspacePath={workspacePath}
-                          onSave={async (path, content) => {
-                            await invoke("write_file_content", { path, content });
-                          }}
-                          onModified={(path, mod) => markModified(path, mod)}
-                        />
-                      ) : (
-                        <div className="empty-state">
-                          <p className="empty-state__text">Open a file to edit in split view</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-        </div>
-
-        {bottomPanelOpen && (
-          <>
-            <PanelResizer direction="vertical" onResize={handleBottomResize} />
-            <div className="ide__bottom-panel" style={{ height: bottomPanelHeight }}>
-              {/* Tab bar */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  borderBottom: "1px solid var(--c-border)",
-                  background: "var(--c-surface)",
-                  flexShrink: 0,
-                  height: 32,
-                  paddingLeft: 8,
-                }}
-              >
-                {(["terminal", "problems"] as const).map((tab) => (
-                  <button
-                    key={tab}
-                    type="button"
-                    onClick={() => setBottomPanelTab(tab)}
-                    style={{
-                      height: "100%",
-                      padding: "0 12px",
-                      border: "none",
-                      borderBottom:
-                        bottomPanelTab === tab
-                          ? "2px solid var(--c-accent)"
-                          : "2px solid transparent",
-                      background: "transparent",
-                      color: bottomPanelTab === tab ? "var(--c-fg)" : "var(--c-muted-fg)",
-                      fontSize: "var(--font-size-xs)",
-                      fontFamily: "inherit",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                    {tab === "problems" && errorCount + warningCount > 0 && (
-                      <span
-                        style={{
-                          fontSize: 10,
-                          background: errorCount > 0 ? "var(--c-danger)" : "var(--c-warning)",
-                          color: "#fff",
-                          borderRadius: 8,
-                          padding: "0 5px",
-                          lineHeight: "16px",
-                        }}
-                      >
-                        {errorCount + warningCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
-                {/* Close bottom panel — always visible regardless of active tab */}
-                <button
-                  type="button"
-                  onClick={toggleBottomPanel}
-                  title="Close Panel"
-                  style={{
-                    marginLeft: "auto",
-                    marginRight: 6,
-                    height: 22,
-                    width: 22,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    background: "transparent",
-                    border: "none",
-                    borderRadius: 4,
-                    color: "var(--c-muted-fg)",
-                    cursor: "pointer",
-                    flexShrink: 0,
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--c-fg)")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--c-muted-fg)")}
-                >
-                  <X size={13} />
-                </button>
-              </div>
-              {/* Panel content */}
-              <div
-                style={{
-                  flex: 1,
-                  overflow: "hidden",
-                  display: "flex",
-                  flexDirection: "column",
-                  height: "calc(100% - 32px)",
-                }}
-              >
-                {bottomPanelTab === "terminal" ? <TerminalPanel /> : <ProblemsPanel />}
-              </div>
+          {/* AI panel */}
+          {(aiPanelOpen || focusMode === "ai-only") && (
+            <div className="ide__ai-panel" style={{ width: wsAiPanelWidth }}>
+              <PanelResizer onResize={handleAiResize} />
+              <BlinkCodePanel />
             </div>
-          </>
-        )}
-      </div>
-
-      {/* AI panel (right side) */}
-      {aiPanelOpen && (
-        <div className="ide__ai-panel" style={{ width: aiPanelWidth }}>
-          <PanelResizer onResize={handleAiResize} />
-          <BlinkCodePanel />
+          )}
         </div>
-      )}
+        {/* end ide__workspace */}
+      </div>
 
       {/* File search overlay (Cmd+P) */}
       {fileSearchOpen && workspacePath && (

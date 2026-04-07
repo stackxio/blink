@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { changeTheme } from "@/lib/theme";
 
 export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
+export type LayoutMode = "ai-center" | "editor-center";
+export type FocusMode = "both" | "ai-only" | "editor-only";
 export type BottomPanelTab = "terminal" | "problems";
 export type SettingsPage =
   | "general"
@@ -61,6 +63,37 @@ export interface Workspace {
   closedTabHistory: OpenFile[];
   // Recently opened files
   recentFiles: Array<{ path: string; name: string }>;
+  // AI-first layout
+  layoutMode: LayoutMode;
+  focusMode: FocusMode;
+  aiPanelWidth: number;
+}
+
+function loadLayoutMode(): LayoutMode {
+  try {
+    const stored = localStorage.getItem("codrift:layoutMode");
+    if (stored === "ai-center" || stored === "editor-center") return stored;
+  } catch {}
+  return "ai-center";
+}
+
+function loadFocusMode(): FocusMode {
+  try {
+    const stored = localStorage.getItem("codrift:focusMode");
+    if (stored === "both" || stored === "ai-only" || stored === "editor-only") return stored;
+  } catch {}
+  return "both";
+}
+
+function loadAiPanelWidth(): number {
+  try {
+    const stored = localStorage.getItem("codrift:aiPanelWidth");
+    if (stored) {
+      const n = parseInt(stored, 10);
+      if (!isNaN(n) && n > 0) return n;
+    }
+  } catch {}
+  return 520;
 }
 
 function sidebarViewStorageKey(path: string) {
@@ -104,6 +137,9 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
     expandedDirs: new Set(),
     closedTabHistory: [],
     recentFiles: [],
+    layoutMode: loadLayoutMode(),
+    focusMode: loadFocusMode(),
+    aiPanelWidth: loadAiPanelWidth(),
   };
 }
 
@@ -151,6 +187,10 @@ interface AppState {
   toggleBottomPanel: () => void;
   setBottomPanelHeight: (h: number) => void;
   setBottomPanelTab: (tab: BottomPanelTab) => void;
+  setLayoutMode: (mode: LayoutMode) => void;
+  setFocusMode: (mode: FocusMode) => void;
+  setWsAiPanelWidth: (width: number) => void;
+  cycleFocusMode: () => void;
 
   // Per-workspace editor actions
   openFile: (
@@ -367,6 +407,38 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => updateWs(s, (ws) => ({ bottomPanelOpen: !ws.bottomPanelOpen }))),
   setBottomPanelHeight: (h) => set((s) => updateWs(s, () => ({ bottomPanelHeight: h }))),
   setBottomPanelTab: (tab) => set((s) => updateWs(s, () => ({ bottomPanelTab: tab }))),
+  setLayoutMode: (mode) =>
+    set((s) => {
+      try {
+        localStorage.setItem("codrift:layoutMode", mode);
+      } catch {}
+      return updateWs(s, () => ({ layoutMode: mode }));
+    }),
+  setFocusMode: (mode) =>
+    set((s) => {
+      try {
+        localStorage.setItem("codrift:focusMode", mode);
+      } catch {}
+      return updateWs(s, () => ({ focusMode: mode }));
+    }),
+  setWsAiPanelWidth: (width) =>
+    set((s) => {
+      try {
+        localStorage.setItem("codrift:aiPanelWidth", String(width));
+      } catch {}
+      return updateWs(s, () => ({ aiPanelWidth: width }));
+    }),
+  cycleFocusMode: () =>
+    set((s) => {
+      const ws = s.workspaces.find((w) => w.id === s.activeWorkspaceId);
+      const current = ws?.focusMode ?? "both";
+      const next: FocusMode =
+        current === "both" ? "ai-only" : current === "ai-only" ? "editor-only" : "both";
+      try {
+        localStorage.setItem("codrift:focusMode", next);
+      } catch {}
+      return updateWs(s, () => ({ focusMode: next }));
+    }),
 
   // ── Per-workspace editor ──
 

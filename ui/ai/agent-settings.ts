@@ -23,7 +23,11 @@ export const ALL_AGENTS: AgentDef[] = [
       if (skills?.trim()) cmd.push("--system-prompt", skills);
       return cmd;
     },
-    resumeCmd: ({ customPath } = {}) => [customPath || "claude", "--resume", "--dangerously-skip-permissions"],
+    resumeCmd: ({ customPath } = {}) => [
+      customPath || "claude",
+      "--resume",
+      "--dangerously-skip-permissions",
+    ],
   },
   {
     id: "codex",

@@ -104,6 +104,21 @@ const MODE_PREFIXES: Record<ChatMode, string> = {
   ask: "[Mode: Ask — answer questions only. Do NOT write, edit, or execute anything.]\n\n",
 };
 
+// ── Relative time helper ─────────────────────────────────────────────────────
+
+function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  return new Date(ts).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 // ── Context window sizes (tokens) for known models ───────────────────────────
 
 const CONTEXT_WINDOWS: Record<string, number> = {
@@ -1152,10 +1167,13 @@ function BlinkCodePanel() {
                         }).catch(() => {});
                       }}
                     >
-                      <span className="blink-panel__thread-item-name">{t.name}</span>
-                      <span className="blink-panel__thread-item-count">
-                        {t.messageCount > 0 ? `${Math.ceil(t.messageCount / 2)}` : ""}
-                      </span>
+                      <div className="blink-panel__thread-item-info">
+                        <span className="blink-panel__thread-item-name">{t.name}</span>
+                        <span className="blink-panel__thread-item-time">
+                          {formatRelativeTime(t.updatedAt)}
+                          {t.messageCount > 0 && ` · ${Math.ceil(t.messageCount / 2)} msgs`}
+                        </span>
+                      </div>
                     </button>
                   )}
                   <div className="blink-panel__thread-item-actions">

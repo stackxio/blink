@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
-import { Settings, Sparkles, ArrowUpCircle, CloudDownload, RotateCcw, Columns2, Bot, Code2, PanelLeft, PanelRight } from "lucide-react";
+import {
+  Settings,
+  Sparkles,
+  ArrowUpCircle,
+  CloudDownload,
+  RotateCcw,
+  Columns2,
+  Bot,
+  Code2,
+  PanelLeft,
+  PanelRight,
+} from "lucide-react";
 // PanelLeft and PanelRight are used for the layout mode toggle button below
 import { useAppStore } from "@/store";
 import type { FocusMode } from "@/store";
@@ -100,8 +111,14 @@ export default function Titlebar() {
           <button
             type="button"
             className="titlebar__action"
-            title={layoutMode === "ai-center" ? "AI-center layout — click for Editor-center" : "Editor-center layout — click for AI-center"}
-            onClick={() => setLayoutMode(layoutMode === "ai-center" ? "editor-center" : "ai-center")}
+            title={
+              layoutMode === "ai-center"
+                ? "AI-center layout — click for Editor-center"
+                : "Editor-center layout — click for AI-center"
+            }
+            onClick={() =>
+              setLayoutMode(layoutMode === "ai-center" ? "editor-center" : "ai-center")
+            }
           >
             {layoutMode === "ai-center" ? <PanelLeft size={14} /> : <PanelRight size={14} />}
           </button>
