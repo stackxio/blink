@@ -30,7 +30,11 @@ function loadSavedSessions(workspacePath: string | null): SavedSession[] {
 }
 
 function persistSavedSessions(workspacePath: string | null, sessions: SavedSession[]) {
-  localStorage.setItem(savedSessionsKey(workspacePath), JSON.stringify(sessions));
+  if (sessions.length === 0) {
+    localStorage.removeItem(savedSessionsKey(workspacePath));
+  } else {
+    localStorage.setItem(savedSessionsKey(workspacePath), JSON.stringify(sessions));
+  }
 }
 
 // ── Active session state ──────────────────────────────────────────────────────
@@ -39,33 +43,29 @@ interface AgentSession {
   termId: string;
   agentId: string;
   label: string;
-  /** Passed to TerminalInstance so it creates the PTY at the correct pixel size. */
   spawn: SpawnConfig;
 }
 
 let sessionCounter = 0;
 
-// Strip ANSI escape sequences so we can search plain text for session IDs
+// ── Session ID extraction from terminal output ────────────────────────────────
+
 function stripAnsi(s: string): string {
   // eslint-disable-next-line no-control-regex
   return s.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, "").replace(/\x1b\][^\x07]*\x07/g, "");
 }
 
-// Session ID patterns per agent:
-//   Claude / Codex / Gemini : standard UUID  e.g. f38b6614-d740-4441-a123-0bb3bea0d6a9
-//   OpenCode                : ULID with ses_ prefix  e.g. ses_01H2XCMQ3R9F7K4PVZWJ8DTNE5
+// Claude/Codex/Gemini: standard UUID   e.g. f38b6614-d740-4441-a123-0bb3bea0d6a9
+// OpenCode: ULID with ses_ prefix      e.g. ses_01H2XCMQ3R9F7K4PVZWJ8DTNE5
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const OPENCODE_ULID_RE = /ses_[0-9A-Z]{26}/g;
 
-// Try to extract a session ID from a chunk of terminal output.
-// We look for a UUID / ULID near "session", "resume", or "continue" keywords.
 function extractSessionId(chunk: string): string | null {
   const text = stripAnsi(chunk);
   const lower = text.toLowerCase();
-
-  // OpenCode ULID (case-sensitive prefix, so search on original text)
-  OPENCODE_ULID_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
+
+  OPENCODE_ULID_RE.lastIndex = 0;
   while ((match = OPENCODE_ULID_RE.exec(text)) !== null) {
     const ctx = lower.slice(Math.max(0, match.index - 60), match.index + 60);
     if (ctx.includes("session") || ctx.includes("resume") || ctx.includes("continue")) {
@@ -73,7 +73,6 @@ function extractSessionId(chunk: string): string | null {
     }
   }
 
-  // Standard UUID (Claude, Codex, Gemini)
   UUID_RE.lastIndex = 0;
   while ((match = UUID_RE.exec(lower)) !== null) {
     const ctx = lower.slice(Math.max(0, match.index - 80), match.index + match[0].length + 80);
@@ -83,6 +82,49 @@ function extractSessionId(chunk: string): string | null {
   }
 
   return null;
+}
+
+// ── Build the resume command for a specific saved session ─────────────────────
+
+function buildSavedSessionCmd(
+  saved: SavedSession,
+  agentSettings: AgentSettings,
+): string[] | null {
+  const agent = ALL_AGENTS.find((a) => a.id === saved.agentId);
+  if (!agent) return null;
+  const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+
+  if (saved.sessionId) {
+    // Resume the exact session by ID
+    if (agent.id === "claude") {
+      return [customPath || "claude", "--resume", saved.sessionId, "--dangerously-skip-permissions"];
+    }
+    if (agent.id === "codex") {
+      return [customPath || "codex", "resume", saved.sessionId];
+    }
+    if (agent.id === "gemini") {
+      return [customPath || "gemini", "--resume", saved.sessionId];
+    }
+    if (agent.id === "opencode") {
+      return [customPath || "opencode", "--session", saved.sessionId];
+    }
+  }
+
+  // No captured ID — continue the most-recent session silently (no picker)
+  if (agent.id === "claude") {
+    return [customPath || "claude", "--continue", "--dangerously-skip-permissions"];
+  }
+  if (agent.id === "codex") {
+    return [customPath || "codex", "resume", "--last"];
+  }
+  if (agent.id === "gemini") {
+    return [customPath || "gemini", "--resume"];
+  }
+  if (agent.id === "opencode") {
+    return [customPath || "opencode", "--continue"];
+  }
+
+  return agent.buildCmd({ customPath });
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -106,31 +148,42 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   // Per-termId captured session IDs (from terminal output parsing)
   const [capturedIds, setCapturedIds] = useState<Record<string, string>>({});
 
-  // Saved sessions from previous runs (persisted in localStorage)
-  const [savedSessions, setSavedSessions] = useState<SavedSession[]>(() =>
-    loadSavedSessions(workspacePath),
-  );
-
-  // Stable refs for beforeunload save (avoids stale closures)
+  // Stable refs for beforeunload save
   const sessionsRef = useRef<AgentSession[]>(sessions);
   const capturedIdsRef = useRef<Record<string, string>>(capturedIds);
   const workspacePathRef = useRef<string | null>(workspacePath);
-  useEffect(() => {
-    sessionsRef.current = sessions;
-  }, [sessions]);
-  useEffect(() => {
-    capturedIdsRef.current = capturedIds;
-  }, [capturedIds]);
-  useEffect(() => {
-    workspacePathRef.current = workspacePath;
-  }, [workspacePath]);
+  const agentSettingsRef = useRef<AgentSettings>(agentSettings);
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  useEffect(() => { capturedIdsRef.current = capturedIds; }, [capturedIds]);
+  useEffect(() => { workspacePathRef.current = workspacePath; }, [workspacePath]);
+  useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
 
-  // Reload saved sessions if workspace changes
+  // ── Auto-resume all saved sessions on mount ──────────────────────────────────
+  const didAutoResume = useRef(false);
   useEffect(() => {
-    setSavedSessions(loadSavedSessions(workspacePath));
-  }, [workspacePath]);
+    if (didAutoResume.current) return;
+    didAutoResume.current = true;
 
-  // Persist active sessions to localStorage whenever they change
+    const saved = loadSavedSessions(workspacePath);
+    if (saved.length === 0) return;
+
+    // Clear persisted sessions immediately (new sessions will be persisted as they run)
+    persistSavedSessions(workspacePath, []);
+
+    // Stagger starts slightly so PTYs don't all race at once
+    saved.forEach((s, i) => {
+      setTimeout(() => {
+        const agent = ALL_AGENTS.find((a) => a.id === s.agentId);
+        if (!agent) return;
+        const cmd = buildSavedSessionCmd(s, agentSettingsRef.current);
+        if (!cmd) return;
+        createSessionDirect(agent, cmd, s.label);
+      }, i * 200);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist active sessions to localStorage whenever they change ─────────────
   useEffect(() => {
     if (sessions.length === 0) return;
     const toSave: SavedSession[] = sessions.map((s) => ({
@@ -142,9 +195,9 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     persistSavedSessions(workspacePath, toSave);
   }, [sessions, capturedIds, workspacePath]);
 
-  // Save on beforeunload (catches hard closes)
+  // Save on beforeunload (catches hard closes before React can unmount)
   useEffect(() => {
-    const handleUnload = () => {
+    const save = () => {
       const s = sessionsRef.current;
       if (s.length === 0) return;
       const toSave: SavedSession[] = s.map((sess) => ({
@@ -155,8 +208,8 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       }));
       persistSavedSessions(workspacePathRef.current, toSave);
     };
-    window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
+    window.addEventListener("beforeunload", save);
+    return () => window.removeEventListener("beforeunload", save);
   }, []);
 
   // Detect which binaries are available in PATH
@@ -164,27 +217,25 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     const binaries = ALL_AGENTS.map((a) => a.binary);
     invoke<string[]>("which_cli", { names: binaries })
       .then(setInstalledBinaries)
-      .catch(() => setInstalledBinaries(binaries)); // dev fallback: assume all
+      .catch(() => setInstalledBinaries(binaries));
   }, []);
 
-  // Load combined skills once — passed to agents that support --system-prompt
+  // Load combined skills once
   useEffect(() => {
     invoke<string>("get_combined_skills")
-      .then((s) => {
-        skillsRef.current = s;
-      })
+      .then((s) => { skillsRef.current = s; })
       .catch(() => {});
   }, []);
 
-  // Compute visible agents: enabled in settings AND (in PATH OR custom path specified)
+  // Compute visible agents
   const visibleAgents = ALL_AGENTS.filter((agent) => {
     const cfg = agentSettings[agent.id];
     if (!cfg?.enabled) return false;
-    if (cfg.customPath.trim()) return true; // custom path: trust it
-    return installedBinaries.includes(agent.binary); // else must be in PATH
+    if (cfg.customPath.trim()) return true;
+    return installedBinaries.includes(agent.binary);
   });
 
-  // Active session count per agentId (shown in hover tooltip)
+  // Active session count per agentId (for tooltip badge)
   const sessionCounts = useMemo(
     () =>
       sessions.reduce<Record<string, number>>((acc, s) => {
@@ -194,93 +245,44 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     [sessions],
   );
 
-  function createSession(agent: AgentDef, cmd?: string[]) {
+  // ── Session management ───────────────────────────────────────────────────────
+
+  /** Core session creator — label can be overridden (for auto-resumed sessions). */
+  function createSessionDirect(agent: AgentDef, cmd: string[], labelOverride?: string) {
     sessionCounter++;
     const termId = `cli-agent-${Date.now()}-${sessionCounter}`;
     const agentCount = (sessionCountsRef.current[agent.id] ?? 0) + 1;
     sessionCountsRef.current[agent.id] = agentCount;
-    const label = agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`;
-
-    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
-    const resolvedCmd = cmd ?? agent.buildCmd({ customPath, skills: skillsRef.current });
-
-    const spawn: SpawnConfig = { cmd: resolvedCmd, cwd: workspacePath };
-
+    const label = labelOverride ?? (agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`);
+    const spawn: SpawnConfig = { cmd, cwd: workspacePath };
     setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn }]);
     setActiveTermId(termId);
   }
 
+  /** Start a fresh session (new chat). */
+  function createSession(agent: AgentDef) {
+    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+    const cmd = agent.buildCmd({ customPath, skills: skillsRef.current });
+    createSessionDirect(agent, cmd);
+  }
+
+  /**
+   * ↩ Resume button in the header — opens the agent's interactive session picker
+   * (no specific session ID, so the agent presents its own list of past sessions).
+   */
   function resumeSession(agent: AgentDef) {
     if (!agent.resumeCmd) return;
     const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
-    const cmd = agent.resumeCmd({ customPath });
-    createSession(agent, cmd);
+    createSessionDirect(agent, agent.resumeCmd({ customPath }));
   }
 
-  /** Resume a specific saved session using its captured session ID (if available). */
-  function resumeSavedSession(saved: SavedSession) {
-    const agent = ALL_AGENTS.find((a) => a.id === saved.agentId);
-    if (!agent) return;
-
-    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
-    let cmd: string[];
-
-    if (saved.sessionId) {
-      // Each agent has its own syntax for resuming a specific session by ID
-      if (agent.id === "claude") {
-        cmd = [
-          customPath || "claude",
-          "--resume",
-          saved.sessionId,
-          "--dangerously-skip-permissions",
-        ];
-      } else if (agent.id === "codex") {
-        cmd = [customPath || "codex", "resume", saved.sessionId];
-      } else if (agent.id === "gemini") {
-        cmd = [customPath || "gemini", "--resume", saved.sessionId];
-      } else if (agent.id === "opencode") {
-        cmd = [customPath || "opencode", "--session", saved.sessionId];
-      } else {
-        // Fallback: use generic resume (resumes last session)
-        cmd = agent.resumeCmd?.({ customPath }) ?? agent.buildCmd({ customPath });
-      }
-    } else {
-      // No captured ID — use the agent's generic resume command (resumes last session)
-      cmd = agent.resumeCmd?.({ customPath }) ?? agent.buildCmd({ customPath });
-    }
-
-    createSession(agent, cmd);
-
-    // Remove from saved sessions list
-    setSavedSessions((prev) => {
-      const next = prev.filter((s) => s !== saved);
-      persistSavedSessions(workspacePath, next);
-      return next;
-    });
-  }
-
-  function dismissSavedSession(saved: SavedSession) {
-    setSavedSessions((prev) => {
-      const next = prev.filter((s) => s !== saved);
-      persistSavedSessions(workspacePath, next);
-      return next;
-    });
-  }
-
-  /** Called with raw PTY output chunks; tries to extract a session ID. */
+  /** Called with raw PTY output chunks; tries to capture a session ID. */
   function handleTermData(termId: string, agentId: string, chunk: string) {
-    // Only attempt extraction for agents that support resume by session ID
-    const supportsId = ["claude", "codex", "gemini", "opencode"].includes(agentId);
-    if (!supportsId) return;
-    // Skip if we already have a session ID for this terminal
+    if (!["claude", "codex", "gemini", "opencode"].includes(agentId)) return;
     if (capturedIdsRef.current[termId]) return;
-
     const id = extractSessionId(chunk);
     if (id) {
-      setCapturedIds((prev) => {
-        if (prev[termId]) return prev;
-        return { ...prev, [termId]: id };
-      });
+      setCapturedIds((prev) => (prev[termId] ? prev : { ...prev, [termId]: id }));
     }
   }
 
@@ -300,18 +302,12 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   }
 
   async function closeSession(termId: string) {
-    try {
-      await invoke("terminal_close", { id: termId });
-    } catch {}
-
+    try { await invoke("terminal_close", { id: termId }); } catch {}
     setSessions((prev) => {
       const remaining = prev.filter((s) => s.termId !== termId);
-      if (activeTermId === termId) {
-        setActiveTermId(remaining.at(-1)?.termId ?? null);
-      }
+      if (activeTermId === termId) setActiveTermId(remaining.at(-1)?.termId ?? null);
       return remaining;
     });
-
     setCapturedIds((prev) => {
       const next = { ...prev };
       delete next[termId];
@@ -319,9 +315,11 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     });
   }
 
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
     <div className="cli-agent-panel">
-      {/* ── Header bar: agent launcher buttons ── */}
+      {/* ── Header: agent launcher + resume buttons ── */}
       <div className="cli-agent-panel__header">
         <div className="cli-agent-panel__agents">
           {visibleAgents.map((agent) => {
@@ -341,12 +339,12 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                     type="button"
                     className="cli-agent-panel__resume-btn"
                     onClick={() => resumeSession(agent)}
-                    title={`Resume previous ${agent.label} session`}
+                    title={`Open ${agent.label} session picker`}
                   >
                     ↩
                   </button>
                 )}
-                {/* Hover tooltip: description + active session count */}
+                {/* Hover tooltip */}
                 <div className="cli-agent-panel__agent-tooltip">
                   <span className="cli-agent-panel__agent-tooltip-desc">{agent.description}</span>
                   {count > 0 && (
@@ -365,7 +363,6 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
             </span>
           )}
         </div>
-
         <div className="cli-agent-panel__header-right">
           <button
             type="button"
@@ -399,10 +396,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                     autoFocus
                     onChange={(e) => setRenameValue(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        commitRename(s.termId);
-                      }
+                      if (e.key === "Enter") { e.preventDefault(); commitRename(s.termId); }
                       if (e.key === "Escape") setRenamingTermId(null);
                     }}
                     onBlur={() => commitRename(s.termId)}
@@ -411,10 +405,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                 ) : (
                   <span
                     className="cli-agent-panel__tab-label"
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      startRename(s.termId, s.label);
-                    }}
+                    onDoubleClick={(e) => { e.stopPropagation(); startRename(s.termId, s.label); }}
                   >
                     {s.label}
                   </span>
@@ -422,10 +413,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                 <span
                   className="cli-agent-panel__tab-close"
                   role="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    closeSession(s.termId);
-                  }}
+                  onClick={(e) => { e.stopPropagation(); closeSession(s.termId); }}
                 >
                   <X size={9} />
                 </span>
@@ -440,12 +428,9 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         {sessions.length === 0 ? (
           <EmptyState
             agents={visibleAgents}
-            savedSessions={savedSessions}
             onSettings={onSettings}
-            onLaunch={(agent) => createSession(agent)}
-            onResume={(agent) => resumeSession(agent)}
-            onResumeSaved={resumeSavedSession}
-            onDismissSaved={dismissSavedSession}
+            onLaunch={createSession}
+            onResume={resumeSession}
           />
         ) : (
           sessions.map((s) => (
@@ -472,20 +457,14 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
 function EmptyState({
   agents,
-  savedSessions,
   onSettings,
   onLaunch,
   onResume,
-  onResumeSaved,
-  onDismissSaved,
 }: {
   agents: AgentDef[];
-  savedSessions: SavedSession[];
   onSettings: () => void;
   onLaunch: (agent: AgentDef) => void;
   onResume: (agent: AgentDef) => void;
-  onResumeSaved: (saved: SavedSession) => void;
-  onDismissSaved: (saved: SavedSession) => void;
 }) {
   if (agents.length === 0) {
     return (
@@ -504,44 +483,6 @@ function EmptyState({
 
   return (
     <div className="cli-agent-panel__launcher">
-      {/* ── Previous sessions ── */}
-      {savedSessions.length > 0 && (
-        <div className="cli-agent-panel__saved-sessions">
-          <p className="cli-agent-panel__saved-heading">Previous sessions</p>
-          {savedSessions.map((saved, i) => {
-            const agent = ALL_AGENTS.find((a) => a.id === saved.agentId);
-            return (
-              <div key={i} className="cli-agent-panel__saved-row">
-                <AgentLogo
-                  agentId={saved.agentId}
-                  size={12}
-                  className="cli-agent-panel__saved-logo"
-                />
-                <span className="cli-agent-panel__saved-label">{saved.label}</span>
-                {agent?.resumeCmd && (
-                  <button
-                    type="button"
-                    className="cli-agent-panel__saved-btn cli-agent-panel__saved-btn--primary"
-                    onClick={() => onResumeSaved(saved)}
-                  >
-                    ↩ Resume
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="cli-agent-panel__saved-dismiss"
-                  onClick={() => onDismissSaved(saved)}
-                  title="Dismiss"
-                >
-                  <X size={9} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* ── New session launcher ── */}
       <p className="cli-agent-panel__launcher-heading">Start an agent session</p>
       <div className="cli-agent-panel__agent-rows">
         {agents.map((agent) => (
@@ -554,7 +495,7 @@ function EmptyState({
                   type="button"
                   className="cli-agent-panel__agent-row-btn"
                   onClick={() => onResume(agent)}
-                  title={`Resume previous ${agent.label} session`}
+                  title={`Open ${agent.label} session picker`}
                 >
                   ↩ Resume
                 </button>
@@ -563,7 +504,6 @@ function EmptyState({
                 type="button"
                 className="cli-agent-panel__agent-row-btn cli-agent-panel__agent-row-btn--primary"
                 onClick={() => onLaunch(agent)}
-                title={`New ${agent.label} session`}
               >
                 ▶ Start
               </button>

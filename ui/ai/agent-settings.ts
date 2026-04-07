@@ -23,10 +23,10 @@ export const ALL_AGENTS: AgentDef[] = [
       if (skills?.trim()) cmd.push("--system-prompt", skills);
       return cmd;
     },
-    // --continue resumes the most recent session silently (no interactive picker)
+    // --resume with no session ID opens Claude's interactive session picker
     resumeCmd: ({ customPath } = {}) => [
       customPath || "claude",
-      "--continue",
+      "--resume",
       "--dangerously-skip-permissions",
     ],
   },
@@ -36,8 +36,8 @@ export const ALL_AGENTS: AgentDef[] = [
     description: "OpenAI's coding agent for reading, modifying, and running code across tasks.",
     binary: "codex",
     buildCmd: ({ customPath } = {}) => [customPath || "codex"],
-    // resume --last skips the picker and resumes the most recent session
-    resumeCmd: ({ customPath } = {}) => [customPath || "codex", "resume", "--last"],
+    // codex resume (no args) opens Codex's interactive session picker
+    resumeCmd: ({ customPath } = {}) => [customPath || "codex", "resume"],
   },
   {
     id: "gemini",
