@@ -43,10 +43,20 @@ function useOpenFileEvent() {
   useEffect(() => {
     const unlisten = listen<string>("open-file", (event) => {
       const path = event.payload;
-      if (path) {
-        const name = path.split("/").pop() || path;
-        useAppStore.getState().openFile(path, name, false);
-      }
+      if (!path) return;
+      const name = path.split("/").pop() || path;
+      // Check if the path is a directory — open as workspace, otherwise open as file
+      invoke<boolean>("is_dir", { path })
+        .then((isDir) => {
+          if (isDir) {
+            useAppStore.getState().addWorkspace(path, name);
+          } else {
+            useAppStore.getState().openFile(path, name, false);
+          }
+        })
+        .catch(() => {
+          useAppStore.getState().openFile(path, name, false);
+        });
     });
     return () => {
       unlisten.then((f) => f());

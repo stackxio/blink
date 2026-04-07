@@ -562,12 +562,39 @@ pub async fn install_cli() -> Result<String, String> {
     let script = r#"#!/bin/bash
 APP_BUNDLE="com.stackxio.codrift"
 APP_NAME="Codrift"
+
+# Find the installed app binary (launching it directly lets the single-instance
+# plugin forward the path to a running instance rather than just raising the window)
+BINARY=""
+for loc in "/Applications/Codrift.app" "$HOME/Applications/Codrift.app"; do
+  if [ -x "$loc/Contents/MacOS/Codrift" ]; then
+    BINARY="$loc/Contents/MacOS/Codrift"
+    break
+  fi
+done
+
 if [ -z "$1" ]; then
   open -b "$APP_BUNDLE" 2>/dev/null || open -a "$APP_NAME" 2>/dev/null
   exit 0
 fi
-TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")" || echo "$1")
-open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
+
+# Resolve argument to an absolute path
+if [ -d "$1" ]; then
+  TARGET=$(cd "$1" 2>/dev/null && pwd)
+elif [ -f "$1" ]; then
+  TARGET=$(cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd)/$(basename "$1")")
+else
+  echo "codrift: '$1': No such file or directory" >&2
+  exit 1
+fi
+
+if [ -n "$BINARY" ]; then
+  # Launch binary directly — single-instance plugin forwards args to running instance
+  nohup "$BINARY" "$TARGET" >/dev/null 2>&1 &
+  disown
+else
+  open -b "$APP_BUNDLE" --args "$TARGET" 2>/dev/null || open -a "$APP_NAME" --args "$TARGET" 2>/dev/null
+fi
 "#;
     // Write to a temp file first, then use osascript to move with admin privileges
     let tmp = "/tmp/codrift-cli-install";
