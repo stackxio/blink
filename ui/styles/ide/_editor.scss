@@ -73,13 +73,12 @@
     height: 100% !important;
   }
 
+  // Let Monaco control font-family, font-size, and line-height via its JS
+  // constructor options.  CSS overrides here can drift from Monaco's internal
+  // pixel math (e.g. `line-height: 1.6` = 20.8px vs Monaco's 21px), causing
+  // mouse-position mismatches that break drag-select.
   .monaco-editor {
-    font-family: var(--font-mono);
-    font-size: 13px;
-    line-height: 1.6;
     background: var(--c-bg) !important;
-    user-select: text;
-    -webkit-user-select: text;
 
     .monaco-scrollable-element {
       @include scrollbar;
@@ -109,11 +108,6 @@
 
     .find-widget {
       display: none !important;
-    }
-
-    * {
-      user-select: text;
-      -webkit-user-select: text;
     }
   }
 }

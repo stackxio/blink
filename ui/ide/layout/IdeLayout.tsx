@@ -98,10 +98,12 @@ export default function IdeLayout() {
   const fileTreeRef = useRef<FileTreeHandle>(null);
   const searchPanelRef = useRef<SearchPanelHandle>(null);
 
-  // Load saved workspaces on mount, then check for a CLI startup path
+  // Load saved workspaces on mount, then check for a CLI startup path.
+  // Must be sequential: loadSavedWorkspaces replaces the workspaces array,
+  // so opening the startup file before that finishes would be overwritten.
   useEffect(() => {
-    loadSavedWorkspaces();
-    invoke<string | null>("get_startup_path")
+    loadSavedWorkspaces()
+      .then(() => invoke<string | null>("get_startup_path"))
       .then((path) => {
         if (!path) return;
         // Determine if it's a directory (open as workspace) or a file (open in editor)
