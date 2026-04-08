@@ -13,7 +13,12 @@ body,
 #root {
   height: 100%;
   overflow: hidden;
-  @include no-select;
+  // NOTE: user-select: none is intentionally NOT set here.
+  // WebKit/WKWebView checks ancestors during mousedown→mousemove and will
+  // misclassify text-selection drags as window drags when the root has
+  // user-select: none — breaking drag-select in Monaco and other editors.
+  // Individual UI components (tabs, sidebar, statusbar, etc.) each apply
+  // @include no-select themselves.
 }
 
 body {

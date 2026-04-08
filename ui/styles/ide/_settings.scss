@@ -6,6 +6,7 @@
   z-index: 90;
   display: flex;
   background: var(--c-bg);
+  @include no-select;
 
   &__drag-region {
     position: absolute;

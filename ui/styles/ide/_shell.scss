@@ -6,6 +6,7 @@
   grid-template-rows: var(--titlebar-h) 1fr var(--status-bar-h);
   height: 100%;
   overflow: hidden;
+  @include no-select;
 
   // ── Titlebar ──
   &__titlebar {
