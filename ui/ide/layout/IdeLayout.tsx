@@ -72,7 +72,7 @@ export default function IdeLayout() {
   const bottomPanelHeight = ws?.bottomPanelHeight ?? 200;
   const bottomPanelTab = ws?.bottomPanelTab ?? "terminal";
   const sidePanelView = ws?.sidePanelView ?? "explorer";
-  const layoutMode = ws?.layoutMode ?? "ai-center";
+  const layoutMode = ws?.layoutMode ?? "editor-center";
   const focusMode = ws?.focusMode ?? "both";
   const wsAiPanelWidth = ws?.aiPanelWidth ?? 520;
   const setBottomPanelTab = useAppStore((s) => s.setBottomPanelTab);

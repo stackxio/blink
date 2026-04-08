@@ -74,7 +74,7 @@ function loadLayoutMode(): LayoutMode {
     const stored = localStorage.getItem("codrift:layoutMode");
     if (stored === "ai-center" || stored === "editor-center") return stored;
   } catch {}
-  return "ai-center";
+  return "editor-center";
 }
 
 function loadFocusMode(): FocusMode {
