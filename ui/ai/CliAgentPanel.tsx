@@ -44,6 +44,10 @@ interface AgentSession {
   agentId: string;
   label: string;
   spawn: SpawnConfig;
+  // Workspace this session belongs to.  Sessions are scoped per workspace:
+  // switching workspaces shows only that workspace's sessions, but all PTYs
+  // stay alive (mounted with display: none) so work isn't lost on switch.
+  workspacePath: string | null;
 }
 
 let sessionCounter = 0;
@@ -144,13 +148,22 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   // Using the absolute path when spawning bypasses shell functions and aliases
   // like cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }`.
   const [installedBinaries, setInstalledBinaries] = useState<Record<string, string>>({});
+  // All sessions across ALL workspaces live in one array and stay mounted.
+  // We filter by workspacePath in the render to show only the active workspace's
+  // sessions — the inactive ones remain in the DOM with display:none so their
+  // PTYs, xterm buffers, and listeners survive workspace switches.
   const [sessions, setSessions] = useState<AgentSession[]>([]);
-  const [activeTermId, setActiveTermId] = useState<string | null>(null);
+  // activeTermId is stored per workspace path ("" as key for null workspace).
+  const [activeTermByWs, setActiveTermByWs] = useState<Record<string, string | null>>({});
   const [renamingTermId, setRenamingTermId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
-  const sessionCountsRef = useRef<Record<string, number>>({});
+  // Per-workspace session counter so "Claude 2" doesn't bleed across workspaces
+  const sessionCountsRef = useRef<Record<string, Record<string, number>>>({});
   const skillsRef = useRef<string>("");
+
+  const wsKey = (p: string | null) => p ?? "";
+  const activeTermId = activeTermByWs[wsKey(workspacePath)] ?? null;
 
   // Per-termId captured session IDs (from terminal output parsing)
   const [capturedIds, setCapturedIds] = useState<Record<string, string>>({});
@@ -167,14 +180,17 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
   useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
-  // ── Auto-resume all saved sessions once a real workspace path is known ────────
-  // workspacePath starts null because loadSavedWorkspaces() is async (invoke call).
-  // We must wait for it to resolve — if we fire with null we read the wrong key.
-  const didAutoResumeRef = useRef(false);
+  // ── Auto-resume saved sessions per workspace ─────────────────────────────────
+  // Each workspace auto-resumes its sessions the first time it becomes active.
+  // Switching between workspaces does not kill sessions — they stay mounted.
+  // When a workspace first becomes active, we load its saved sessions from
+  // localStorage and recreate them.  We track which workspaces have already
+  // been resumed so switching back doesn't duplicate sessions.
+  const resumedWorkspacesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (workspacePath === null) return; // workspace still loading — wait
-    if (didAutoResumeRef.current) return; // already ran (workspace switch guard)
-    didAutoResumeRef.current = true;
+    if (resumedWorkspacesRef.current.has(workspacePath)) return;
+    resumedWorkspacesRef.current.add(workspacePath);
 
     const saved = loadSavedSessions(workspacePath);
     if (saved.length === 0) return;
@@ -189,36 +205,63 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         if (!agent) return;
         const cmd = buildSavedSessionCmd(s, agentSettingsRef.current, installedBinariesRef.current);
         if (!cmd) return;
-        createSessionDirect(agent, cmd, s.label);
+        // Capture the workspacePath at spawn time so the session is scoped
+        // to the workspace it's resuming in, not whatever is active 200ms later.
+        createSessionDirect(agent, cmd, s.label, workspacePath);
       }, i * 200);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspacePath]);
 
   // ── Persist active sessions to localStorage whenever they change ─────────────
+  // Group sessions by their own workspacePath, not the currently active one,
+  // so workspace A's sessions get saved to A's key even while the user is
+  // looking at workspace B.
   useEffect(() => {
-    if (sessions.length === 0) return;
-    const toSave: SavedSession[] = sessions.map((s) => ({
-      agentId: s.agentId,
-      label: s.label,
-      sessionId: capturedIds[s.termId],
-      savedAt: Date.now(),
-    }));
-    persistSavedSessions(workspacePath, toSave);
-  }, [sessions, capturedIds, workspacePath]);
+    // Build a map of workspacePath -> SavedSession[] for every workspace that
+    // currently has any sessions OR has been resumed (so we correctly clear
+    // workspaces whose sessions were all closed).
+    const grouped = new Map<string | null, SavedSession[]>();
+    for (const wsPath of resumedWorkspacesRef.current) {
+      grouped.set(wsPath, []);
+    }
+    for (const s of sessions) {
+      const entry: SavedSession = {
+        agentId: s.agentId,
+        label: s.label,
+        sessionId: capturedIds[s.termId],
+        savedAt: Date.now(),
+      };
+      const list = grouped.get(s.workspacePath) ?? [];
+      list.push(entry);
+      grouped.set(s.workspacePath, list);
+    }
+    for (const [wsPath, list] of grouped) {
+      persistSavedSessions(wsPath, list);
+    }
+  }, [sessions, capturedIds]);
 
   // Save on beforeunload (catches hard closes before React can unmount)
   useEffect(() => {
     const save = () => {
-      const s = sessionsRef.current;
-      if (s.length === 0) return;
-      const toSave: SavedSession[] = s.map((sess) => ({
-        agentId: sess.agentId,
-        label: sess.label,
-        sessionId: capturedIdsRef.current[sess.termId],
-        savedAt: Date.now(),
-      }));
-      persistSavedSessions(workspacePathRef.current, toSave);
+      const all = sessionsRef.current;
+      if (all.length === 0) return;
+      // Group by each session's own workspacePath
+      const grouped = new Map<string | null, SavedSession[]>();
+      for (const sess of all) {
+        const entry: SavedSession = {
+          agentId: sess.agentId,
+          label: sess.label,
+          sessionId: capturedIdsRef.current[sess.termId],
+          savedAt: Date.now(),
+        };
+        const list = grouped.get(sess.workspacePath) ?? [];
+        list.push(entry);
+        grouped.set(sess.workspacePath, list);
+      }
+      for (const [wsPath, list] of grouped) {
+        persistSavedSessions(wsPath, list);
+      }
     };
     window.addEventListener("beforeunload", save);
     return () => window.removeEventListener("beforeunload", save);
@@ -265,31 +308,54 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     return installedBinaries[agent.binary] || agent.binary;
   }
 
-  // Active session count per agentId (for tooltip badge)
+  // Sessions visible in the CURRENT workspace only — used for UI tab list,
+  // session counts, empty-state detection, etc.
+  const visibleSessions = useMemo(
+    () => sessions.filter((s) => s.workspacePath === workspacePath),
+    [sessions, workspacePath],
+  );
+
+  // Active session count per agentId IN THE CURRENT WORKSPACE (for tooltip badge)
   const sessionCounts = useMemo(
     () =>
-      sessions.reduce<Record<string, number>>((acc, s) => {
+      visibleSessions.reduce<Record<string, number>>((acc, s) => {
         acc[s.agentId] = (acc[s.agentId] ?? 0) + 1;
         return acc;
       }, {}),
-    [sessions],
+    [visibleSessions],
   );
 
   // ── Session management ───────────────────────────────────────────────────────
 
-  /** Core session creator — label can be overridden (for auto-resumed sessions). */
-  function createSessionDirect(agent: AgentDef, cmd: string[], labelOverride?: string) {
+  /**
+   * Core session creator — label can be overridden (for auto-resumed sessions).
+   * wsPathOverride pins the session to a specific workspace at spawn time so
+   * auto-resume (which uses setTimeout) doesn't accidentally attach a session
+   * to whatever workspace is active 200ms later.
+   */
+  function createSessionDirect(
+    agent: AgentDef,
+    cmd: string[],
+    labelOverride?: string,
+    wsPathOverride?: string | null,
+  ) {
     sessionCounter++;
     const termId = `cli-agent-${Date.now()}-${sessionCounter}`;
-    const agentCount = (sessionCountsRef.current[agent.id] ?? 0) + 1;
-    sessionCountsRef.current[agent.id] = agentCount;
+    const wsPath = wsPathOverride !== undefined ? wsPathOverride : workspacePath;
+    const wsKeyStr = wsKey(wsPath);
+
+    // Per-workspace counter so "Claude 2" doesn't bleed across workspaces.
+    const wsCounts = (sessionCountsRef.current[wsKeyStr] ??= {});
+    const agentCount = (wsCounts[agent.id] ?? 0) + 1;
+    wsCounts[agent.id] = agentCount;
+
     const label = labelOverride ?? (agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`);
-    const spawn: SpawnConfig = { cmd, cwd: workspacePath };
-    setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn }]);
-    setActiveTermId(termId);
+    const spawn: SpawnConfig = { cmd, cwd: wsPath };
+    setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn, workspacePath: wsPath }]);
+    setActiveTermByWs((prev) => ({ ...prev, [wsKeyStr]: termId }));
   }
 
-  /** Start a fresh session (new chat). */
+  /** Start a fresh session (new chat) in the currently active workspace. */
   function createSession(agent: AgentDef) {
     // Pass the resolved absolute path as customPath so buildCmd uses it as the
     // first argv entry, bypassing shell wrappers (see resolveAgentPath above).
@@ -318,10 +384,15 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     }
   }
 
-  function startRename(termId: string, currentLabel: string) {
-    setActiveTermId(termId);
-    setRenamingTermId(termId);
-    setRenameValue(currentLabel);
+  /** Select a session, updating the active termId for its own workspace. */
+  function selectSession(s: AgentSession) {
+    setActiveTermByWs((prev) => ({ ...prev, [wsKey(s.workspacePath)]: s.termId }));
+  }
+
+  function startRename(s: AgentSession) {
+    selectSession(s);
+    setRenamingTermId(s.termId);
+    setRenameValue(s.label);
     requestAnimationFrame(() => renameInputRef.current?.select());
   }
 
@@ -335,11 +406,19 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
   async function closeSession(termId: string) {
     try { await invoke("terminal_close", { id: termId }); } catch {}
-    setSessions((prev) => {
-      const remaining = prev.filter((s) => s.termId !== termId);
-      if (activeTermId === termId) setActiveTermId(remaining.at(-1)?.termId ?? null);
-      return remaining;
-    });
+    const closing = sessionsRef.current.find((s) => s.termId === termId);
+    setSessions((prev) => prev.filter((s) => s.termId !== termId));
+    if (closing) {
+      // Pick a new active session for the closing session's workspace only.
+      setActiveTermByWs((prev) => {
+        const k = wsKey(closing.workspacePath);
+        if (prev[k] !== termId) return prev;
+        const remaining = sessionsRef.current.filter(
+          (s) => s.termId !== termId && s.workspacePath === closing.workspacePath,
+        );
+        return { ...prev, [k]: remaining.at(-1)?.termId ?? null };
+      });
+    }
     setCapturedIds((prev) => {
       const next = { ...prev };
       delete next[termId];
@@ -407,17 +486,17 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         </div>
       </div>
 
-      {/* ── Session tabs ── */}
-      {sessions.length > 0 && (
+      {/* ── Session tabs (current workspace only) ── */}
+      {visibleSessions.length > 0 && (
         <div className="cli-agent-panel__tabs">
-          {sessions.map((s) => {
+          {visibleSessions.map((s) => {
             const isActive = s.termId === activeTermId;
             const isRenaming = s.termId === renamingTermId;
             return (
               <div
                 key={s.termId}
                 className={`cli-agent-panel__tab${isActive ? " cli-agent-panel__tab--active" : ""}`}
-                onClick={() => setActiveTermId(s.termId)}
+                onClick={() => selectSession(s)}
               >
                 <AgentLogo agentId={s.agentId} size={10} className="cli-agent-panel__tab-logo" />
                 {isRenaming ? (
@@ -437,7 +516,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
                 ) : (
                   <span
                     className="cli-agent-panel__tab-label"
-                    onDoubleClick={(e) => { e.stopPropagation(); startRename(s.termId, s.label); }}
+                    onDoubleClick={(e) => { e.stopPropagation(); startRename(s); }}
                   >
                     {s.label}
                   </span>
@@ -455,31 +534,37 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         </div>
       )}
 
-      {/* ── Terminal body ── */}
+      {/* ── Terminal body ──
+          We render EVERY session across all workspaces so their xterm state
+          and backing PTYs survive workspace switches.  Only the active
+          workspace's currently-selected session is actually visible. */}
       <div className="cli-agent-panel__body">
-        {sessions.length === 0 ? (
+        {visibleSessions.length === 0 && (
           <EmptyState
             agents={visibleAgents}
             onSettings={onSettings}
             onLaunch={createSession}
             onResume={resumeSession}
           />
-        ) : (
-          sessions.map((s) => (
+        )}
+        {sessions.map((s) => {
+          const isInActiveWorkspace = s.workspacePath === workspacePath;
+          const isVisibleTab = isInActiveWorkspace && s.termId === activeTermId;
+          return (
             <div
               key={s.termId}
               className="cli-agent-panel__term-wrap"
-              style={{ display: s.termId === activeTermId ? "flex" : "none" }}
+              style={{ display: isVisibleTab ? "flex" : "none" }}
             >
               <TerminalInstance
                 id={s.termId}
-                visible={s.termId === activeTermId}
+                visible={isVisibleTab}
                 spawn={s.spawn}
                 onData={(chunk) => handleTermData(s.termId, s.agentId, chunk)}
               />
             </div>
-          ))
-        )}
+          );
+        })}
       </div>
     </div>
   );
