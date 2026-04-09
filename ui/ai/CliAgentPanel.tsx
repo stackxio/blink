@@ -89,42 +89,46 @@ function extractSessionId(chunk: string): string | null {
 function buildSavedSessionCmd(
   saved: SavedSession,
   agentSettings: AgentSettings,
+  resolvedPaths: Record<string, string>,
 ): string[] | null {
   const agent = ALL_AGENTS.find((a) => a.id === saved.agentId);
   if (!agent) return null;
-  const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+  // Priority: customPath > absolute path from which > bare binary name.
+  // Using the absolute path bypasses shell wrappers (e.g. cmux's claude fn).
+  const customPathSetting = agentSettings[agent.id]?.customPath?.trim();
+  const exe = customPathSetting || resolvedPaths[agent.binary] || agent.binary;
 
   if (saved.sessionId) {
     // Resume the exact session by ID
     if (agent.id === "claude") {
-      return [customPath || "claude", "--resume", saved.sessionId, "--dangerously-skip-permissions"];
+      return [exe, "--resume", saved.sessionId, "--dangerously-skip-permissions"];
     }
     if (agent.id === "codex") {
-      return [customPath || "codex", "resume", saved.sessionId];
+      return [exe, "resume", saved.sessionId];
     }
     if (agent.id === "gemini") {
-      return [customPath || "gemini", "--resume", saved.sessionId];
+      return [exe, "--resume", saved.sessionId];
     }
     if (agent.id === "opencode") {
-      return [customPath || "opencode", "--session", saved.sessionId];
+      return [exe, "--session", saved.sessionId];
     }
   }
 
   // No captured ID — continue the most-recent session silently (no picker)
   if (agent.id === "claude") {
-    return [customPath || "claude", "--continue", "--dangerously-skip-permissions"];
+    return [exe, "--continue", "--dangerously-skip-permissions"];
   }
   if (agent.id === "codex") {
-    return [customPath || "codex", "resume", "--last"];
+    return [exe, "resume", "--last"];
   }
   if (agent.id === "gemini") {
-    return [customPath || "gemini", "--resume"];
+    return [exe, "--resume"];
   }
   if (agent.id === "opencode") {
-    return [customPath || "opencode", "--continue"];
+    return [exe, "--continue"];
   }
 
-  return agent.buildCmd({ customPath });
+  return agent.buildCmd({ customPath: exe });
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -136,7 +140,10 @@ interface Props {
 }
 
 export default function CliAgentPanel({ workspacePath, agentSettings, onSettings }: Props) {
-  const [installedBinaries, setInstalledBinaries] = useState<string[]>([]);
+  // Map of binary name -> absolute path (as resolved by `/usr/bin/which`).
+  // Using the absolute path when spawning bypasses shell functions and aliases
+  // like cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }`.
+  const [installedBinaries, setInstalledBinaries] = useState<Record<string, string>>({});
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [activeTermId, setActiveTermId] = useState<string | null>(null);
   const [renamingTermId, setRenamingTermId] = useState<string | null>(null);
@@ -148,15 +155,17 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   // Per-termId captured session IDs (from terminal output parsing)
   const [capturedIds, setCapturedIds] = useState<Record<string, string>>({});
 
-  // Stable refs for beforeunload save
+  // Stable refs for beforeunload save and async effect closures
   const sessionsRef = useRef<AgentSession[]>(sessions);
   const capturedIdsRef = useRef<Record<string, string>>(capturedIds);
   const workspacePathRef = useRef<string | null>(workspacePath);
   const agentSettingsRef = useRef<AgentSettings>(agentSettings);
+  const installedBinariesRef = useRef<Record<string, string>>({});
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   useEffect(() => { capturedIdsRef.current = capturedIds; }, [capturedIds]);
   useEffect(() => { workspacePathRef.current = workspacePath; }, [workspacePath]);
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
+  useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
   // ── Auto-resume all saved sessions once a real workspace path is known ────────
   // workspacePath starts null because loadSavedWorkspaces() is async (invoke call).
@@ -178,7 +187,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       setTimeout(() => {
         const agent = ALL_AGENTS.find((a) => a.id === s.agentId);
         if (!agent) return;
-        const cmd = buildSavedSessionCmd(s, agentSettingsRef.current);
+        const cmd = buildSavedSessionCmd(s, agentSettingsRef.current, installedBinariesRef.current);
         if (!cmd) return;
         createSessionDirect(agent, cmd, s.label);
       }, i * 200);
@@ -218,9 +227,15 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   // Detect which binaries are available in PATH
   useEffect(() => {
     const binaries = ALL_AGENTS.map((a) => a.binary);
-    invoke<string[]>("which_cli", { names: binaries })
+    invoke<Record<string, string>>("which_cli", { names: binaries })
       .then(setInstalledBinaries)
-      .catch(() => setInstalledBinaries(binaries));
+      .catch(() => {
+        // Fallback: mark all as "installed" with their bare name so the UI
+        // doesn't vanish if the detection fails for some reason.
+        const fallback: Record<string, string> = {};
+        for (const b of binaries) fallback[b] = b;
+        setInstalledBinaries(fallback);
+      });
   }, []);
 
   // Load combined skills once
@@ -235,8 +250,20 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     const cfg = agentSettings[agent.id];
     if (!cfg?.enabled) return false;
     if (cfg.customPath.trim()) return true;
-    return installedBinaries.includes(agent.binary);
+    return agent.binary in installedBinaries;
   });
+
+  /**
+   * Pick the best path for an agent's binary.
+   * Priority: user's customPath > resolved absolute path from which > bare name.
+   * Using the absolute path here bypasses shell functions/aliases that may
+   * shadow the real binary in the user's interactive shell (e.g. cmux).
+   */
+  function resolveAgentPath(agent: AgentDef): string {
+    const custom = agentSettings[agent.id]?.customPath?.trim();
+    if (custom) return custom;
+    return installedBinaries[agent.binary] || agent.binary;
+  }
 
   // Active session count per agentId (for tooltip badge)
   const sessionCounts = useMemo(
@@ -264,7 +291,9 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
   /** Start a fresh session (new chat). */
   function createSession(agent: AgentDef) {
-    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+    // Pass the resolved absolute path as customPath so buildCmd uses it as the
+    // first argv entry, bypassing shell wrappers (see resolveAgentPath above).
+    const customPath = resolveAgentPath(agent);
     const cmd = agent.buildCmd({ customPath, skills: skillsRef.current });
     createSessionDirect(agent, cmd);
   }
@@ -275,7 +304,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
    */
   function resumeSession(agent: AgentDef) {
     if (!agent.resumeCmd) return;
-    const customPath = agentSettings[agent.id]?.customPath?.trim() || undefined;
+    const customPath = resolveAgentPath(agent);
     createSessionDirect(agent, agent.resumeCmd({ customPath }));
   }
 

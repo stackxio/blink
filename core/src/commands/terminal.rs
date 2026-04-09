@@ -209,23 +209,40 @@ pub async fn terminal_close(
 }
 
 /// Check which CLI binaries from the given list are available in PATH.
-/// Returns only the names that were found.
+/// Returns a map of `name -> absolute binary path` for every binary found.
+///
 /// Uses the user's login-shell PATH so Homebrew/nvm/npm globals are visible
 /// even when the app is launched as a .app bundle with launchd's stripped PATH.
+///
+/// Spawns `/usr/bin/which` directly (not through a shell), so shell functions
+/// and aliases like cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }` are
+/// ignored — we only resolve real binaries on disk. The absolute path is
+/// returned so callers can spawn the binary directly and bypass any shell
+/// wrappers the user may have in their rc files.
 #[tauri::command]
-pub async fn which_cli(names: Vec<String>) -> Vec<String> {
+pub async fn which_cli(names: Vec<String>) -> std::collections::HashMap<String, String> {
     let expanded_path = login_shell_path();
-    names
-        .into_iter()
-        .filter(|name| {
-            let mut cmd = std::process::Command::new("which");
-            cmd.arg(name)
-                .stdout(std::process::Stdio::null())
-                .stderr(std::process::Stdio::null());
-            if let Some(ref path) = expanded_path {
-                cmd.env("PATH", path);
+    let mut out = std::collections::HashMap::new();
+    for name in names {
+        let mut cmd = std::process::Command::new("/usr/bin/which");
+        cmd.arg(&name)
+            .stderr(std::process::Stdio::null());
+        if let Some(ref path) = expanded_path {
+            cmd.env("PATH", path);
+        }
+        if let Ok(output) = cmd.output() {
+            if output.status.success() {
+                // `which` prints one line per match — take the first line.
+                if let Ok(stdout) = String::from_utf8(output.stdout) {
+                    if let Some(first) = stdout.lines().next() {
+                        let path = first.trim().to_string();
+                        if !path.is_empty() {
+                            out.insert(name, path);
+                        }
+                    }
+                }
             }
-            cmd.status().map(|s| s.success()).unwrap_or(false)
-        })
-        .collect()
+        }
+    }
+    out
 }
