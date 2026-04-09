@@ -284,9 +284,26 @@ export function TerminalInstance({
       });
       ro.observe(container);
 
+      // 7. Re-read the theme from CSS variables whenever the root element's
+      //    class or style attributes change (that's how the app swaps dark/
+      //    light themes).  Without this, an already-running terminal stays
+      //    locked to whatever theme was active at spawn time.
+      const themeObserver = new MutationObserver(() => {
+        const t = termRef.current;
+        if (!t) return;
+        try {
+          t.options.theme = getTerminalTheme();
+        } catch {}
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+
       cleanupFn = () => {
         unlisten?.();
         ro.disconnect();
+        themeObserver.disconnect();
         if (resizeTimer) clearTimeout(resizeTimer);
         if (sigwinchTimer) clearTimeout(sigwinchTimer);
         term.dispose();
