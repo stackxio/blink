@@ -650,7 +650,7 @@ dependencies = [
 
 [[package]]
 name = "codrift"
-version = "0.0.27"
+version = "0.0.39"
 dependencies = [
  "anyhow",
  "async-trait",

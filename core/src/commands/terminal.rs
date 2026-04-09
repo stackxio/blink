@@ -6,17 +6,44 @@ use tauri::{AppHandle, Emitter};
 
 /// Resolve the full user PATH by sourcing the login shell.
 /// macOS .app bundles inherit a stripped PATH (/usr/bin:/bin:…) from launchd,
-/// which misses Homebrew, nvm, npm globals, etc.  Running `$SHELL -l -c echo $PATH`
-/// gives us the same PATH the user sees in their terminal.
+/// which misses Homebrew, nvm, npm globals, etc.  Running the shell with
+/// `-i -l -c` gives us the same PATH the user sees in their terminal.
+///
+/// IMPORTANT: `-i` is required.  Most zsh users put their `export PATH=…`
+/// lines in `~/.zshrc`, which is only sourced in interactive mode.
+/// Running `zsh -l -c` alone only sources `.zprofile`/`.zlogin` and misses
+/// `.zshrc` entirely — that's why binaries installed via nvm, cmux, or
+/// `~/.local/bin` don't show up inside a .app bundle.
+///
+/// Cached in a OnceLock so we don't spawn a shell on every agent check.
 fn login_shell_path() -> Option<String> {
-    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    std::process::Command::new(&shell)
-        .args(["-l", "-c", "echo $PATH"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<Option<String>> = OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+            let try_run = |args: &[&str]| -> Option<String> {
+                std::process::Command::new(&shell)
+                    .args(args)
+                    // Redirect stdin from /dev/null to prevent any interactive
+                    // prompts from hanging the shell.
+                    .stdin(std::process::Stdio::null())
+                    // Swallow stderr so any startup noise (job notifications,
+                    // rc-file warnings) doesn't pollute the captured PATH.
+                    .stderr(std::process::Stdio::null())
+                    .output()
+                    .ok()
+                    .and_then(|o| String::from_utf8(o.stdout).ok())
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+            };
+            // Prefer -i -l -c (interactive + login): sources .zshrc as well,
+            // catching PATH exports that the user typed into their rc file.
+            // Fall back to -l -c if -i fails for some reason.
+            try_run(&["-i", "-l", "-c", "echo $PATH"])
+                .or_else(|| try_run(&["-l", "-c", "echo $PATH"]))
+        })
+        .clone()
 }
 
 struct TerminalSession {
@@ -208,40 +235,146 @@ pub async fn terminal_close(
     Ok(())
 }
 
+/// Is this path an existing file with an executable bit set?
+fn is_executable_file(path: &std::path::Path) -> bool {
+    let Ok(meta) = std::fs::metadata(path) else {
+        return false;
+    };
+    if !meta.is_file() {
+        return false;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        return meta.permissions().mode() & 0o111 != 0;
+    }
+    #[cfg(not(unix))]
+    true
+}
+
+/// Search the given `PATH` string (colon-separated on unix) for `name`.
+/// Returns the first executable match found.  Implemented in pure Rust so we
+/// don't depend on `/usr/bin/which` behavior, and so we can pick up binaries
+/// that a shell function or alias is shadowing in the user's interactive shell.
+fn search_path_dirs(name: &str, path_env: &str) -> Option<String> {
+    for dir in path_env.split(':') {
+        if dir.is_empty() {
+            continue;
+        }
+        let candidate = std::path::PathBuf::from(dir).join(name);
+        if is_executable_file(&candidate) {
+            return Some(candidate.to_string_lossy().into_owned());
+        }
+    }
+    None
+}
+
+/// Well-known absolute install paths to check for each agent binary.
+/// Used as a last-resort fallback when the expanded shell PATH doesn't
+/// contain the binary (e.g. the user installed it into a dir that's only
+/// referenced by a shell function wrapper).
+fn known_install_paths(name: &str) -> Vec<std::path::PathBuf> {
+    let mut paths = Vec::new();
+    let home = dirs::home_dir();
+
+    // Paths that apply to any agent — check obvious system locations first.
+    let generic = [
+        "/opt/homebrew/bin",
+        "/usr/local/bin",
+        "/usr/local/sbin",
+        "/usr/bin",
+    ];
+    for base in generic {
+        paths.push(std::path::PathBuf::from(base).join(name));
+    }
+
+    // Agent-specific known install locations.
+    if let Some(h) = &home {
+        match name {
+            "claude" => {
+                // Claude Code's default self-install location.
+                paths.push(h.join(".claude/local/claude"));
+                paths.push(h.join(".local/bin/claude"));
+            }
+            "codex" => {
+                paths.push(h.join(".codex/bin/codex"));
+                paths.push(h.join(".local/bin/codex"));
+            }
+            "gemini" => {
+                paths.push(h.join(".local/bin/gemini"));
+            }
+            "opencode" => {
+                paths.push(h.join(".local/bin/opencode"));
+                paths.push(h.join(".opencode/bin/opencode"));
+            }
+            _ => {
+                paths.push(h.join(".local/bin").join(name));
+            }
+        }
+    }
+
+    paths
+}
+
+/// Resolve a single binary name to its absolute path on disk, trying
+/// multiple strategies in order:
+/// 1. Search the expanded login-shell PATH directly (pure Rust; bypasses
+///    shell functions/aliases that may be shadowing the real binary).
+/// 2. Fall back to `/usr/bin/which` with the expanded PATH.
+/// 3. Fall back to a list of well-known install locations for the agent.
+fn resolve_binary(name: &str, expanded_path: Option<&str>) -> Option<String> {
+    // Strategy 1: search expanded PATH in pure Rust
+    if let Some(path_env) = expanded_path {
+        if let Some(found) = search_path_dirs(name, path_env) {
+            return Some(found);
+        }
+    }
+
+    // Strategy 2: delegate to /usr/bin/which in case PATH entries are strange
+    let mut cmd = std::process::Command::new("/usr/bin/which");
+    cmd.arg(name).stderr(std::process::Stdio::null());
+    if let Some(path) = expanded_path {
+        cmd.env("PATH", path);
+    }
+    if let Ok(output) = cmd.output() {
+        if output.status.success() {
+            if let Ok(stdout) = String::from_utf8(output.stdout) {
+                if let Some(first) = stdout.lines().next() {
+                    let trimmed = first.trim();
+                    if !trimmed.is_empty() && std::path::Path::new(trimmed).exists() {
+                        return Some(trimmed.to_string());
+                    }
+                }
+            }
+        }
+    }
+
+    // Strategy 3: check known install locations
+    for candidate in known_install_paths(name) {
+        if is_executable_file(&candidate) {
+            return Some(candidate.to_string_lossy().into_owned());
+        }
+    }
+
+    None
+}
+
 /// Check which CLI binaries from the given list are available in PATH.
 /// Returns a map of `name -> absolute binary path` for every binary found.
 ///
 /// Uses the user's login-shell PATH so Homebrew/nvm/npm globals are visible
 /// even when the app is launched as a .app bundle with launchd's stripped PATH.
 ///
-/// Spawns `/usr/bin/which` directly (not through a shell), so shell functions
-/// and aliases like cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }` are
-/// ignored — we only resolve real binaries on disk. The absolute path is
-/// returned so callers can spawn the binary directly and bypass any shell
-/// wrappers the user may have in their rc files.
+/// The absolute path is returned so callers can spawn the binary directly,
+/// bypassing any shell function wrappers the user may have in their rc files
+/// (e.g. cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }`).
 #[tauri::command]
 pub async fn which_cli(names: Vec<String>) -> std::collections::HashMap<String, String> {
     let expanded_path = login_shell_path();
     let mut out = std::collections::HashMap::new();
     for name in names {
-        let mut cmd = std::process::Command::new("/usr/bin/which");
-        cmd.arg(&name)
-            .stderr(std::process::Stdio::null());
-        if let Some(ref path) = expanded_path {
-            cmd.env("PATH", path);
-        }
-        if let Ok(output) = cmd.output() {
-            if output.status.success() {
-                // `which` prints one line per match — take the first line.
-                if let Ok(stdout) = String::from_utf8(output.stdout) {
-                    if let Some(first) = stdout.lines().next() {
-                        let path = first.trim().to_string();
-                        if !path.is_empty() {
-                            out.insert(name, path);
-                        }
-                    }
-                }
-            }
+        if let Some(path) = resolve_binary(&name, expanded_path.as_deref()) {
+            out.insert(name, path);
         }
     }
     out
