@@ -78,7 +78,7 @@ function QuitConfirmDialog({ onQuit, onCancel }: { onQuit: () => void; onCancel:
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontWeight: 600, fontSize: 15, color: "var(--c-fg, #d4d4d4)" }}>
-            Quit Blink?
+            Quit Codrift?
           </span>
           <span style={{ fontSize: 13, color: "var(--c-fg-muted, #888)" }}>
             You have unsaved changes. They will be lost if you quit now.
@@ -121,16 +121,23 @@ function useQuitConfirm(): { open: boolean; onQuit: () => void; onCancel: () => 
     let unlisten: (() => void) | null = null;
     getCurrentWindow()
       .onCloseRequested((event) => {
-        const confirmEnabled = localStorage.getItem("codrift:confirmQuit") !== "false";
-        if (!confirmEnabled) return;
-
-        const hasUnsaved = useAppStore
-          .getState()
-          .workspaces.some((ws) => ws.openFiles.some((f) => f.modified));
-        if (!hasUnsaved) return;
-
-        // Prevent the default close and show our React dialog instead.
+        // Always prevent default so we control the close flow explicitly.
         event.preventDefault();
+
+        const confirmEnabled = localStorage.getItem("codrift:confirmQuit") !== "false";
+        const hasUnsaved =
+          confirmEnabled &&
+          useAppStore
+            .getState()
+            .workspaces.some((ws) => ws.openFiles.some((f) => f.modified));
+
+        if (!hasUnsaved) {
+          // Nothing to confirm — close immediately.
+          getCurrentWindow().destroy().catch(() => {});
+          return;
+        }
+
+        // Has unsaved changes — show the React confirm dialog.
         setOpen(true);
       })
       .then((fn) => { unlisten = fn; })
