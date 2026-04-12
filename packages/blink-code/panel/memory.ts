@@ -31,7 +31,7 @@ export async function loadMemory(workspacePath: string | null): Promise<MemoryPa
 
   let blinkMd: string | null = null;
   try {
-    const path = joinWithWorkspace(workspacePath, "CODRIFT.md");
+    const path = joinWithWorkspace(workspacePath, "AGENTS.md");
     blinkMd = await invoke<string>("read_file_content", { path });
   } catch {
     blinkMd = null;

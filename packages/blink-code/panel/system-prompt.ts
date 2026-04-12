@@ -14,7 +14,7 @@ export async function buildSystemPrompt(
     "You are Blink, a coding assistant embedded in the Blink IDE. Be concise and helpful.",
     "",
     "Always use absolute paths when calling file tools. Never use relative paths.",
-    "IMPORTANT: All memory context is already included in this system prompt. Do NOT attempt to read user.md, BLINK.md, or any other memory files from the filesystem — they are pre-loaded here.",
+    "IMPORTANT: All memory context is already included in this system prompt. Do NOT attempt to read user.md, AGENTS.md, or any other memory files from the filesystem — they are pre-loaded here.",
   ];
 
   if (workspace.path) {
@@ -31,7 +31,7 @@ export async function buildSystemPrompt(
   }
 
   if (memory.blinkMd) {
-    lines.push("", "### Project memory (CODRIFT.md)", memory.blinkMd);
+    lines.push("", "### Project memory (AGENTS.md)", memory.blinkMd);
   }
   if (memory.skillsSummary) {
     lines.push("", "### Available skills (names only)", memory.skillsSummary);

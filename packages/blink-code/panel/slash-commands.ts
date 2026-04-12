@@ -74,10 +74,10 @@ const PROMPT_COMMANDS: Extract<SlashCommandDef, { type: "prompt" }>[] = [
   },
   {
     name: "init",
-    description: "Initialize project memory (BLINK.md)",
+    description: "Initialize project memory (AGENTS.md)",
     type: "prompt",
     prompt:
-      "Please explore this workspace and create a BLINK.md file in the project root that documents: the project purpose, tech stack, directory structure, key files, and any important conventions or notes for future sessions.",
+      "Please explore this workspace and create a AGENTS.md file in the project root that documents: the project purpose, tech stack, directory structure, key files, and any important conventions or notes for future sessions.",
   },
 ];
 
@@ -85,7 +85,7 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
   { name: "help", description: "List slash commands" },
   { name: "clear", description: "Clear conversation" },
   { name: "model", description: "Set or show model — /model <name>" },
-  { name: "memory", description: "Open BLINK.md" },
+  { name: "memory", description: "Open AGENTS.md" },
   { name: "context", description: "Show provider and workspace context" },
   { name: "compact", description: "Keep only the last few messages in history" },
   ...PROMPT_COMMANDS,

@@ -102,7 +102,7 @@ export default function SettingsMemory() {
       if (workspacePath) {
         try {
           const content = await invoke<string>("read_file_content", {
-            path: `${workspacePath}/CODRIFT.md`,
+            path: `${workspacePath}/AGENTS.md`,
           });
           setProjectMd(content);
         } catch {
@@ -133,7 +133,7 @@ export default function SettingsMemory() {
     setProjectMdSaving(true);
     try {
       await invoke("write_file_content", {
-        path: `${workspacePath}/CODRIFT.md`,
+        path: `${workspacePath}/AGENTS.md`,
         content: projectMd,
       });
       setProjectMdSaved(true);
@@ -169,7 +169,7 @@ export default function SettingsMemory() {
       {workspacePath ? (
         <MemorySection
           title="Project Memory"
-          description={`Workspace-specific context — ${workspacePath}/CODRIFT.md`}
+          description={`Workspace-specific context — ${workspacePath}/AGENTS.md`}
           content={projectMd}
           placeholder={PROJECT_MD_PLACEHOLDER}
           saving={projectMdSaving}

@@ -836,13 +836,13 @@ function BlinkCodePanel() {
       case "memory":
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "system", content: "Opening BLINK.md…" },
+          { id: crypto.randomUUID(), role: "system", content: "Opening AGENTS.md…" },
         ]);
-        // Dispatch event to open BLINK.md in editor
+        // Dispatch event to open AGENTS.md in editor
         if (workspacePath) {
           document.dispatchEvent(
             new CustomEvent("blink:open-file", {
-              detail: { path: `${workspacePath}/BLINK.md`, name: "BLINK.md" },
+              detail: { path: `${workspacePath}/AGENTS.md`, name: "AGENTS.md" },
             }),
           );
         }
