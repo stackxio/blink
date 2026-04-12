@@ -2,7 +2,7 @@
 
 **Why Codrift?** Modern dev workflows are split across too many tools — an editor here, a terminal there, an AI agent in another window, and a chat tab somewhere else. Codrift collapses all of it into a single workspace: Monaco editor, integrated terminal, multi-agent runner (Claude Code, Codex, Gemini…), and a native AI chat panel with OpenAI-compatible providers — all in one window, all sharing the same workspace context.
 
-![Codrift screenshot](.github/assets/screenshot.png)
+![Codrift screenshot](.github/assets/coderift.webp)
 
 ---
 
@@ -55,6 +55,7 @@
 The AI panel has two modes:
 
 **Built-in chat** — a conversational interface backed by the configured AI provider (Ollama or a custom OpenAI-compatible API). Supports:
+
 - Threaded conversations persisted per workspace
 - 16 built-in tools: file read/write/edit, directory tree, git status/diff/log/commit, run commands, search, glob, and more
 - Slash commands: `/commit`, `/pr`, `/review`, `/fix`, `/test`, `/explain`, `/refactor`, `/diff`, `/compact`, and more
@@ -66,15 +67,15 @@ The AI panel has two modes:
 
 **CLI agent runner** — launches supported AI coding agents in a dedicated terminal. Supported agents:
 
-| Agent | Binary | Session resume |
-|---|---|---|
-| Claude Code | `claude` | `--resume` |
-| Codex | `codex` | `codex resume` |
-| Gemini | `gemini` | `--resume` |
-| OpenCode | `opencode` | `--continue` |
-| Pi | `pi` | — |
-| GitHub Copilot CLI | `gh copilot suggest` | — |
-| Cursor Agent | `cursor --agent` | — |
+| Agent              | Binary               | Session resume |
+| ------------------ | -------------------- | -------------- |
+| Claude Code        | `claude`             | `--resume`     |
+| Codex              | `codex`              | `codex resume` |
+| Gemini             | `gemini`             | `--resume`     |
+| OpenCode           | `opencode`           | `--continue`   |
+| Pi                 | `pi`                 | —              |
+| GitHub Copilot CLI | `gh copilot suggest` | —              |
+| Cursor Agent       | `cursor --agent`     | —              |
 
 Session IDs are captured from terminal output and persisted per workspace so previous sessions can be resumed across app restarts. Each agent can be enabled/disabled and given a custom binary path.
 
@@ -136,18 +137,18 @@ Session IDs are captured from terminal output and persisted per workspace so pre
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Desktop shell | Tauri v2 (Rust) |
-| Frontend | React 19 + TypeScript + Vite |
-| Styling | SCSS + CSS custom properties |
-| Code editor | Monaco Editor |
-| Terminal | xterm.js + `portable-pty` (Rust) |
-| LSP broker | Rust (JSON-RPC over stdio) |
-| State management | Zustand |
-| Database | SQLite via `rusqlite` |
-| Package manager | Bun |
-| Icons | Lucide React + Material Icon Theme |
+| Layer            | Technology                         |
+| ---------------- | ---------------------------------- |
+| Desktop shell    | Tauri v2 (Rust)                    |
+| Frontend         | React 19 + TypeScript + Vite       |
+| Styling          | SCSS + CSS custom properties       |
+| Code editor      | Monaco Editor                      |
+| Terminal         | xterm.js + `portable-pty` (Rust)   |
+| LSP broker       | Rust (JSON-RPC over stdio)         |
+| State management | Zustand                            |
+| Database         | SQLite via `rusqlite`              |
+| Package manager  | Bun                                |
+| Icons            | Lucide React + Material Icon Theme |
 
 ---
 
@@ -199,20 +200,20 @@ codrift/
 
 Servers are started automatically when a file with a recognized extension is opened. The following language servers are supported out of the box (installed separately):
 
-| Language | Server | Install |
-|---|---|---|
-| TypeScript / JavaScript | `typescript-language-server` | `npm install -g typescript-language-server typescript` |
-| Rust | `rust-analyzer` | `brew install rust-analyzer` |
-| Python | `pyright-langserver` | `npm install -g pyright` |
-| Go | `gopls` | `go install golang.org/x/tools/gopls@latest` |
-| CSS / SCSS / Less | `vscode-css-language-server` | `npm install -g vscode-langservers-extracted` |
-| HTML | `vscode-html-language-server` | `npm install -g vscode-langservers-extracted` |
-| JSON | `vscode-json-language-server` | `npm install -g vscode-langservers-extracted` |
-| Svelte | `svelteserver` | `npm install -g svelte-language-server` |
-| Vue | `vue-language-server` | `npm install -g @vue/language-server` |
-| Tailwind CSS | `tailwindcss-language-server` | `npm install -g @tailwindcss/language-server` |
-| YAML | `yaml-language-server` | `npm install -g yaml-language-server` |
-| TOML | `taplo` | `cargo install taplo-cli --locked` |
+| Language                | Server                        | Install                                                |
+| ----------------------- | ----------------------------- | ------------------------------------------------------ |
+| TypeScript / JavaScript | `typescript-language-server`  | `npm install -g typescript-language-server typescript` |
+| Rust                    | `rust-analyzer`               | `brew install rust-analyzer`                           |
+| Python                  | `pyright-langserver`          | `npm install -g pyright`                               |
+| Go                      | `gopls`                       | `go install golang.org/x/tools/gopls@latest`           |
+| CSS / SCSS / Less       | `vscode-css-language-server`  | `npm install -g vscode-langservers-extracted`          |
+| HTML                    | `vscode-html-language-server` | `npm install -g vscode-langservers-extracted`          |
+| JSON                    | `vscode-json-language-server` | `npm install -g vscode-langservers-extracted`          |
+| Svelte                  | `svelteserver`                | `npm install -g svelte-language-server`                |
+| Vue                     | `vue-language-server`         | `npm install -g @vue/language-server`                  |
+| Tailwind CSS            | `tailwindcss-language-server` | `npm install -g @tailwindcss/language-server`          |
+| YAML                    | `yaml-language-server`        | `npm install -g yaml-language-server`                  |
+| TOML                    | `taplo`                       | `cargo install taplo-cli --locked`                     |
 
 Custom server binaries can be placed in `~/.codrift/servers/` and will take precedence over PATH.
 
@@ -242,26 +243,26 @@ bun run app:build
 
 ## Scripts
 
-| Command | Description |
-|---|---|
-| `bun run app` | Development mode (Vite + Tauri) |
-| `bun run app:build` | Production build |
-| `bun run typecheck` | TypeScript type check |
-| `bun run lint` | ESLint |
-| `bun run format` | Prettier + `cargo fmt` |
-| `bun run db:reset` | Delete `~/.codrift/codrift.db` so it is recreated on next launch |
+| Command             | Description                                                      |
+| ------------------- | ---------------------------------------------------------------- |
+| `bun run app`       | Development mode (Vite + Tauri)                                  |
+| `bun run app:build` | Production build                                                 |
+| `bun run typecheck` | TypeScript type check                                            |
+| `bun run lint`      | ESLint                                                           |
+| `bun run format`    | Prettier + `cargo fmt`                                           |
+| `bun run db:reset`  | Delete `~/.codrift/codrift.db` so it is recreated on next launch |
 
 ---
 
 ## Data Locations
 
-| Path | Contents |
-|---|---|
+| Path                    | Contents                                                           |
+| ----------------------- | ------------------------------------------------------------------ |
 | `~/.codrift/codrift.db` | SQLite database: workspaces, open files, cursor positions, threads |
-| `~/.codrift/user.md` | Global user memory injected into every AI session |
-| `~/.codrift/servers/` | Locally installed LSP server binaries (checked before PATH) |
-| `~/.codrift/skills/` | Skill Markdown files editable in Settings > Skills |
-| `~/.codrift/sessions/` | AI chat thread history per workspace |
+| `~/.codrift/user.md`    | Global user memory injected into every AI session                  |
+| `~/.codrift/servers/`   | Locally installed LSP server binaries (checked before PATH)        |
+| `~/.codrift/skills/`    | Skill Markdown files editable in Settings > Skills                 |
+| `~/.codrift/sessions/`  | AI chat thread history per workspace                               |
 
 ---
 
