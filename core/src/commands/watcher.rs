@@ -28,7 +28,23 @@ pub fn start_watching(app: AppHandle, path: String) -> Result<(), String> {
             if let Ok(events) = result {
                 for event in events {
                     if event.kind == DebouncedEventKind::Any {
-                        let file_path = event.path.to_string_lossy().to_string();
+                        let path = &event.path;
+                        // Skip noise directories — these generate huge event storms on
+                        // package installs, builds, and git operations but are never
+                        // directly relevant to the editor's file tree or open buffers.
+                        let should_skip = path.components().any(|c| {
+                            matches!(
+                                c.as_os_str().to_str().unwrap_or(""),
+                                "node_modules" | ".git" | "dist" | "build" | "target"
+                                | ".next" | ".nuxt" | ".output" | "__pycache__"
+                                | ".mypy_cache" | ".ruff_cache" | ".pytest_cache"
+                                | "vendor" | ".turbo" | ".cache"
+                            )
+                        });
+                        if should_skip {
+                            continue;
+                        }
+                        let file_path = path.to_string_lossy().to_string();
                         let _ = emitter.emit("file:changed", file_path);
                     }
                 }

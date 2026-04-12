@@ -150,13 +150,14 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
       .catch(() => setBranches([]));
   }, [branchDropdownOpen, workspacePath]);
 
-  // Poll lightweight status only
+  // Poll lightweight status only while panel is mounted and tab is visible.
+  // 15 s is frequent enough to catch external git operations without hammering IPC.
   useEffect(() => {
     if (!workspacePath) return;
     const interval = setInterval(() => {
       if (document.hidden) return;
       void refresh(true);
-    }, 8000);
+    }, 15000);
     return () => clearInterval(interval);
   }, [workspacePath, refresh]);
 

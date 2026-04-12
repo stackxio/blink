@@ -9,10 +9,9 @@ const ITEMS: { id: SidePanelView; icon: typeof Files; label: string }[] = [
 ];
 
 export default function ActivityBar() {
-  const ws = useAppStore((s) => s.activeWorkspace());
+  const sidePanelView = useAppStore((s) => s.activeWorkspace()?.sidePanelView ?? "explorer");
+  const sidePanelOpen = useAppStore((s) => s.activeWorkspace()?.sidePanelOpen ?? true);
   const setSidePanelView = useAppStore((s) => s.setSidePanelView);
-  const sidePanelView = ws?.sidePanelView ?? "explorer";
-  const sidePanelOpen = ws?.sidePanelOpen ?? true;
 
   return (
     <div className="activity-bar">

@@ -253,10 +253,21 @@ export function TerminalInstance({
           }, 300)
         : null;
 
-      // Copy selected text automatically on selection change
+      // Copy selected text automatically on selection change.
+      // Debounced: onSelectionChange fires on every pointer-move frame during a
+      // drag selection. Calling clipboard.writeText() on every frame in WKWebView
+      // can interrupt the drag gesture mid-way — the async Clipboard API creates
+      // microtasks that compete with the pointer event stream. 120 ms is short
+      // enough to feel instant on mouseup but long enough to suppress all the
+      // intermediate frames during the drag.
+      let selectionCopyTimer: ReturnType<typeof setTimeout> | null = null;
       term.onSelectionChange(() => {
-        const text = term.getSelection();
-        if (text) navigator.clipboard.writeText(text).catch(() => {});
+        if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
+        selectionCopyTimer = setTimeout(() => {
+          selectionCopyTimer = null;
+          const text = term.getSelection();
+          if (text) navigator.clipboard.writeText(text).catch(() => {});
+        }, 120);
       });
 
       // 6. Wire up I/O.
@@ -326,10 +337,25 @@ export function TerminalInstance({
           searchAddon.clearDecorations();
           return;
         }
+        // Search decoration colours — yellow tint for all matches, brighter for
+        // the active match.  No overview ruler entries (overviewRulerWidth is 0
+        // by default) so those colour options are omitted to avoid confusion with
+        // WebGL rendering artefacts that users sometimes see as coloured dots.
+        const searchOpts = {
+          caseSensitive: false,
+          regex: false,
+          wholeWord: false,
+          decorations: {
+            matchBackground: "#ffdd0026",
+            matchBorder: "#ffdd0066",
+            activeMatchBackground: "#ffdd0066",
+            activeMatchBorder: "#ffdd00",
+          },
+        };
         if (forward) {
-          searchAddon.findNext(query, { caseSensitive: false, regex: false, wholeWord: false, decorations: { matchBackground: "#ffdd0033", matchBorder: "#ffdd00", activeMatchBackground: "#ff990099", activeMatchBorder: "#ff9900", activeMatchColorOverviewRuler: "#ff9900", matchOverviewRuler: "#ffdd00" } });
+          searchAddon.findNext(query, searchOpts);
         } else {
-          searchAddon.findPrevious(query, { caseSensitive: false, regex: false, wholeWord: false, decorations: { matchBackground: "#ffdd0033", matchBorder: "#ffdd00", activeMatchBackground: "#ff990099", activeMatchBorder: "#ff9900", activeMatchColorOverviewRuler: "#ff9900", matchOverviewRuler: "#ffdd00" } });
+          searchAddon.findPrevious(query, searchOpts);
         }
       }
       document.addEventListener(`terminal:search:${id}`, onSearchEvent);
@@ -342,6 +368,7 @@ export function TerminalInstance({
         document.removeEventListener(`terminal:search:${id}`, onSearchEvent);
         if (resizeTimer) clearTimeout(resizeTimer);
         if (sigwinchTimer) clearTimeout(sigwinchTimer);
+        if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
         term.dispose();
         termRef.current = null;
         fitRef.current = null;

@@ -293,16 +293,22 @@ export const useAppStore = create<AppState>((set, get) => ({
   diagnosticSummary: { errors: 0, warnings: 0 },
   setDiagnosticsForUri: (uri, diags) =>
     set((s) => {
-      const diagnostics = { ...s.diagnostics, [uri]: diags };
-      let errors = 0;
-      let warnings = 0;
-      for (const entries of Object.values(diagnostics)) {
-        for (const entry of entries) {
-          if (entry.severity === 1) errors += 1;
-          else if (entry.severity === 2) warnings += 1;
-        }
+      // Incremental update: subtract old counts for this URI, add new counts.
+      // Avoids an O(total_diags) full scan on every file's diagnostics change.
+      const old = s.diagnostics[uri] ?? [];
+      let { errors, warnings } = s.diagnosticSummary;
+      for (const e of old) {
+        if (e.severity === 1) errors -= 1;
+        else if (e.severity === 2) warnings -= 1;
       }
-      return { diagnostics, diagnosticSummary: { errors, warnings } };
+      for (const e of diags) {
+        if (e.severity === 1) errors += 1;
+        else if (e.severity === 2) warnings += 1;
+      }
+      return {
+        diagnostics: { ...s.diagnostics, [uri]: diags },
+        diagnosticSummary: { errors: Math.max(0, errors), warnings: Math.max(0, warnings) },
+      };
     }),
   // Pre-populate from localStorage snapshot so workspaces appear immediately
   // (before the async Tauri DB load completes).
