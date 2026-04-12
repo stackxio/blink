@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   RefreshCw,
   Plus,
@@ -150,14 +151,29 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
       .catch(() => setBranches([]));
   }, [branchDropdownOpen, workspacePath]);
 
-  // Poll lightweight status only while panel is mounted and tab is visible.
-  // 15 s is frequent enough to catch external git operations without hammering IPC.
+  // Refresh git status whenever a file in the workspace changes (debounced 600ms
+  // so rapid saves don't trigger multiple refreshes).  Fall back to a 60s poll
+  // to catch external git operations (branch switch, rebase, etc.) that don't
+  // touch workspace files directly.
+  const fileChangedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!workspacePath) return;
+    const unlistenPromise = listen<string>("file:changed", () => {
+      if (fileChangedTimer.current) clearTimeout(fileChangedTimer.current);
+      fileChangedTimer.current = setTimeout(() => void refresh(true), 600);
+    });
+    return () => {
+      if (fileChangedTimer.current) clearTimeout(fileChangedTimer.current);
+      unlistenPromise.then((fn) => fn()).catch(() => {});
+    };
+  }, [workspacePath, refresh]);
+
   useEffect(() => {
     if (!workspacePath) return;
     const interval = setInterval(() => {
       if (document.hidden) return;
       void refresh(true);
-    }, 15000);
+    }, 60_000);
     return () => clearInterval(interval);
   }, [workspacePath, refresh]);
 

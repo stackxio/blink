@@ -174,6 +174,12 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   );
   const [bgMenu, setBgMenu] = useState<{ x: number; y: number } | null>(null);
   const [filterText, setFilterText] = useState("");
+  // Debounced version — prevents O(n) tree walk on every keystroke
+  const [debouncedFilter, setDebouncedFilter] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFilter(filterText), 150);
+    return () => clearTimeout(t);
+  }, [filterText]);
   const filterInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const bgMenuRef = useRef<HTMLDivElement>(null);
@@ -211,26 +217,37 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     }));
   }
 
-  async function loadDirRecursive(path: string, expandedDirs: Set<string>): Promise<TreeNode[]> {
-    const entries = await invoke<DirEntry[]>("read_dir", { path });
-    const nodes: TreeNode[] = [];
-    for (const e of entries) {
-      const isExpanded = expandedDirs.has(e.path);
-      const node: TreeNode = {
-        ...e,
-        children: e.is_dir ? null : (undefined as unknown as null),
-        expanded: isExpanded,
-      };
-      if (e.is_dir && isExpanded) {
-        try {
-          node.children = await loadDirRecursive(e.path, expandedDirs);
-        } catch {
-          node.children = [];
+  /**
+   * Batch-loads the root + all expanded directories in a single IPC round-trip,
+   * then assembles the tree from the results. This replaces the old sequential
+   * recursive approach that made one IPC call per expanded directory.
+   */
+  async function loadDirBatch(root: string, expandedDirs: Set<string>): Promise<TreeNode[]> {
+    const pathsToLoad = [root, ...expandedDirs];
+    const batchResult = await invoke<Record<string, DirEntry[]>>("read_dir_batch", {
+      paths: pathsToLoad,
+    });
+
+    function buildTree(dirPath: string): TreeNode[] {
+      const entries = batchResult[dirPath];
+      if (!entries) return [];
+      return entries.map((e) => {
+        const isExpanded = expandedDirs.has(e.path);
+        const hasData = !!batchResult[e.path];
+        const node: TreeNode = {
+          ...e,
+          children: e.is_dir ? null : (undefined as unknown as null),
+          expanded: false,
+        };
+        if (e.is_dir && isExpanded && hasData) {
+          node.expanded = true;
+          node.children = buildTree(e.path);
         }
-      }
-      nodes.push(node);
+        return node;
+      });
     }
-    return nodes;
+
+    return buildTree(root);
   }
 
   useImperativeHandle(ref, () => ({
@@ -245,7 +262,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     },
     refresh: () => {
       if (rootPath) {
-        loadDirRecursive(rootPath, expandedRef.current)
+        loadDirBatch(rootPath, expandedRef.current)
           .then(setTree)
           .catch(() => {});
       }
@@ -254,7 +271,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
       if (!rootPath) return;
       const dirPath = path === rootPath ? rootPath : parentDirectory(path);
       if (dirPath === rootPath) {
-        loadDirRecursive(rootPath, expandedRef.current)
+        loadDirBatch(rootPath, expandedRef.current)
           .then(setTree)
           .catch(() => {});
         return;
@@ -288,10 +305,10 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     }
     expandedRef.current = loadExpandedDirs(rootPath);
     setBookmarks(loadBookmarks(rootPath));
-    loadDirRecursive(rootPath, expandedRef.current)
+    loadDirBatch(rootPath, expandedRef.current)
       .then(setTree)
       .catch(() => setTree([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDirRecursive is stable within the component
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadDirBatch is stable within the component
   }, [rootPath]);
 
   // Close background menu
@@ -334,7 +351,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
 
   function refreshTree() {
     if (rootPath)
-      loadDirRecursive(rootPath, expandedRef.current)
+      loadDirBatch(rootPath, expandedRef.current)
         .then(setTree)
         .catch(() => setTree([]));
   }
@@ -543,7 +560,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
         const sourceDir = parentDirectory(srcPath);
         if (sourceDir === destDir) {
           if (sourceDir === rootPath) {
-            loadDirRecursive(rootPath, expandedRef.current)
+            loadDirBatch(rootPath, expandedRef.current)
               .then(setTree)
               .catch(() => {});
           } else {
@@ -573,6 +590,13 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   }
 
   // ── Virtual scrolling for the main tree ──
+
+  // Memoised filtered results — recomputed only when tree or debounced query changes
+  const filteredItems = useMemo<TreeNode[] | null>(() => {
+    const q = debouncedFilter.trim();
+    if (!q) return null;
+    return flattenFiltered(tree, q);
+  }, [tree, debouncedFilter]);
 
   // Build the complete flat visible list (memoised on tree + creating state)
   const flatItems = useMemo<FlatItem[]>(() => {
@@ -655,12 +679,12 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
         )}
       </div>
 
-      {filterText.trim() ? (
+      {filteredItems !== null ? (
         <div className="file-tree__filtered-results">
-          {flattenFiltered(tree, filterText.trim()).length === 0 ? (
+          {filteredItems.length === 0 ? (
             <div className="file-tree__filter-empty">No matches</div>
           ) : (
-            flattenFiltered(tree, filterText.trim()).map((node) => (
+            filteredItems.map((node) => (
               <button
                 key={node.path}
                 type="button"

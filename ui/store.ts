@@ -2,13 +2,21 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { changeTheme } from "@/lib/theme";
 
-// Debounced workspace save — cursor/scroll updates fire on every keystroke/
-// scroll event so we don't want to hit SQLite on each one.  After 1.5 s of
-// inactivity the final position is persisted.
-let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-function debouncedSave(fn: () => void) {
-  if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
-  _saveDebounceTimer = setTimeout(fn, 1500);
+// Per-file debounced workspace save — cursor/scroll updates fire on every
+// keystroke/scroll event so we don't want to hit SQLite on each one.
+// Using a Map keyed by file path ensures that a second file's cursor move
+// doesn't cancel the first file's pending save (old single-timer bug).
+const _saveDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+function debouncedSaveForFile(path: string, fn: () => void) {
+  const existing = _saveDebounceTimers.get(path);
+  if (existing) clearTimeout(existing);
+  _saveDebounceTimers.set(
+    path,
+    setTimeout(() => {
+      _saveDebounceTimers.delete(path);
+      fn();
+    }, 1500),
+  );
 }
 
 export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
@@ -672,7 +680,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       }),
     );
     if (changed && get().persistWorkspaces) {
-      debouncedSave(() => { if (get().persistWorkspaces) get().saveCurrentWorkspaces(); });
+      debouncedSaveForFile(path, () => {
+        if (get().persistWorkspaces) get().saveCurrentWorkspaces();
+      });
     }
   },
 

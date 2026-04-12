@@ -2,7 +2,14 @@ let monacoPromise: Promise<any> | null = null;
 
 const modelRefs = new Map<string, number>();
 
+// Cache resolved CSS variable values so we don't create + append + remove a DOM
+// node for every color on every theme setup (~30 calls per setup).  The cache is
+// cleared by observeMonacoTheme() whenever the theme class changes.
+const cssVarCache = new Map<string, string>();
+
 function cssVar(name: string, fallback: string) {
+  if (cssVarCache.has(name)) return cssVarCache.get(name)!;
+
   const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
   if (!raw) return fallback;
 
@@ -16,7 +23,9 @@ function cssVar(name: string, fallback: string) {
   probe.remove();
 
   const normalized = normalizeColor(resolved || raw);
-  return normalized || fallback;
+  const result = normalized || fallback;
+  cssVarCache.set(name, result);
+  return result;
 }
 
 function normalizeColor(value: string) {
@@ -143,13 +152,15 @@ export async function setupMonaco() {
     })();
   }
 
-  const monacoApi = await monacoPromise;
-  defineCodriftTheme(monacoApi);
-  return monacoApi;
+  // Return the singleton — theme was already defined during first setup.
+  // Callers that need a theme refresh should use observeMonacoTheme().
+  return monacoPromise;
 }
 
 export function observeMonacoTheme(monacoApi: any, onThemeChange: () => void) {
   const observer = new MutationObserver(() => {
+    // Invalidate CSS var cache so the new theme's colors are resolved fresh.
+    cssVarCache.clear();
     defineCodriftTheme(monacoApi);
     onThemeChange();
   });

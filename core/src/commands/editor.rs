@@ -363,6 +363,60 @@ pub struct DirEntry {
     pub extension: Option<String>,
 }
 
+/// Batch-load multiple directories in parallel — one IPC call instead of N.
+/// Returns a map of path → entries for every path that is a valid directory.
+#[tauri::command]
+pub async fn read_dir_batch(paths: Vec<String>) -> Result<std::collections::HashMap<String, Vec<DirEntry>>, String> {
+    let handles: Vec<tokio::task::JoinHandle<(String, Vec<DirEntry>)>> = paths
+        .into_iter()
+        .map(|path| {
+            tokio::task::spawn(async move {
+                let dir = std::path::PathBuf::from(&path);
+                if !dir.is_dir() {
+                    return (path, Vec::new());
+                }
+                let Ok(read) = fs::read_dir(&dir) else {
+                    return (path, Vec::new());
+                };
+                let mut entries = Vec::new();
+                for item in read {
+                    let Ok(item) = item else { continue };
+                    let name = item.file_name().to_string_lossy().to_string();
+                    if name.starts_with('.') {
+                        continue;
+                    }
+                    let Ok(metadata) = item.metadata() else { continue };
+                    let entry_path = item.path();
+                    let extension = entry_path
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .map(|e| e.to_lowercase());
+                    entries.push(DirEntry {
+                        name,
+                        path: entry_path.to_string_lossy().to_string(),
+                        is_dir: metadata.is_dir(),
+                        size: metadata.len(),
+                        extension,
+                    });
+                }
+                entries.sort_by(|a, b| {
+                    b.is_dir
+                        .cmp(&a.is_dir)
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                });
+                (path, entries)
+            })
+        })
+        .collect();
+
+    let mut result = std::collections::HashMap::new();
+    for handle in handles {
+        let (path, entries) = handle.await.map_err(|e| e.to_string())?;
+        result.insert(path, entries);
+    }
+    Ok(result)
+}
+
 /// List immediate children of a directory (non-recursive, for lazy tree loading).
 #[tauri::command]
 pub async fn read_dir(path: String) -> Result<Vec<DirEntry>, String> {

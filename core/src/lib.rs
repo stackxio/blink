@@ -261,6 +261,7 @@ pub fn run() {
             commands::editorconfig::read_editorconfig,
             commands::editor::is_dir,
             commands::editor::read_dir,
+            commands::editor::read_dir_batch,
             commands::editor::read_file_content,
             commands::editor::read_file_base64,
             commands::editor::write_file_content,
