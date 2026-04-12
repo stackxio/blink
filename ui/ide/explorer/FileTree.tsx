@@ -1,6 +1,14 @@
-import { useState, useCallback, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+} from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { ChevronRight, FolderPlus, X } from "lucide-react";
+import { ChevronRight, FolderPlus, X, Bookmark, BookmarkX } from "lucide-react";
 import { ExplorerIcon } from "./explorer-icons";
 
 interface DirEntry {
@@ -20,6 +28,24 @@ interface ContextMenuState {
   x: number;
   y: number;
   node: TreeNode;
+}
+
+interface Bookmark {
+  path: string;
+  name: string;
+  is_dir: boolean;
+}
+
+function loadBookmarks(rootPath: string): Bookmark[] {
+  try {
+    return JSON.parse(localStorage.getItem(`codrift:bookmarks:${rootPath}`) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveBookmarks(rootPath: string, bookmarks: Bookmark[]) {
+  localStorage.setItem(`codrift:bookmarks:${rootPath}`, JSON.stringify(bookmarks));
 }
 
 interface Props {
@@ -92,11 +118,55 @@ function parentDirectory(path: string) {
   return idx > 0 ? path.slice(0, idx) : path;
 }
 
+// ── Virtual scrolling helpers ──
+
+const ITEM_HEIGHT = 22; // px — matches file-tree__item height
+const OVERSCAN = 5; // extra rows above/below the visible window
+
+interface FlatItem {
+  node: TreeNode;
+  depth: number;
+  nodePath: number[];
+}
+
+/** Flatten the visible (expanded) tree into an ordered flat list for virtual scrolling. */
+function flattenVisible(
+  nodes: TreeNode[],
+  depth: number,
+  parentPath: number[],
+  creating: { parentPath: string; type: "file" | "dir" } | null,
+  rootPath: string | null,
+  out: FlatItem[],
+) {
+  for (let i = 0; i < nodes.length; i++) {
+    const node = nodes[i];
+    const nodePath = [...parentPath, i];
+
+    // Inject a synthetic "root create" slot before the first root item
+    if (depth === 0 && i === 0 && creating && creating.parentPath === rootPath) {
+      out.push({ node: { ...node, path: "__create_root__" }, depth: 0, nodePath: [] });
+    }
+
+    out.push({ node, depth, nodePath });
+
+    if (node.is_dir && node.expanded) {
+      // Inject "create inside dir" at the top of the expanded dir
+      if (creating && creating.parentPath === node.path) {
+        out.push({ node: { ...node, path: `__create_${node.path}__` }, depth: depth + 1, nodePath: [] });
+      }
+      if (node.children && node.children.length > 0) {
+        flattenVisible(node.children, depth + 1, nodePath, creating, rootPath, out);
+      }
+    }
+  }
+}
+
 const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   { rootPath, onOpenFolder, onFileSelect, activeFilePath },
   ref,
 ) {
   const [tree, setTree] = useState<TreeNode[]>([]);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [renaming, setRenaming] = useState<{ path: string; name: string } | null>(null);
   const [creating, setCreating] = useState<{ parentPath: string; type: "file" | "dir" } | null>(
@@ -110,9 +180,27 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   const expandedRef = useRef<Set<string>>(new Set());
   const treeRef = useRef<TreeNode[]>([]);
 
+  // Virtual scrolling state
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(400);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
   useEffect(() => {
     treeRef.current = tree;
   }, [tree]);
+
+  // ResizeObserver to track container height
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height;
+      if (h) setContainerHeight(h);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   async function loadDir(path: string): Promise<TreeNode[]> {
     const entries = await invoke<DirEntry[]>("read_dir", { path });
@@ -195,9 +283,11 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
   useEffect(() => {
     if (!rootPath) {
       setTree([]);
+      setBookmarks([]);
       return;
     }
     expandedRef.current = loadExpandedDirs(rootPath);
+    setBookmarks(loadBookmarks(rootPath));
     loadDirRecursive(rootPath, expandedRef.current)
       .then(setTree)
       .catch(() => setTree([]));
@@ -274,6 +364,19 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     },
     [rootPath],
   );
+
+  // ── Bookmark actions ──
+  function handleToggleBookmark() {
+    if (!ctxMenu || !rootPath) return;
+    const node = ctxMenu.node;
+    const exists = bookmarks.some((b) => b.path === node.path);
+    const next = exists
+      ? bookmarks.filter((b) => b.path !== node.path)
+      : [...bookmarks, { path: node.path, name: node.name, is_dir: node.is_dir }];
+    setBookmarks(next);
+    saveBookmarks(rootPath, next);
+    setCtxMenu(null);
+  }
 
   // ── Context menu actions ──
   async function handleRevealInFinder() {
@@ -469,8 +572,61 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     }
   }
 
+  // ── Virtual scrolling for the main tree ──
+
+  // Build the complete flat visible list (memoised on tree + creating state)
+  const flatItems = useMemo<FlatItem[]>(() => {
+    const out: FlatItem[] = [];
+    flattenVisible(tree, 0, [], creating, rootPath, out);
+    return out;
+  }, [tree, creating, rootPath]);
+
+  const totalHeight = flatItems.length * ITEM_HEIGHT;
+
+  // Compute which slice to render
+  const startIdx = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
+  const visibleCount = Math.ceil(containerHeight / ITEM_HEIGHT) + OVERSCAN * 2;
+  const endIdx = Math.min(flatItems.length, startIdx + visibleCount);
+  const visibleItems = flatItems.slice(startIdx, endIdx);
+  const paddingTop = startIdx * ITEM_HEIGHT;
+
   return (
     <div className="file-tree" onContextMenu={handleBgContextMenu}>
+      {/* Bookmarks section */}
+      {bookmarks.length > 0 && (
+        <div className="file-tree__bookmarks">
+          <div className="file-tree__bookmarks-header">
+            <Bookmark size={11} />
+            <span>Bookmarks</span>
+          </div>
+          {bookmarks.map((bm) => (
+            <div key={bm.path} className="file-tree__bookmark-item">
+              <button
+                type="button"
+                className={`file-tree__bookmark-btn${bm.path === activeFilePath ? " file-tree__bookmark-btn--active" : ""}`}
+                onClick={() => { if (!bm.is_dir) onFileSelect(bm.path, bm.name, false); }}
+                title={bm.path}
+              >
+                <ExplorerIcon name={bm.name} isDir={bm.is_dir} expanded={false} />
+                <span className="file-tree__bookmark-name">{bm.name}</span>
+              </button>
+              <button
+                type="button"
+                className="file-tree__bookmark-remove"
+                onClick={() => {
+                  if (!rootPath) return;
+                  const next = bookmarks.filter((b) => b.path !== bm.path);
+                  setBookmarks(next);
+                  saveBookmarks(rootPath, next);
+                }}
+                title="Remove bookmark"
+              >
+                <BookmarkX size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       {/* Filter bar */}
       <div className="file-tree__filter-bar">
         <input
@@ -526,35 +682,126 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
           )}
         </div>
       ) : (
-        <>
-          {/* Root-level new file/folder input */}
-          {creating && creating.parentPath === rootPath && (
-            <InlineInput
-              defaultValue=""
-              depth={0}
-              onSubmit={handleCreateSubmit}
-              onCancel={() => setCreating(null)}
-              placeholder={creating.type === "file" ? "filename…" : "folder name…"}
-            />
-          )}
-          <TreeItems
-            nodes={tree}
-            depth={0}
-            parentPath={[]}
-            onToggle={toggleDir}
-            onFileSelect={onFileSelect}
-            activeFilePath={activeFilePath}
-            onContextMenu={(e, node) => {
-              e.preventDefault();
-              setCtxMenu({ x: e.clientX, y: e.clientY, node });
-            }}
-            renaming={renaming}
-            onRenameSubmit={handleRenameSubmit}
-            creating={creating}
-            onCreateSubmit={handleCreateSubmit}
-            onMove={handleMove}
-          />
-        </>
+        /* Virtually-scrolled tree list */
+        <div
+          ref={scrollContainerRef}
+          className="file-tree__scroll"
+          style={{ overflow: "auto", flex: 1, minHeight: 0 }}
+          onScroll={(e) => setScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}
+        >
+          {/* Total height spacer so scrollbar is sized correctly */}
+          <div style={{ height: totalHeight, position: "relative" }}>
+            {/* Only the visible slice, offset to its correct position */}
+            <div style={{ position: "absolute", top: paddingTop, left: 0, right: 0 }}>
+              {visibleItems.map(({ node, depth, nodePath }) => {
+                // Synthetic create-input rows
+                if (node.path === "__create_root__") {
+                  return (
+                    <InlineInput
+                      key="__create_root__"
+                      defaultValue=""
+                      depth={0}
+                      onSubmit={handleCreateSubmit}
+                      onCancel={() => setCreating(null)}
+                      placeholder={creating?.type === "file" ? "filename…" : "folder name…"}
+                    />
+                  );
+                }
+                if (node.path.startsWith("__create_")) {
+                  return (
+                    <InlineInput
+                      key={node.path}
+                      defaultValue=""
+                      depth={depth}
+                      onSubmit={handleCreateSubmit}
+                      onCancel={() => setCreating(null)}
+                      placeholder={creating?.type === "file" ? "filename…" : "folder name…"}
+                    />
+                  );
+                }
+
+                const isActive = node.path === activeFilePath;
+                const isRenaming = renaming?.path === node.path;
+                const isDragOver = dragOver === node.path && node.is_dir;
+
+                if (isRenaming) {
+                  return (
+                    <InlineInput
+                      key={node.path}
+                      defaultValue={renaming!.name}
+                      depth={depth}
+                      onSubmit={handleRenameSubmit}
+                      onCancel={() => handleRenameSubmit("")}
+                    />
+                  );
+                }
+
+                return (
+                  <button
+                    key={node.path}
+                    type="button"
+                    draggable
+                    className={[
+                      "file-tree__item",
+                      node.is_dir ? "file-tree__item--dir" : "file-tree__item--file",
+                      isActive && "file-tree__item--active",
+                      isDragOver && "file-tree__item--drag-over",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    style={{ paddingLeft: 8 + depth * 16 }}
+                    onClick={() =>
+                      node.is_dir
+                        ? toggleDir(node, nodePath)
+                        : onFileSelect(node.path, node.name, true)
+                    }
+                    onDoubleClick={() => !node.is_dir && onFileSelect(node.path, node.name, false)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      setCtxMenu({ x: e.clientX, y: e.clientY, node });
+                    }}
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData("text/plain", node.path);
+                      e.dataTransfer.effectAllowed = "move";
+                    }}
+                    onDragOver={(e) => {
+                      if (!node.is_dir) return;
+                      if (!e.dataTransfer.types.includes("text/plain")) return;
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      setDragOver(node.path);
+                    }}
+                    onDragLeave={() => setDragOver(null)}
+                    onDrop={(e) => {
+                      setDragOver(null);
+                      if (!node.is_dir) return;
+                      const src = e.dataTransfer.getData("text/plain");
+                      if (!src) return;
+                      e.preventDefault();
+                      if (src !== node.path) handleMove(src, node.path);
+                    }}
+                  >
+                    <span
+                      className={[
+                        "file-tree__chevron",
+                        node.is_dir && node.expanded && "file-tree__chevron--expanded",
+                        !node.is_dir && "file-tree__chevron--hidden",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <ChevronRight />
+                    </span>
+                    <span className="file-tree__icon">
+                      <ExplorerIcon name={node.name} isDir={node.is_dir} expanded={node.expanded} />
+                    </span>
+                    <span className="file-tree__name">{node.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Context menu */}
@@ -584,6 +831,23 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
           <div className="menu__separator" />
           <button type="button" className="menu__item" onClick={handleStartRename}>
             Rename…
+          </button>
+          <button
+            type="button"
+            className="menu__item"
+            onClick={handleToggleBookmark}
+          >
+            {bookmarks.some((b) => b.path === ctxMenu.node.path) ? (
+              <>
+                <BookmarkX size={14} />
+                Remove Bookmark
+              </>
+            ) : (
+              <>
+                <Bookmark size={14} />
+                Add Bookmark
+              </>
+            )}
           </button>
           <button type="button" className="menu__item menu__item--danger" onClick={handleDelete}>
             Delete
@@ -618,147 +882,6 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
 });
 
 export default FileTree;
-
-function TreeItems({
-  nodes,
-  depth,
-  parentPath,
-  onToggle,
-  onFileSelect,
-  activeFilePath,
-  onContextMenu,
-  renaming,
-  onRenameSubmit,
-  creating,
-  onCreateSubmit,
-  onMove,
-}: {
-  nodes: TreeNode[];
-  depth: number;
-  parentPath: number[];
-  onToggle: (node: TreeNode, path: number[]) => void;
-  onFileSelect: (path: string, name: string, preview: boolean) => void;
-  activeFilePath: string | null;
-  onContextMenu: (e: React.MouseEvent, node: TreeNode) => void;
-  renaming: { path: string; name: string } | null;
-  onRenameSubmit: (name: string) => void;
-  creating: { parentPath: string; type: "file" | "dir" } | null;
-  onCreateSubmit: (name: string) => void;
-  onMove: (srcPath: string, destDir: string) => void;
-}) {
-  const [dragOver, setDragOver] = useState<string | null>(null);
-
-  return (
-    <>
-      {nodes.map((node, i) => {
-        const itemPath = [...parentPath, i];
-        const isActive = node.path === activeFilePath;
-        const isRenaming = renaming?.path === node.path;
-        const isDragOver = dragOver === node.path && node.is_dir;
-
-        return (
-          <div key={node.path}>
-            {isRenaming ? (
-              <InlineInput
-                defaultValue={renaming!.name}
-                depth={depth}
-                onSubmit={onRenameSubmit}
-                onCancel={() => onRenameSubmit("")}
-              />
-            ) : (
-              <button
-                type="button"
-                draggable
-                className={[
-                  "file-tree__item",
-                  node.is_dir ? "file-tree__item--dir" : "file-tree__item--file",
-                  isActive && "file-tree__item--active",
-                  isDragOver && "file-tree__item--drag-over",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                style={{ paddingLeft: 8 + depth * 16 }}
-                onClick={() =>
-                  node.is_dir ? onToggle(node, itemPath) : onFileSelect(node.path, node.name, true)
-                }
-                onDoubleClick={() => !node.is_dir && onFileSelect(node.path, node.name, false)}
-                onContextMenu={(e) => onContextMenu(e, node)}
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("text/plain", node.path);
-                  e.dataTransfer.effectAllowed = "move";
-                }}
-                onDragOver={(e) => {
-                  if (!node.is_dir) return;
-                  // Only accept internal tree drags — ignore external file drops from Finder etc.
-                  if (!e.dataTransfer.types.includes("text/plain")) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  setDragOver(node.path);
-                }}
-                onDragLeave={() => setDragOver(null)}
-                onDrop={(e) => {
-                  setDragOver(null);
-                  if (!node.is_dir) return;
-                  const src = e.dataTransfer.getData("text/plain");
-                  if (!src) return; // external drop — ignore
-                  e.preventDefault();
-                  if (src !== node.path) onMove(src, node.path);
-                }}
-              >
-                <span
-                  className={[
-                    "file-tree__chevron",
-                    node.is_dir && node.expanded && "file-tree__chevron--expanded",
-                    !node.is_dir && "file-tree__chevron--hidden",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <ChevronRight />
-                </span>
-                <span className="file-tree__icon">
-                  <ExplorerIcon name={node.name} isDir={node.is_dir} expanded={node.expanded} />
-                </span>
-                <span className="file-tree__name">{node.name}</span>
-              </button>
-            )}
-
-            {node.is_dir && node.expanded && (
-              <>
-                {/* Show "new file/folder" input at top of expanded dir */}
-                {creating && creating.parentPath === node.path && (
-                  <InlineInput
-                    defaultValue=""
-                    depth={depth + 1}
-                    onSubmit={onCreateSubmit}
-                    onCancel={() => onCreateSubmit("")}
-                    placeholder={creating.type === "file" ? "filename…" : "folder name…"}
-                  />
-                )}
-                {node.children && node.children.length > 0 && (
-                  <TreeItems
-                    nodes={node.children}
-                    depth={depth + 1}
-                    parentPath={itemPath}
-                    onToggle={onToggle}
-                    onFileSelect={onFileSelect}
-                    activeFilePath={activeFilePath}
-                    onContextMenu={onContextMenu}
-                    renaming={renaming}
-                    onRenameSubmit={onRenameSubmit}
-                    creating={creating}
-                    onCreateSubmit={onCreateSubmit}
-                    onMove={onMove}
-                  />
-                )}
-              </>
-            )}
-          </div>
-        );
-      })}
-    </>
-  );
-}
 
 function InlineInput({
   defaultValue,

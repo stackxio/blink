@@ -165,22 +165,36 @@
     .terminal-instance-wrap {
       flex: 1;
       min-height: 0;
+      min-width: 0;
       overflow: hidden;
+      display: flex;
       flex-direction: column;
 
-      // xterm.js fills this wrapper
+      // The div passed to term.open() — must fill the wrapper so xterm measures the right size
       > div {
         flex: 1;
         min-height: 0;
+        min-width: 0;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
     }
 
-    // xterm.js internal elements
+    // xterm.js internal elements — these need to fill the flex column so
+    // FitAddon measures the correct pixel height and PTY columns don't wrap.
     .xterm {
       flex: 1;
+      min-height: 0;
+      min-width: 0;
       padding: 4px 8px;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .xterm-rows {
+      flex: 1;
     }
 
     .xterm-viewport {
@@ -190,6 +204,51 @@
 
     .xterm-screen {
       flex: 1;
+      min-height: 0;
+    }
+  }
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-surface);
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+  }
+
+  &__search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 12px;
+    color: var(--c-fg);
+    font-family: inherit;
+
+    &::placeholder {
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__search-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    color: var(--c-muted-fg);
+    flex-shrink: 0;
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
     }
   }
 }

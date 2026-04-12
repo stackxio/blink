@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef, lazy, Suspense } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -16,10 +16,10 @@ import Editor from "@/ide/editor/Editor";
 import { FileViewer, isViewableFile } from "@/ide/editor/FileViewer";
 import TerminalPanel from "@/ide/terminal/TerminalPanel";
 import ProblemsPanel from "@/ide/problems/ProblemsPanel";
-import BlinkCodePanel from "@/ai/BlinkCodePanel";
-import GitPanel from "@/ide/git/GitPanel";
+const BlinkCodePanel = lazy(() => import("@/ai/BlinkCodePanel"));
+const GitPanel = lazy(() => import("@/ide/git/GitPanel"));
 import SearchPanel, { type SearchPanelHandle } from "@/ide/search/SearchPanel";
-import LocalHistoryPanel from "@/ide/history/LocalHistoryPanel";
+const LocalHistoryPanel = lazy(() => import("@/ide/history/LocalHistoryPanel"));
 import CommandPalette from "./CommandPalette";
 import RecentFilesPopup from "./RecentFilesPopup";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
@@ -154,17 +154,31 @@ export default function IdeLayout() {
       }
       setBottomPanelTab("terminal");
     }
+    async function onApplyCode(e: Event) {
+      const { code } = (e as CustomEvent<{ code: string }>).detail;
+      const ws = useAppStore.getState().activeWorkspace();
+      if (!ws) return;
+      const activeFile = ws.activeFileIdx >= 0 ? ws.openFiles[ws.activeFileIdx] : null;
+      if (!activeFile) return;
+      try {
+        await invoke("write_file_content", { path: activeFile.path, content: code });
+        markModified(activeFile.path, false);
+        document.dispatchEvent(new CustomEvent("blink:reload-file", { detail: { path: activeFile.path } }));
+      } catch {}
+    }
     document.addEventListener("blink:navigate", onNavigate);
     document.addEventListener("blink:file-search", onFileSearch);
     document.addEventListener("blink:open-file", onOpenFile);
     document.addEventListener("blink:launch-cli-terminal", onLaunchCliTerminal);
+    document.addEventListener("blink:apply-code", onApplyCode);
     return () => {
       document.removeEventListener("blink:navigate", onNavigate);
       document.removeEventListener("blink:file-search", onFileSearch);
       document.removeEventListener("blink:open-file", onOpenFile);
       document.removeEventListener("blink:launch-cli-terminal", onLaunchCliTerminal);
+      document.removeEventListener("blink:apply-code", onApplyCode);
     };
-  }, [navigate, openSettings]);
+  }, [navigate, openSettings, markModified]);
 
   // Fetch git branch for status bar
   useEffect(() => {
@@ -592,10 +606,12 @@ export default function IdeLayout() {
                   <span className="side-panel__title">Source Control</span>
                 </div>
                 <div className="side-panel__body">
-                  <GitPanel
-                    workspacePath={workspacePath}
-                    onFileSelect={(path, name) => handleFileSelect(path, name, false)}
-                  />
+                  <Suspense fallback={null}>
+                    <GitPanel
+                      workspacePath={workspacePath}
+                      onFileSelect={(path, name) => handleFileSelect(path, name, false)}
+                    />
+                  </Suspense>
                 </div>
               </>
             ) : sidePanelView === "search" ? (
@@ -617,16 +633,18 @@ export default function IdeLayout() {
                   <span className="side-panel__title">Local History</span>
                 </div>
                 <div className="side-panel__body">
-                  <LocalHistoryPanel
-                    filePath={activeFile?.path ?? null}
-                    onRestore={(content, filePath) => {
-                      fileContentCacheRef.current.set(filePath, content);
-                      if (activeFile?.path === filePath) {
-                        setFileContent(content);
-                        markModified(filePath, false);
-                      }
-                    }}
-                  />
+                  <Suspense fallback={null}>
+                    <LocalHistoryPanel
+                      filePath={activeFile?.path ?? null}
+                      onRestore={(content, filePath) => {
+                        fileContentCacheRef.current.set(filePath, content);
+                        if (activeFile?.path === filePath) {
+                          setFileContent(content);
+                          markModified(filePath, false);
+                        }
+                      }}
+                    />
+                  </Suspense>
                 </div>
               </>
             ) : (
@@ -991,7 +1009,9 @@ export default function IdeLayout() {
             >
               {/* Resizer goes on the RIGHT edge in ai-center mode, LEFT in editor-center */}
               {layoutMode !== "ai-center" && <PanelResizer onResize={handleAiResize} />}
-              <BlinkCodePanel />
+              <Suspense fallback={null}>
+                <BlinkCodePanel />
+              </Suspense>
               {layoutMode === "ai-center" && focusMode !== "ai-only" && (
                 <PanelResizer onResize={handleAiResize} />
               )}

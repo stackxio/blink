@@ -74,6 +74,17 @@ function defineCodriftTheme(monacoApi: any) {
   monacoApi.editor.setTheme("codrift");
 }
 
+/**
+ * Fire-and-forget Monaco preload — call as soon as the app mounts so that
+ * the heavy dynamic imports start warming up in the background before the
+ * user opens their first file.
+ */
+export function preloadMonaco(): void {
+  // Kick off setupMonaco without awaiting it.  The internal `monacoPromise`
+  // singleton ensures we never spin up duplicate work.
+  setupMonaco().catch(() => {});
+}
+
 export async function setupMonaco() {
   if (!monacoPromise) {
     monacoPromise = (async () => {

@@ -833,3 +833,214 @@
     }
   }
 }
+
+// ── Stash Manager ──────────────────────────────────────────────────────────────
+
+.stash-manager {
+  @include flex-col;
+  @include full-height;
+  overflow: hidden;
+  font-size: var(--font-size-sm);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 4px;
+
+    &:hover {
+      color: var(--c-accent);
+    }
+  }
+
+  &__push {
+    padding: 8px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__push-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  &__push-input {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    @include transition(border-color);
+
+    &::placeholder {
+      color: var(--c-muted-fg);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--c-accent);
+    }
+  }
+
+  &__push-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--c-accent);
+    color: var(--c-bg);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(opacity);
+
+    &:hover {
+      opacity: 0.9;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__status {
+    padding: 4px 12px;
+    font-size: var(--font-size-xs);
+    color: var(--c-muted-fg);
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__body {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar;
+  }
+
+  &__loading {
+    padding: 16px;
+    color: var(--c-muted-fg);
+  }
+
+  &__empty {
+    @include flex-col;
+    @include flex-center;
+    gap: 8px;
+    padding: 32px 16px;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-sm);
+  }
+
+  &__list {
+    @include flex-col;
+  }
+
+  &__item {
+    padding: 8px 12px;
+    border-bottom: 1px solid color-mix(in srgb, var(--c-border) 50%, transparent);
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface);
+    }
+  }
+
+  &__item-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__item-icon {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+  }
+
+  &__item-msg {
+    flex: 1;
+    min-width: 0;
+    color: var(--c-fg);
+    @include truncate;
+    font-size: var(--font-size-sm);
+  }
+
+  &__item-index {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--c-muted-fg);
+    opacity: 0.7;
+  }
+
+  &__item-meta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    color: var(--c-muted-fg);
+    font-size: var(--font-size-xs);
+  }
+
+  &__item-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  &__action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    background: var(--c-surface);
+    color: var(--c-fg);
+    font-size: var(--font-size-xs);
+    font-family: inherit;
+    cursor: pointer;
+    @include transition(border-color, background, color);
+
+    &:hover {
+      border-color: var(--c-accent);
+      background: var(--c-surface-raised);
+    }
+
+    &--danger {
+      color: var(--c-muted-fg);
+      margin-left: auto;
+
+      &:hover {
+        border-color: var(--c-error, #f14c4c);
+        color: var(--c-error, #f14c4c);
+        background: color-mix(in srgb, var(--c-error, #f14c4c) 10%, transparent);
+      }
+    }
+  }
+}

@@ -203,7 +203,9 @@ function BlinkCodePanel() {
   const [threadPickerOpen, setThreadPickerOpen] = useState(false);
   const [renamingThreadId, setRenamingThreadId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [threadSearch, setThreadSearch] = useState("");
   const threadPickerRef = useRef<HTMLDivElement>(null);
+  const threadSearchRef = useRef<HTMLInputElement>(null);
 
   const [bridgeReady, setBridgeReady] = useState(false);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
@@ -297,6 +299,29 @@ function BlinkCodePanel() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [threadPickerOpen]);
+
+  // Listen for "Explain with AI" / "Ask AI" events from the editor
+  useEffect(() => {
+    function onExplain(e: Event) {
+      const { code, filename } = (e as CustomEvent<{ code: string; filename: string }>).detail;
+      const prompt = `Explain this code${filename ? ` from \`${filename}\`` : ""}:\n\n\`\`\`\n${code}\n\`\`\``;
+      setInput(prompt);
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+    function onAskAi(e: Event) {
+      const { code, filename } = (e as CustomEvent<{ code: string; filename: string }>).detail;
+      if (code.trim()) {
+        setInput(`\`\`\`${filename ? `\n// ${filename}` : ""}\n${code}\n\`\`\`\n`);
+      }
+      setTimeout(() => textareaRef.current?.focus(), 50);
+    }
+    document.addEventListener("blink:explain-code", onExplain);
+    document.addEventListener("blink:ask-ai", onAskAi);
+    return () => {
+      document.removeEventListener("blink:explain-code", onExplain);
+      document.removeEventListener("blink:ask-ai", onAskAi);
+    };
+  }, []);
 
   // Reset on workspace switch
   useEffect(() => {
@@ -1078,7 +1103,10 @@ function BlinkCodePanel() {
             type="button"
             className={`blink-panel__thread-btn${threadPickerOpen ? " blink-panel__thread-btn--open" : ""}`}
             onClick={() => {
-              setThreadPickerOpen((v) => !v);
+              setThreadPickerOpen((v) => {
+                if (v) setThreadSearch("");
+                return !v;
+              });
               setRenamingThreadId(null);
             }}
             title="Switch conversation"
@@ -1094,11 +1122,29 @@ function BlinkCodePanel() {
 
           {threadPickerOpen && (
             <div className="blink-panel__thread-dropdown">
+              <div className="blink-panel__thread-search-wrap">
+                <input
+                  ref={threadSearchRef}
+                  autoFocus
+                  type="text"
+                  className="blink-panel__thread-search"
+                  placeholder="Search conversations…"
+                  value={threadSearch}
+                  onChange={(e) => setThreadSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      if (threadSearch) setThreadSearch("");
+                      else setThreadPickerOpen(false);
+                    }
+                  }}
+                />
+              </div>
               <button
                 type="button"
                 className="blink-panel__thread-new"
                 onClick={() => {
                   setThreadPickerOpen(false);
+                  setThreadSearch("");
                   pendingTextDeltasRef.current.clear();
                   invoke("blink_code_bridge_send", {
                     line: JSON.stringify({ type: "new_thread" }),
@@ -1112,7 +1158,9 @@ function BlinkCodePanel() {
                 New conversation
               </button>
               <div className="blink-panel__thread-divider" />
-              {threads.map((t) => (
+              {threads.filter((t) =>
+                !threadSearch.trim() || t.name.toLowerCase().includes(threadSearch.toLowerCase())
+              ).map((t) => (
                 <div
                   key={t.id}
                   className={`blink-panel__thread-item${t.id === activeThreadId ? " blink-panel__thread-item--active" : ""}`}
@@ -2070,6 +2118,62 @@ function ProviderSettings({
   );
 }
 
+// ── CodeBlock ─────────────────────────────────────────────────────────────────
+
+function CodeBlock({ className, children }: { className?: string; children: React.ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const [applied, setApplied] = useState(false);
+
+  const codeText = typeof children === "string"
+    ? children
+    : Array.isArray(children)
+    ? children.join("")
+    : String(children ?? "");
+
+  function handleCopy() {
+    navigator.clipboard.writeText(codeText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  function handleApply() {
+    document.dispatchEvent(
+      new CustomEvent("blink:apply-code", { detail: { code: codeText } }),
+    );
+    setApplied(true);
+    setTimeout(() => setApplied(false), 1500);
+  }
+
+  return (
+    <div className="blink-msg__code-wrap">
+      <div className="blink-msg__code-actions">
+        <button
+          type="button"
+          className="blink-msg__code-btn"
+          onClick={handleCopy}
+          title="Copy code"
+        >
+          {copied ? <Check size={12} /> : <FileText size={12} />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          type="button"
+          className="blink-msg__code-btn blink-msg__code-btn--apply"
+          onClick={handleApply}
+          title="Apply to active file"
+        >
+          {applied ? <Check size={12} /> : <Download size={12} />}
+          {applied ? "Applied" : "Apply"}
+        </button>
+      </div>
+      <pre className="blink-msg__code-block">
+        <code className={className}>{children}</code>
+      </pre>
+    </div>
+  );
+}
+
 // ── MarkdownText ──────────────────────────────────────────────────────────────
 
 const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
@@ -2080,11 +2184,7 @@ const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
         code({ className, children, ...props }) {
           const isBlock = className?.startsWith("language-");
           if (isBlock) {
-            return (
-              <pre className="blink-msg__code-block">
-                <code className={className}>{children}</code>
-              </pre>
-            );
+            return <CodeBlock className={className}>{children}</CodeBlock>;
           }
           return (
             <code className="blink-msg__inline-code" {...props}>

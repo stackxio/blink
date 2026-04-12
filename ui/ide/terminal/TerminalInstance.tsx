@@ -6,6 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
 import { CanvasAddon } from "@xterm/addon-canvas";
+import { SearchAddon } from "@xterm/addon-search";
 import "@xterm/xterm/css/xterm.css";
 
 export function getTerminalTheme() {
@@ -162,8 +163,10 @@ export function TerminalInstance({
 
       const fit = new FitAddon();
       const unicode11 = new Unicode11Addon();
+      const searchAddon = new SearchAddon();
       term.loadAddon(fit);
       term.loadAddon(unicode11);
+      term.loadAddon(searchAddon);
       term.open(container);
       // Use Unicode 11 width tables so special chars (◇ ◆ — ─ etc.) render correctly
       term.unicode.activeVersion = "11";
@@ -250,6 +253,12 @@ export function TerminalInstance({
           }, 300)
         : null;
 
+      // Copy selected text automatically on selection change
+      term.onSelectionChange(() => {
+        const text = term.getSelection();
+        if (text) navigator.clipboard.writeText(text).catch(() => {});
+      });
+
       // 6. Wire up I/O.
       term.onData((data) => {
         invoke("terminal_write", { id, data }).catch(() => {});
@@ -300,10 +309,37 @@ export function TerminalInstance({
         attributeFilter: ["class", "style"],
       });
 
+      // 8. Manual refit trigger (e.g. when search bar opens/closes).
+      function onRefit() {
+        try { fit.fit(); } catch {}
+      }
+      document.addEventListener("blink:terminal-refit", onRefit);
+
+      // 9. Listen for search commands dispatched by TerminalPanel's search bar.
+      function onSearchEvent(e: Event) {
+        const { query, forward, clear } = (e as CustomEvent<{ query: string; forward: boolean; clear?: boolean }>).detail;
+        if (clear) {
+          searchAddon.clearDecorations();
+          return;
+        }
+        if (!query) {
+          searchAddon.clearDecorations();
+          return;
+        }
+        if (forward) {
+          searchAddon.findNext(query, { caseSensitive: false, regex: false, wholeWord: false, decorations: { matchBackground: "#ffdd0033", matchBorder: "#ffdd00", activeMatchBackground: "#ff990099", activeMatchBorder: "#ff9900", activeMatchColorOverviewRuler: "#ff9900", matchOverviewRuler: "#ffdd00" } });
+        } else {
+          searchAddon.findPrevious(query, { caseSensitive: false, regex: false, wholeWord: false, decorations: { matchBackground: "#ffdd0033", matchBorder: "#ffdd00", activeMatchBackground: "#ff990099", activeMatchBorder: "#ff9900", activeMatchColorOverviewRuler: "#ff9900", matchOverviewRuler: "#ffdd00" } });
+        }
+      }
+      document.addEventListener(`terminal:search:${id}`, onSearchEvent);
+
       cleanupFn = () => {
         unlisten?.();
         ro.disconnect();
         themeObserver.disconnect();
+        document.removeEventListener("blink:terminal-refit", onRefit);
+        document.removeEventListener(`terminal:search:${id}`, onSearchEvent);
         if (resizeTimer) clearTimeout(resizeTimer);
         if (sigwinchTimer) clearTimeout(sigwinchTimer);
         term.dispose();

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X, Pin } from "lucide-react";
 import type { OpenFile } from "@/store";
@@ -39,8 +39,30 @@ export default function TabBar({
   extraActions,
 }: Props) {
   const [ctx, setCtx] = useState<ContextMenu | null>(null);
+  const [justSaved, setJustSaved] = useState<Set<string>>(new Set());
+  const prevModifiedRef = useRef<Record<string, boolean>>({});
 
   const dismiss = useCallback(() => setCtx(null), []);
+
+  // Detect when a file transitions from modified → saved and flash the indicator
+  useEffect(() => {
+    const prev = prevModifiedRef.current;
+    for (const file of files) {
+      if (prev[file.path] === true && !file.modified) {
+        setJustSaved((s) => new Set(s).add(file.path));
+        const timer = setTimeout(() => {
+          setJustSaved((s) => {
+            const next = new Set(s);
+            next.delete(file.path);
+            return next;
+          });
+        }, 1500);
+        // Clear on unmount — best effort, timer is short-lived
+        void timer;
+      }
+    }
+    prevModifiedRef.current = Object.fromEntries(files.map((f) => [f.path, f.modified]));
+  }, [files]);
 
   // Close on any click or Escape
   useEffect(() => {
@@ -124,6 +146,9 @@ export default function TabBar({
               {file.name}
             </span>
             {file.modified && <span className="tab__modified" />}
+            {!file.modified && justSaved.has(file.path) && (
+              <span className="tab__saved" />
+            )}
             {!file.pinned && (
               <span
                 className="tab__close"

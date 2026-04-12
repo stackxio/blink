@@ -18,9 +18,11 @@ import {
   ArrowDown,
   History,
   AlignLeft,
+  Layers,
 } from "lucide-react";
 import GitLogViewer from "./GitLogViewer";
 import HunkViewer from "./HunkViewer";
+import StashManager from "./StashManager";
 import { loadBlinkCodeConfig } from "@@/panel/config";
 
 const FILE_RENDER_BATCH = 200;
@@ -82,6 +84,7 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
   const [stagedOpen, setStagedOpen] = useState(true);
   const [unstagedOpen, setUnstagedOpen] = useState(true);
   const [showLog, setShowLog] = useState(false);
+  const [showStashes, setShowStashes] = useState(false);
   const [hunkFile, setHunkFile] = useState<string | null>(null);
   const [visibleStagedCount, setVisibleStagedCount] = useState(FILE_RENDER_BATCH);
   const [visibleUnstagedCount, setVisibleUnstagedCount] = useState(FILE_RENDER_BATCH);
@@ -284,6 +287,15 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
     );
   }
 
+  if (showStashes) {
+    return (
+      <StashManager
+        workspacePath={workspacePath}
+        onClose={() => setShowStashes(false)}
+      />
+    );
+  }
+
   if (hunkFile && workspacePath) {
     return (
       <HunkViewer
@@ -332,6 +344,14 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
           title="View History"
         >
           <History size={14} />
+        </button>
+        <button
+          type="button"
+          className="git-panel__refresh-btn"
+          onClick={() => setShowStashes(true)}
+          title="Stash Manager"
+        >
+          <Layers size={14} />
         </button>
       </div>
       {pushPullStatus && (

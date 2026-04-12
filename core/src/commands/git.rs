@@ -798,6 +798,73 @@ pub async fn git_stage_hunk(path: String, _file_path: String, patch: String) -> 
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct StashEntry {
+    pub index: u32,
+    pub message: String,
+    pub date: String,
+}
+
+#[tauri::command]
+pub fn git_stash_list(path: String) -> Result<Vec<StashEntry>, String> {
+    let output = run_git(
+        &path,
+        &["stash", "list", "--format=%gd%x1f%s%x1f%ci"],
+    )?;
+
+    let entries: Vec<StashEntry> = output
+        .lines()
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split('\x1f').collect();
+            if parts.len() >= 3 {
+                // Extract numeric index from "stash@{N}"
+                let ref_str = parts[0].trim();
+                let index = ref_str
+                    .trim_start_matches("stash@{")
+                    .trim_end_matches('}')
+                    .parse::<u32>()
+                    .unwrap_or(0);
+                Some(StashEntry {
+                    index,
+                    message: parts[1].to_string(),
+                    date: parts[2].to_string(),
+                })
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn git_stash_push(path: String, message: Option<String>) -> Result<(), String> {
+    match message {
+        Some(msg) if !msg.trim().is_empty() => {
+            run_git(&path, &["stash", "push", "-m", &msg])?;
+        }
+        _ => {
+            run_git(&path, &["stash", "push"])?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_stash_pop(path: String, index: u32) -> Result<(), String> {
+    let stash_ref = format!("stash@{{{}}}", index);
+    run_git(&path, &["stash", "pop", &stash_ref])?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn git_stash_drop(path: String, index: u32) -> Result<(), String> {
+    let stash_ref = format!("stash@{{{}}}", index);
+    run_git(&path, &["stash", "drop", &stash_ref])?;
+    Ok(())
+}
+
 /// Get the content of a file as it exists at HEAD (before any local modifications).
 /// Returns empty string for untracked files.
 #[tauri::command]

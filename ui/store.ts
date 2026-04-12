@@ -116,6 +116,40 @@ function saveSidebarView(path: string, view: SidePanelView) {
   } catch {}
 }
 
+// ── Fast workspace snapshot (localStorage) ──
+// Persists a minimal list of workspace IDs/paths so we can show the workspace
+// tab bar and begin loading the file tree before the async Tauri DB call
+// (load_workspaces) finishes.  The full state is filled in by loadSavedWorkspaces.
+
+const WORKSPACE_SNAPSHOT_KEY = "codrift:workspace-snapshot";
+
+interface WorkspaceSnapshot {
+  workspaces: Array<{ id: string; path: string; name: string }>;
+  activeWorkspaceId: string | null;
+}
+
+function saveWorkspaceSnapshot(workspaces: Workspace[], activeWorkspaceId: string | null) {
+  try {
+    const snapshot: WorkspaceSnapshot = {
+      workspaces: workspaces.map((w) => ({ id: w.id, path: w.path, name: w.name })),
+      activeWorkspaceId,
+    };
+    localStorage.setItem(WORKSPACE_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  } catch {}
+}
+
+function loadWorkspaceSnapshot(): { workspaces: Workspace[]; activeWorkspaceId: string | null } {
+  try {
+    const raw = localStorage.getItem(WORKSPACE_SNAPSHOT_KEY);
+    if (!raw) return { workspaces: [], activeWorkspaceId: null };
+    const snapshot: WorkspaceSnapshot = JSON.parse(raw);
+    const workspaces = snapshot.workspaces.map((s) => createWorkspace(s.id, s.path, s.name));
+    return { workspaces, activeWorkspaceId: snapshot.activeWorkspaceId };
+  } catch {
+    return { workspaces: [], activeWorkspaceId: null };
+  }
+}
+
 function createWorkspace(id: string, path: string, name: string): Workspace {
   return {
     id,
@@ -270,8 +304,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
       return { diagnostics, diagnosticSummary: { errors, warnings } };
     }),
-  workspaces: [],
-  activeWorkspaceId: null,
+  // Pre-populate from localStorage snapshot so workspaces appear immediately
+  // (before the async Tauri DB load completes).
+  ...loadWorkspaceSnapshot(),
 
   activeWorkspace: () => {
     const s = get();
@@ -352,10 +387,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       });
 
       const activeWs = saved.find((s) => s.is_active);
-      set({
-        workspaces,
-        activeWorkspaceId: activeWs?.id ?? workspaces[0]?.id ?? null,
-      });
+      const activeWorkspaceId = activeWs?.id ?? workspaces[0]?.id ?? null;
+      // Refresh the fast snapshot so the next cold start pre-populates correctly
+      saveWorkspaceSnapshot(workspaces, activeWorkspaceId);
+      set({ workspaces, activeWorkspaceId });
     } catch {
       // DB might not have the table yet on first run
     }
@@ -363,6 +398,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   saveCurrentWorkspaces: async () => {
     const { workspaces, activeWorkspaceId } = get();
+    // Save a fast localStorage snapshot first so it is available synchronously
+    // on the next app start (before the async DB call returns).
+    saveWorkspaceSnapshot(workspaces, activeWorkspaceId);
     try {
       await invoke("save_workspaces", {
         workspaces: workspaces.map((ws) => ({

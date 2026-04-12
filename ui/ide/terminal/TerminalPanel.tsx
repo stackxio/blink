@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { Plus, X, Trash2, SplitSquareHorizontal, ChevronDown } from "lucide-react";
+import { Plus, X, Trash2, SplitSquareHorizontal, ChevronDown, Search, ChevronUp } from "lucide-react";
 import { useAppStore } from "@/store";
 import { TerminalInstance } from "./TerminalInstance";
 import "@xterm/xterm/css/xterm.css";
@@ -43,6 +43,9 @@ export default function TerminalPanel() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [terminalNames, setTerminalNames] = useState<Record<string, string>>({});
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const terminalIds = ws?.terminalIds ?? [];
   const activeTerminalId = ws?.activeTerminalId ?? null;
@@ -119,6 +122,47 @@ export default function TerminalPanel() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [profileMenuOpen]);
+
+  const dispatchSearch = useCallback((query: string, forward: boolean, clear = false) => {
+    const targetId = splitId ?? activeTerminalId;
+    if (!targetId) return;
+    document.dispatchEvent(new CustomEvent(`terminal:search:${targetId}`, {
+      detail: { query, forward, clear },
+    }));
+  }, [activeTerminalId, splitId]);
+
+  // Ctrl+F to open terminal search
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchOpen((v) => {
+          if (!v) setTimeout(() => searchInputRef.current?.focus(), 50);
+          // After toggle, trigger a fit so the terminal resizes to the new body height
+          setTimeout(() => {
+            document.dispatchEvent(new CustomEvent("blink:terminal-refit"));
+          }, 60);
+          return !v;
+        });
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close search + clear decorations on Escape
+  useEffect(() => {
+    if (!searchOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSearchOpen(false);
+        setSearchQuery("");
+        dispatchSearch("", true, true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen, dispatchSearch]);
 
   async function closeSession(id: string) {
     try {
@@ -245,6 +289,41 @@ export default function TerminalPanel() {
           </button>
         </div>
       </div>
+      {searchOpen && (
+        <div className="terminal-panel__search">
+          <Search size={13} />
+          <input
+            ref={searchInputRef}
+            className="terminal-panel__search-input"
+            type="text"
+            placeholder="Search terminal…"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              dispatchSearch(e.target.value, true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                dispatchSearch(searchQuery, !e.shiftKey);
+              } else if (e.key === "Escape") {
+                setSearchOpen(false);
+                setSearchQuery("");
+                dispatchSearch("", true, true);
+              }
+            }}
+          />
+          <button type="button" className="terminal-panel__search-btn" title="Previous (Shift+Enter)" onClick={() => dispatchSearch(searchQuery, false)}>
+            <ChevronUp size={13} />
+          </button>
+          <button type="button" className="terminal-panel__search-btn" title="Next (Enter)" onClick={() => dispatchSearch(searchQuery, true)}>
+            <ChevronDown size={13} />
+          </button>
+          <button type="button" className="terminal-panel__search-btn" title="Close" onClick={() => { setSearchOpen(false); setSearchQuery(""); dispatchSearch("", true, true); }}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
       <div className={`terminal-panel__body${splitId ? " terminal-panel__body--split" : ""}`}>
         {/* Primary pane */}
         <div className="terminal-pane-wrap">

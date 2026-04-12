@@ -916,6 +916,65 @@ export default function Editor({
             run: () => openInlineEdit(),
           });
 
+          // Cursor position history — navigate back/forward through past cursor positions
+          editor.addAction({
+            id: "blink.navigate-back",
+            label: "Navigate Back",
+            keybindings: [monacoApi.KeyMod.Alt | monacoApi.KeyCode.LeftArrow],
+            run: async () => {
+              await editor.getAction("editor.action.navigateBack")?.run();
+            },
+          });
+
+          editor.addAction({
+            id: "blink.navigate-forward",
+            label: "Navigate Forward",
+            keybindings: [monacoApi.KeyMod.Alt | monacoApi.KeyCode.RightArrow],
+            run: async () => {
+              await editor.getAction("editor.action.navigateForward")?.run();
+            },
+          });
+
+          editor.addAction({
+            id: "blink.explain-code",
+            label: "Explain with AI",
+            contextMenuGroupId: "blink",
+            contextMenuOrder: 1,
+            run: () => {
+              const selection = editor.getSelection();
+              const model = editor.getModel();
+              if (!selection || !model) return;
+              const text = selection.isEmpty()
+                ? model.getValue()
+                : model.getValueInRange(selection);
+              if (!text.trim()) return;
+              document.dispatchEvent(
+                new CustomEvent("blink:explain-code", {
+                  detail: { code: text, filename: filePathRef.current?.split("/").pop() ?? "" },
+                }),
+              );
+            },
+          });
+
+          editor.addAction({
+            id: "blink.ask-ai",
+            label: "Ask AI about this",
+            contextMenuGroupId: "blink",
+            contextMenuOrder: 2,
+            keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyMod.Shift | monacoApi.KeyCode.KeyL],
+            run: () => {
+              const selection = editor.getSelection();
+              const model = editor.getModel();
+              if (!selection || !model) return;
+              const text = selection.isEmpty() ? "" : model.getValueInRange(selection);
+              document.dispatchEvent(
+                new CustomEvent("blink:ask-ai", {
+                  detail: { code: text, filename: filePathRef.current?.split("/").pop() ?? "" },
+                }),
+              );
+            },
+          });
+
           themeCleanupRef.current = observeMonacoTheme(monacoApi, () => {
             editor.updateOptions({});
           });
