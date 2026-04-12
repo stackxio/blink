@@ -19,6 +19,7 @@ export type SettingsPage =
   | "general"
   | "providers"
   | "skills"
+  | "memory"
   | "appearance"
   | "archived"
   | "about"

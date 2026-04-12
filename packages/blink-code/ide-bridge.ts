@@ -269,6 +269,93 @@ async function executeTool(name: string, input: Record<string, unknown>): Promis
       });
     }
 
+    case "glob_files": {
+      const root = input["root"] as string;
+      const pattern = input["pattern"] as string;
+      return new Promise((resolve) => {
+        exec(
+          `find ${JSON.stringify(root)} -name ${JSON.stringify(pattern)} -not -path "*/node_modules/*" -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/target/*"`,
+          { maxBuffer: 5 * 1024 * 1024 },
+          (_err, stdout) => {
+            const result = stdout.trim();
+            resolve(result || "No files found matching pattern");
+          },
+        );
+      });
+    }
+
+    case "edit_file": {
+      const filePath = input["path"] as string;
+      const oldString = input["old_string"] as string;
+      const newString = input["new_string"] as string;
+      const content = await fs.readFile(filePath, "utf-8");
+      if (!content.includes(oldString)) {
+        throw new Error(
+          `String not found in file. Make sure old_string matches exactly (including whitespace).`,
+        );
+      }
+      // Replace only the first occurrence for safety
+      const updated = content.replace(oldString, newString);
+      await fs.writeFile(filePath, updated, "utf-8");
+      return `Edited ${filePath}: replaced ${oldString.length} chars with ${newString.length} chars`;
+    }
+
+    case "create_dir": {
+      const dirPath = input["path"] as string;
+      await fs.mkdir(dirPath, { recursive: true });
+      return `Created directory: ${dirPath}`;
+    }
+
+    case "delete_file": {
+      const filePath = input["path"] as string;
+      await fs.unlink(filePath);
+      return `Deleted: ${filePath}`;
+    }
+
+    case "move_file": {
+      const source = input["source"] as string;
+      const dest = input["destination"] as string;
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.rename(source, dest);
+      return `Moved ${source} → ${dest}`;
+    }
+
+    case "git_status": {
+      const cwd = (input["cwd"] as string | undefined) || process.cwd();
+      return new Promise((resolve) => {
+        exec("git status --short", { cwd }, (_err, stdout, stderr) => {
+          resolve(stdout.trim() || stderr.trim() || "(no changes)");
+        });
+      });
+    }
+
+    case "git_diff": {
+      const cwd = (input["cwd"] as string | undefined) || process.cwd();
+      const staged = Boolean(input["staged"]);
+      const cmd = staged ? "git diff --staged" : "git diff HEAD";
+      return new Promise((resolve) => {
+        exec(cmd, { cwd, maxBuffer: 10 * 1024 * 1024 }, (_err, stdout) => {
+          const result = stdout.trim();
+          if (!result) resolve("(no diff)");
+          else resolve(result.length > 8_000 ? result.slice(0, 8_000) + "\n...[truncated]" : result);
+        });
+      });
+    }
+
+    case "git_log": {
+      const cwd = (input["cwd"] as string | undefined) || process.cwd();
+      const n = Math.min(Number(input["n"] ?? 20), 100);
+      return new Promise((resolve) => {
+        exec(
+          `git log --oneline --decorate -${n}`,
+          { cwd },
+          (_err, stdout, stderr) => {
+            resolve(stdout.trim() || stderr.trim() || "(no commits)");
+          },
+        );
+      });
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -334,6 +421,99 @@ function buildTools(): ToolDef[] {
         required: ["root", "pattern"],
       },
       execute: (input) => executeTool("search_files", input),
+    },
+    {
+      name: "glob_files",
+      description: "Find files matching a glob pattern (e.g. '*.ts', 'src/**/*.tsx'). Skips node_modules, .git, dist, target.",
+      parameters: {
+        type: "object",
+        properties: {
+          root: { type: "string", description: "Root directory to search from" },
+          pattern: { type: "string", description: "Filename pattern (e.g. '*.ts', 'index.*')" },
+        },
+        required: ["root", "pattern"],
+      },
+      execute: (input) => executeTool("glob_files", input),
+    },
+    {
+      name: "edit_file",
+      description: "Surgically replace an exact string in a file. Safer than write_file for small edits. The old_string must match exactly (including whitespace and newlines).",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "Absolute path to the file" },
+          old_string: { type: "string", description: "The exact string to replace" },
+          new_string: { type: "string", description: "The string to replace it with" },
+        },
+        required: ["path", "old_string", "new_string"],
+      },
+      execute: (input) => executeTool("edit_file", input),
+    },
+    {
+      name: "create_dir",
+      description: "Create a directory (and any missing parent directories).",
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string", description: "Absolute path to the directory to create" } },
+        required: ["path"],
+      },
+      execute: (input) => executeTool("create_dir", input),
+    },
+    {
+      name: "delete_file",
+      description: "Delete a file. Cannot delete directories.",
+      parameters: {
+        type: "object",
+        properties: { path: { type: "string", description: "Absolute path to the file to delete" } },
+        required: ["path"],
+      },
+      execute: (input) => executeTool("delete_file", input),
+    },
+    {
+      name: "move_file",
+      description: "Move or rename a file.",
+      parameters: {
+        type: "object",
+        properties: {
+          source: { type: "string", description: "Absolute path of the file to move" },
+          destination: { type: "string", description: "Absolute destination path" },
+        },
+        required: ["source", "destination"],
+      },
+      execute: (input) => executeTool("move_file", input),
+    },
+    {
+      name: "git_status",
+      description: "Show the working tree status (modified, added, deleted files).",
+      parameters: {
+        type: "object",
+        properties: { cwd: { type: "string", description: "Repository root (optional, defaults to workspace)" } },
+      },
+      execute: (input) => executeTool("git_status", input),
+    },
+    {
+      name: "git_diff",
+      description: "Show git diff for uncommitted changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          cwd: { type: "string", description: "Repository root (optional)" },
+          staged: { type: "boolean", description: "If true, show staged diff instead of working tree" },
+        },
+      },
+      execute: (input) => executeTool("git_diff", input),
+    },
+    {
+      name: "git_log",
+      description: "Show recent git commit history.",
+      parameters: {
+        type: "object",
+        properties: {
+          cwd: { type: "string", description: "Repository root (optional)" },
+          n: { type: "number", description: "Number of commits to show (default 20, max 100)" },
+        },
+      },
+      execute: (input) => executeTool("git_log", input),
     },
   ];
 }

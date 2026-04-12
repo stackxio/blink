@@ -39,10 +39,9 @@ export async function loadMemory(workspacePath: string | null): Promise<MemoryPa
 
   let skillsSummary: string | null = null;
   try {
-    type SkillRow = { filename: string; content: string; is_system: boolean };
-    const skills = await invoke<SkillRow[]>("list_skills");
-    const names = skills.map((s) => s.filename);
-    if (names.length > 0) skillsSummary = names.join(", ");
+    // get_combined_skills returns all skill file contents merged into one string
+    const combined = await invoke<string>("get_combined_skills");
+    if (combined?.trim()) skillsSummary = combined;
   } catch {
     skillsSummary = null;
   }
