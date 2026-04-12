@@ -42,7 +42,10 @@ import {
   getPromptCommand,
   SLASH_COMMANDS,
 } from "@@/panel/slash-commands";
-import { getCompactPrompt, formatCompactSummary } from "@@/panel/compact";
+import {
+  getPartialCompactPrompt,
+  getCompactUserSummaryMessage,
+} from "@@/panel/compact";
 import type { BridgeOutEvent, HistoryDisplayMessage, ThreadMeta } from "@contracts/bridge-protocol";
 
 // ── Message types ─────────────────────────────────────────────────────────────
@@ -192,6 +195,8 @@ function BlinkCodePanel() {
     () => localStorage.getItem("blink-auto-context") === "true",
   );
   const isCompactingRef = useRef(false);
+  // Messages kept verbatim during partial compact (recent N messages)
+  const compactKeptRef = useRef<PanelMessage[]>([]);
 
   // Image context state
   const [imageItems, setImageItems] = useState<
@@ -546,24 +551,44 @@ function BlinkCodePanel() {
             setStreaming(false);
             if (isCompactingRef.current) {
               isCompactingRef.current = false;
+              const keptMessages = compactKeptRef.current;
+              compactKeptRef.current = [];
+
               setMessages((prev) => {
-                const summary = [...prev]
+                const summaryMsg = [...prev]
                   .reverse()
                   .find((m) => m.role === "assistant" && m.id === assistantMsgId);
                 const rawSummary =
-                  summary && summary.role === "assistant" ? summary.content : "(no summary)";
-                const summaryText = formatCompactSummary(rawSummary ?? "(no summary)");
+                  summaryMsg?.role === "assistant" ? summaryMsg.content : "(no summary)";
+                // getCompactUserSummaryMessage formats the summary as a proper
+                // "continued from previous session" prefix and sets
+                // suppressFollowUpQuestions=true so the AI resumes working
+                // immediately without asking "how can I help you?".
+                const summaryText = getCompactUserSummaryMessage(rawSummary, true);
                 return [
                   {
                     id: crypto.randomUUID(),
                     role: "system" as const,
-                    content: `Conversation compacted.\n\n${summaryText}`,
+                    content: summaryText,
                   },
+                  ...keptMessages,
                 ];
               });
+
+              // Rebuild engine history: summary injected as a user message so the
+              // AI knows about prior work, followed by the kept recent messages
+              // (user/assistant text only — tool call details live in the summary).
               invoke("blink_code_bridge_send", {
                 line: JSON.stringify({ type: "clear" }),
               }).catch(() => {});
+              if (keptMessages.length > 0) {
+                const bridgeMsgs = keptMessages
+                  .filter((m) => m.role === "user" || m.role === "assistant")
+                  .map((m) => ({ role: m.role, content: m.content ?? "" }));
+                invoke("blink_code_bridge_send", {
+                  line: JSON.stringify({ type: "set_history", messages: bridgeMsgs }),
+                }).catch(() => {});
+              }
             } else {
               setMessages((prev) =>
                 prev.map((m) =>
@@ -860,22 +885,40 @@ function BlinkCodePanel() {
       case "compact": {
         const convo = messages.filter((m) => m.role === "user" || m.role === "assistant");
         if (convo.length === 0) break;
-        const transcript = convo
-          .map((m) => {
-            if (m.role === "user") return `User: ${m.content}`;
-            if (m.role === "assistant") {
-              const parts: string[] = [];
-              if (m.toolCalls.length > 0)
-                parts.push(`[Tools used: ${m.toolCalls.map((t) => t.name).join(", ")}]`);
-              if (m.content) parts.push(`Assistant: ${m.content}`);
-              return parts.join("\n");
-            }
-            return "";
-          })
-          .filter(Boolean)
-          .join("\n\n");
+
+        // Keep the most recent 6 messages verbatim — they survive compact intact.
+        // Everything older gets summarised. This matches how Claude Code works:
+        // recent context stays readable while old context gets compressed.
+        const KEEP_RECENT = 6;
+        const splitAt = Math.max(0, convo.length - KEEP_RECENT);
+        const toSummarise = convo.slice(0, splitAt);
+        const toKeep = convo.slice(splitAt);
+
+        // If there's nothing old enough to summarise, fall back to full compact.
+        const targetMessages = toSummarise.length > 0 ? toSummarise : convo;
+        const kept = toSummarise.length > 0 ? toKeep : [];
+
+        function msgToText(m: PanelMessage): string {
+          if (m.role === "user") return `User: ${m.content}`;
+          if (m.role === "assistant") {
+            const parts: string[] = [];
+            if (m.toolCalls.length > 0)
+              parts.push(`[Tools used: ${m.toolCalls.map((t) => t.name).join(", ")}]`);
+            if (m.content) parts.push(`Assistant: ${m.content}`);
+            return parts.join("\n");
+          }
+          return "";
+        }
+
+        const transcript = targetMessages.map(msgToText).filter(Boolean).join("\n\n");
+
+        // getPartialCompactPrompt tells the model it's summarising the OLDER
+        // portion of the conversation (recent messages will follow the summary).
         const compactPrompt =
-          getCompactPrompt() + `\n\nConversation to summarize:\n\n${transcript}`;
+          getPartialCompactPrompt() +
+          `\n\nMessages to summarise:\n\n${transcript}`;
+
+        compactKeptRef.current = kept;
         isCompactingRef.current = true;
         setMessages((prev) => [
           ...prev,

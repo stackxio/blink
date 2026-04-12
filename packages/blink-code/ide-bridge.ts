@@ -775,6 +775,22 @@ rl.on("line", async (line) => {
     return;
   }
 
+  // set_history: replace engine message history with a simplified list.
+  // Used after partial compact to inject summary + recent messages without
+  // losing the recent context the user can still see.
+  if (msg.type === "set_history") {
+    if (!engine) return;
+    const incoming = (msg.messages as Array<{ role: string; content: string }>) ?? [];
+    const blinkMessages: BlinkMessage[] = incoming
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content ?? "" }));
+    engine.setHistory(blinkMessages);
+    if (currentThreadId) {
+      await saveThreadData(currentThreadId, { messages: blinkMessages });
+    }
+    return;
+  }
+
   if (msg.type === "abort") {
     await handleAbort(msg.assistantMsgId);
     return;
