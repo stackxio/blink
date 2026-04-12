@@ -87,7 +87,18 @@ function getStoredEditorOptions() {
     codeActions: localStorage.getItem("codrift:codeActions") !== "false",
     inlineCompletions: localStorage.getItem("codrift:inlineCompletions") === "true",
     semanticHighlighting: localStorage.getItem("codrift:semanticHighlighting") !== "false",
+    formatOnSave: localStorage.getItem("codrift:formatOnSave") === "true",
+    bracketPairs: localStorage.getItem("codrift:bracketPairs") === "true",
+    rulers: localStorage.getItem("codrift:rulers") === "true",
+    mouseWheelZoom: localStorage.getItem("codrift:mouseWheelZoom") === "true",
   };
+}
+
+function trimTrailingWhitespace(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+$/, ""))
+    .join("\n");
 }
 
 function shouldUseExternalLsp(extension: string) {
@@ -166,6 +177,7 @@ export default function Editor({
   const currentFileUriRef = useRef<string | null>(null);
   const filePathRef = useRef(filePath);
   const workspacePathRef = useRef<string | null>(null);
+  const trimTrailingWhitespaceRef = useRef(false);
   const onSaveRef = useRef(onSave);
   const onChangeRef = useRef(onChange);
   const onCursorChangeRef = useRef(onCursorChange);
@@ -762,13 +774,15 @@ export default function Editor({
             hideCursorInOverviewRuler: true,
             renderLineHighlight: "all",
             padding: { top: 8, bottom: 8 },
-            bracketPairColorization: { enabled: false },
+            bracketPairColorization: { enabled: opts.bracketPairs },
             matchBrackets: "always",
             guides: {
               indentation: opts.indentGuides,
               highlightActiveIndentation: false,
-              bracketPairs: false,
+              bracketPairs: opts.bracketPairs,
             },
+            rulers: opts.rulers ? [{ column: 80, color: "rgba(128,128,128,0.2)" }, { column: 120, color: "rgba(128,128,128,0.12)" }] : [],
+            mouseWheelZoom: opts.mouseWheelZoom,
             suggest: { preview: true, showWords: false },
             quickSuggestions: true,
             hover: { enabled: true, delay: 300, sticky: true },
@@ -803,7 +817,14 @@ export default function Editor({
             if (!getStoredEditorOptions().autoSave) return;
             const currentModel = modelRef.current;
             if (currentModel && currentModel.getValue() !== savedContentRef.current) {
-              const text = currentModel.getValue();
+              let text = currentModel.getValue();
+              if (trimTrailingWhitespaceRef.current) {
+                const trimmed = trimTrailingWhitespace(text);
+                if (trimmed !== text) {
+                  currentModel.setValue(trimmed);
+                  text = trimmed;
+                }
+              }
               onSaveRef.current(text);
               savedContentRef.current = text;
               onChangeRef.current(false);
@@ -818,10 +839,23 @@ export default function Editor({
             id: "blink.save",
             label: "Save",
             keybindings: [monacoApi.KeyMod.CtrlCmd | monacoApi.KeyCode.KeyS],
-            run: () => {
+            run: async () => {
               const currentModel = modelRef.current;
               if (!currentModel) return;
-              const text = currentModel.getValue();
+              // Format on save — runs before reading the final text
+              if (getStoredEditorOptions().formatOnSave) {
+                try {
+                  await editor.getAction("editor.action.formatDocument")?.run();
+                } catch {}
+              }
+              let text = currentModel.getValue();
+              if (trimTrailingWhitespaceRef.current) {
+                const trimmed = trimTrailingWhitespace(text);
+                if (trimmed !== text) {
+                  currentModel.setValue(trimmed);
+                  text = trimmed;
+                }
+              }
               onSaveRef.current(text);
               savedContentRef.current = text;
               onChangeRef.current(false);
@@ -994,7 +1028,7 @@ export default function Editor({
                 guides: {
                   indentation: e.newValue === "true",
                   highlightActiveIndentation: false,
-                  bracketPairs: false,
+                  bracketPairs: getStoredEditorOptions().bracketPairs,
                 },
               });
             } else if (e.key === "codrift:fontSize") {
@@ -1034,6 +1068,25 @@ export default function Editor({
                   monacoRef.current,
                 );
               }
+            } else if (e.key === "codrift:bracketPairs") {
+              const on = e.newValue === "true";
+              editorRef.current.updateOptions({
+                bracketPairColorization: { enabled: on },
+                guides: {
+                  indentation: getStoredEditorOptions().indentGuides,
+                  highlightActiveIndentation: false,
+                  bracketPairs: on,
+                },
+              });
+            } else if (e.key === "codrift:rulers") {
+              const on = e.newValue === "true";
+              editorRef.current.updateOptions({
+                rulers: on
+                  ? [{ column: 80, color: "rgba(128,128,128,0.2)" }, { column: 120, color: "rgba(128,128,128,0.12)" }]
+                  : [],
+              });
+            } else if (e.key === "codrift:mouseWheelZoom") {
+              editorRef.current.updateOptions({ mouseWheelZoom: e.newValue === "true" });
             }
           };
           window.addEventListener("storage", onStorageChange);
@@ -1062,6 +1115,31 @@ export default function Editor({
         savedContentRef.current = initialContent;
         model.updateOptions({ tabSize: getStoredEditorOptions().tabSize, insertSpaces: true });
         editor.setModel(model);
+
+        // Apply .editorconfig settings for this file
+        invoke<{
+          insert_spaces: boolean | null;
+          tab_size: number | null;
+          trim_trailing_whitespace: boolean | null;
+          end_of_line: string | null;
+        }>("read_editorconfig", { filePath: filePathRef.current })
+          .then((cfg) => {
+            // Guard: make sure this file is still the active model
+            if (modelRef.current !== model) return;
+            const opts: { tabSize?: number; insertSpaces?: boolean } = {};
+            if (cfg.tab_size != null) opts.tabSize = cfg.tab_size;
+            if (cfg.insert_spaces != null) opts.insertSpaces = cfg.insert_spaces;
+            if (Object.keys(opts).length > 0) model.updateOptions(opts);
+            if (cfg.end_of_line != null) {
+              const eolMap: Record<string, number> = { lf: 0, crlf: 1, cr: 0 };
+              const eolVal = eolMap[cfg.end_of_line];
+              if (eolVal != null) model.setEOL(eolVal);
+            }
+            trimTrailingWhitespaceRef.current = cfg.trim_trailing_whitespace === true;
+          })
+          .catch(() => {
+            trimTrailingWhitespaceRef.current = false;
+          });
 
         if (model.getValue() !== latestContentRef.current) {
           model.setValue(latestContentRef.current);

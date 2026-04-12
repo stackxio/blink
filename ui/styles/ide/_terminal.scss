@@ -53,6 +53,32 @@
     }
   }
 
+  &__ports {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 4px;
+  }
+
+  &__port-pill {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    height: 18px;
+    border-radius: 9px;
+    border: 1px solid var(--c-accent);
+    background: color-mix(in srgb, var(--c-accent) 12%, transparent);
+    color: var(--c-accent);
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+
+    &:hover {
+      background: color-mix(in srgb, var(--c-accent) 25%, transparent);
+    }
+  }
+
   &__actions {
     display: flex;
     align-items: center;

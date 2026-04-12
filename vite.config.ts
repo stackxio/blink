@@ -34,17 +34,10 @@ export default defineConfig({
           ) {
             return "markdown";
           }
-          // Stable vendor chunk for frequently-reused React-ecosystem packages.
-          // Improves cache hit rate between deploys since these rarely change.
-          if (
-            id.includes("node_modules/react/") ||
-            id.includes("node_modules/react-dom/") ||
-            id.includes("node_modules/react-router") ||
-            id.includes("node_modules/zustand") ||
-            id.includes("node_modules/lucide-react")
-          ) {
-            return "vendor";
-          }
+          // NOTE: Do NOT split react / react-dom / react-router into a vendor chunk.
+          // These are synchronous dependencies of the main entry point, and custom
+          // chunking of synchronous imports can cause module-load-order issues in
+          // WKWebView (white screen on restart). Let Vite handle them automatically.
         },
       },
     },

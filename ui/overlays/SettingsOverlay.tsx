@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { ChevronLeft } from "lucide-react";
 import { useAppStore, type SettingsPage } from "@/store";
 import SettingsGeneral from "@/features/settings/General";
@@ -26,6 +27,15 @@ export default function SettingsOverlay() {
     setSettingsPage(page);
   }
 
+  // Close on Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeSettings();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeSettings]);
+
   function renderPage() {
     switch (settingsPage) {
       case "general":
@@ -48,36 +58,43 @@ export default function SettingsOverlay() {
   }
 
   return (
-    <div className="settings-overlay">
-      {/* Drag region for window dragging */}
-      <div className="settings-overlay__drag-region" data-tauri-drag-region />
-      {/* Sidebar nav */}
-      <div className="settings-overlay__sidebar">
-        <button type="button" className="settings-overlay__back" onClick={closeSettings}>
-          <ChevronLeft />
-          Back
-        </button>
-        <nav className="settings-overlay__nav">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.page}
-              type="button"
-              className={`settings-overlay__nav-item ${
-                settingsPage === item.page || (settingsPage === "licenses" && item.page === "about")
-                  ? "settings-overlay__nav-item--active"
-                  : ""
-              }`}
-              onClick={() => navigate(item.page)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+    <div
+      className="settings-overlay"
+      onMouseDown={(e) => {
+        // Close when clicking the backdrop (outside the modal)
+        if (e.target === e.currentTarget) closeSettings();
+      }}
+    >
+      <div className="settings-overlay__modal">
+        {/* Sidebar nav */}
+        <div className="settings-overlay__sidebar">
+          <button type="button" className="settings-overlay__back" onClick={closeSettings}>
+            <ChevronLeft />
+            Close
+          </button>
+          <nav className="settings-overlay__nav">
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.page}
+                type="button"
+                className={`settings-overlay__nav-item ${
+                  settingsPage === item.page ||
+                  (settingsPage === "licenses" && item.page === "about")
+                    ? "settings-overlay__nav-item--active"
+                    : ""
+                }`}
+                onClick={() => navigate(item.page)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-      {/* Content */}
-      <div className="settings-overlay__content">
-        <div className="settings-overlay__inner">{renderPage()}</div>
+        {/* Content */}
+        <div className="settings-overlay__content">
+          <div className="settings-overlay__inner">{renderPage()}</div>
+        </div>
       </div>
     </div>
   );

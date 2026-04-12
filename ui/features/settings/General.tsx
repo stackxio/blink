@@ -27,6 +27,10 @@ interface EditorSettings {
   diff_editor: boolean;
   inline_completions: boolean;
   semantic_highlighting: boolean;
+  format_on_save: boolean;
+  bracket_pairs: boolean;
+  rulers: boolean;
+  mouse_wheel_zoom: boolean;
 }
 
 interface Settings {
@@ -44,6 +48,14 @@ export default function SettingsGeneral() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const persistWorkspaces = useAppStore((s) => s.persistWorkspaces);
   const setPersistWorkspaces = useAppStore((s) => s.setPersistWorkspaces);
+  const [confirmQuit, setConfirmQuitState] = useState(
+    () => localStorage.getItem("codrift:confirmQuit") !== "false",
+  );
+
+  function setConfirmQuit(val: boolean) {
+    setConfirmQuitState(val);
+    localStorage.setItem("codrift:confirmQuit", String(val));
+  }
   const theme = useAppStore((s) => s.theme);
   const setTheme = useAppStore((s) => s.setTheme);
   const [bindingMap, setBindingMap] = useState<BindingMap>(() => loadBindings());
@@ -168,6 +180,30 @@ export default function SettingsGeneral() {
     }
     if ("semantic_highlighting" in patch) {
       localStorage.setItem("codrift:semanticHighlighting", String(patch.semantic_highlighting));
+    }
+    if ("format_on_save" in patch) {
+      localStorage.setItem("codrift:formatOnSave", String(patch.format_on_save));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:formatOnSave", newValue: String(patch.format_on_save) }),
+      );
+    }
+    if ("bracket_pairs" in patch) {
+      localStorage.setItem("codrift:bracketPairs", String(patch.bracket_pairs));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:bracketPairs", newValue: String(patch.bracket_pairs) }),
+      );
+    }
+    if ("rulers" in patch) {
+      localStorage.setItem("codrift:rulers", String(patch.rulers));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:rulers", newValue: String(patch.rulers) }),
+      );
+    }
+    if ("mouse_wheel_zoom" in patch) {
+      localStorage.setItem("codrift:mouseWheelZoom", String(patch.mouse_wheel_zoom));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:mouseWheelZoom", newValue: String(patch.mouse_wheel_zoom) }),
+      );
     }
     try {
       await invoke("save_settings", { settings: updated });
@@ -386,6 +422,70 @@ export default function SettingsGeneral() {
 
         <div className="settings-row">
           <div className="settings-row__info">
+            <div className="settings-row__label">Format on save</div>
+            <div className="settings-row__hint">
+              Run the document formatter (Prettier / LSP) automatically when saving a file.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.format_on_save ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ format_on_save: !editor.format_on_save })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Bracket pair colorization</div>
+            <div className="settings-row__hint">
+              Colorize matching bracket pairs with distinct colors to make nesting easier to follow.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.bracket_pairs ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ bracket_pairs: !editor.bracket_pairs })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Column rulers</div>
+            <div className="settings-row__hint">
+              Show vertical guide lines at 80 and 120 characters.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.rulers ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ rulers: !editor.rulers })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Mouse wheel zoom</div>
+            <div className="settings-row__hint">
+              Ctrl+scroll to zoom the editor font size in and out.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${editor.mouse_wheel_zoom ? "toggle--on" : ""}`}
+            onClick={() => updateEditor({ mouse_wheel_zoom: !editor.mouse_wheel_zoom })}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
             <div className="settings-row__label">Workspace overrides</div>
             <div className="settings-row__hint">
               Create a <code>.codrift.json</code> file in your project root to override editor
@@ -408,6 +508,22 @@ export default function SettingsGeneral() {
             type="button"
             className={`toggle ${persistWorkspaces ? "toggle--on" : ""}`}
             onClick={() => setPersistWorkspaces(!persistWorkspaces)}
+          >
+            <span className="toggle__thumb" />
+          </button>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Confirm before quitting</div>
+            <div className="settings-row__hint">
+              Show a confirmation dialog when closing the app with unsaved changes.
+            </div>
+          </div>
+          <button
+            type="button"
+            className={`toggle ${confirmQuit ? "toggle--on" : ""}`}
+            onClick={() => setConfirmQuit(!confirmQuit)}
           >
             <span className="toggle__thumb" />
           </button>

@@ -253,22 +253,22 @@ export function TerminalInstance({
           }, 300)
         : null;
 
-      // Copy selected text automatically on selection change.
-      // Debounced: onSelectionChange fires on every pointer-move frame during a
-      // drag selection. Calling clipboard.writeText() on every frame in WKWebView
-      // can interrupt the drag gesture mid-way — the async Clipboard API creates
-      // microtasks that compete with the pointer event stream. 120 ms is short
-      // enough to feel instant on mouseup but long enough to suppress all the
-      // intermediate frames during the drag.
-      let selectionCopyTimer: ReturnType<typeof setTimeout> | null = null;
-      term.onSelectionChange(() => {
-        if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
-        selectionCopyTimer = setTimeout(() => {
-          selectionCopyTimer = null;
+      // Copy selected text to clipboard on mouse/touch release.
+      // Using pointerup instead of onSelectionChange avoids calling
+      // clipboard.writeText() during an active drag. In WKWebView the async
+      // Clipboard API can briefly steal focus, which makes xterm clear the
+      // selection highlight — both during the drag AND right after release.
+      // Listening to pointerup fires exactly once when the user finishes
+      // selecting, after xterm has committed the selection, so the highlight
+      // stays visible and there is no mid-drag interruption.
+      const onPointerUp = () => {
+        // Small delay so xterm finalises the selection range before we read it.
+        setTimeout(() => {
           const text = term.getSelection();
           if (text) navigator.clipboard.writeText(text).catch(() => {});
-        }, 120);
-      });
+        }, 30);
+      };
+      container.addEventListener("pointerup", onPointerUp);
 
       // 6. Wire up I/O.
       term.onData((data) => {
@@ -369,11 +369,11 @@ export function TerminalInstance({
         unlisten?.();
         ro.disconnect();
         themeObserver.disconnect();
+        container.removeEventListener("pointerup", onPointerUp);
         document.removeEventListener("blink:terminal-refit", onRefit);
         document.removeEventListener(`terminal:search:${id}`, onSearchEvent);
         if (resizeTimer) clearTimeout(resizeTimer);
         if (sigwinchTimer) clearTimeout(sigwinchTimer);
-        if (selectionCopyTimer) clearTimeout(selectionCopyTimer);
         term.dispose();
         termRef.current = null;
         fitRef.current = null;

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme, changeTheme, type Theme } from "@/lib/theme";
 import { useAppStore } from "@/store";
 import { useWorkspaceConfig } from "@/hooks/useWorkspaceConfig";
@@ -39,6 +40,36 @@ function useSyncSettingsToLocalStorage() {
   }, []);
 }
 
+// Intercept the window close button — show a confirm dialog if the user
+// has unsaved modified files and confirm-quit is enabled in settings.
+function useQuitConfirm() {
+  useEffect(() => {
+    let unlisten: (() => void) | null = null;
+    getCurrentWindow()
+      .onCloseRequested(async (event) => {
+        const confirmEnabled = localStorage.getItem("codrift:confirmQuit") !== "false";
+        if (!confirmEnabled) return; // allow close immediately
+
+        const hasUnsaved = useAppStore
+          .getState()
+          .workspaces.some((ws) => ws.openFiles.some((f) => f.modified));
+
+        if (!hasUnsaved) return; // nothing unsaved — allow close
+
+        event.preventDefault();
+        const confirmed = await invoke<boolean>("show_quit_confirm").catch(() => true);
+        if (confirmed) {
+          await getCurrentWindow().destroy();
+        }
+      })
+      .then((fn) => {
+        unlisten = fn;
+      })
+      .catch(() => {});
+    return () => unlisten?.();
+  }, []);
+}
+
 function useOpenFileEvent() {
   useEffect(() => {
     const unlisten = listen<string>("open-file", (event) => {
@@ -69,6 +100,7 @@ export default function App() {
   useSyncSettingsToLocalStorage();
   useOpenFileEvent();
   useWorkspaceConfig();
+  useQuitConfirm();
   const settingsOpen = useAppStore((s) => s.settingsOpen);
 
   return (

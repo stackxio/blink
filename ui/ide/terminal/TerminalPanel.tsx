@@ -5,6 +5,8 @@ import { useAppStore } from "@/store";
 import { TerminalInstance } from "./TerminalInstance";
 import "@xterm/xterm/css/xterm.css";
 
+const PORT_RE = /(?:localhost|127\.0\.0\.1|0\.0\.0\.0):(\d{4,5})/g;
+
 // ── Terminal profiles ─────────────────────────────────────────────────────────
 
 interface TerminalProfile {
@@ -46,10 +48,32 @@ export default function TerminalPanel() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [detectedPorts, setDetectedPorts] = useState<Map<string, number[]>>(new Map());
 
   const terminalIds = ws?.terminalIds ?? [];
   const activeTerminalId = ws?.activeTerminalId ?? null;
   const workspacePath = ws?.path || null;
+
+  const handleTerminalData = useCallback((termId: string, chunk: string) => {
+    PORT_RE.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    const found: number[] = [];
+    while ((match = PORT_RE.exec(chunk)) !== null) {
+      const port = parseInt(match[1], 10);
+      if (port >= 1024) found.push(port);
+    }
+    if (found.length === 0) return;
+    setDetectedPorts((prev) => {
+      const existing = prev.get(termId) ?? [];
+      const merged = Array.from(new Set([...existing, ...found])).sort((a, b) => a - b);
+      if (merged.length === existing.length && merged.every((p, i) => p === existing[i])) {
+        return prev; // no change
+      }
+      const next = new Map(prev);
+      next.set(termId, merged);
+      return next;
+    });
+  }, []);
 
   async function createSession(profileOverride?: TerminalProfile): Promise<string | null> {
     termCounter++;
@@ -174,6 +198,12 @@ export default function TerminalPanel() {
       delete next[id];
       return next;
     });
+    setDetectedPorts((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
     const isLast = terminalIds.length <= 1;
     removeTerminalId(id);
 
@@ -231,6 +261,24 @@ export default function TerminalPanel() {
             </button>
           ))}
         </div>
+        {(() => {
+          const activePorts = activeTerminalId ? (detectedPorts.get(activeTerminalId) ?? []) : [];
+          return activePorts.length > 0 ? (
+            <div className="terminal-panel__ports">
+              {activePorts.map((port) => (
+                <button
+                  key={port}
+                  type="button"
+                  className="terminal-panel__port-pill"
+                  title={`Open http://localhost:${port}`}
+                  onClick={() => invoke("open_url", { url: `http://localhost:${port}` }).catch(() => {})}
+                >
+                  :{port}
+                </button>
+              ))}
+            </div>
+          ) : null;
+        })()}
         <div className="terminal-panel__actions">
           {/* Profile picker */}
           <div className="terminal-panel__profile-wrap" ref={profileMenuRef}>
@@ -335,7 +383,7 @@ export default function TerminalPanel() {
                 className="terminal-instance-wrap"
                 style={{ display: isActive ? "flex" : "none" }}
               >
-                <TerminalInstance id={id} visible={isActive} />
+                <TerminalInstance id={id} visible={isActive} onData={(chunk) => handleTerminalData(id, chunk)} />
               </div>
             );
           })}
@@ -365,7 +413,7 @@ export default function TerminalPanel() {
                 <X size={12} />
               </button>
               <div className="terminal-instance-wrap" style={{ display: "flex" }}>
-                <TerminalInstance id={splitId} visible />
+                <TerminalInstance id={splitId} visible onData={(chunk) => handleTerminalData(splitId, chunk)} />
               </div>
             </div>
           </>
