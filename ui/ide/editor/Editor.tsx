@@ -781,7 +781,7 @@ export default function Editor({
               highlightActiveIndentation: false,
               bracketPairs: opts.bracketPairs,
             },
-            rulers: opts.rulers ? [{ column: 80, color: "rgba(128,128,128,0.2)" }, { column: 120, color: "rgba(128,128,128,0.12)" }] : [],
+            rulers: opts.rulers ? [80, 120] : [],
             mouseWheelZoom: opts.mouseWheelZoom,
             suggest: { preview: true, showWords: false },
             quickSuggestions: true,

@@ -2,6 +2,15 @@ import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import { changeTheme } from "@/lib/theme";
 
+// Debounced workspace save — cursor/scroll updates fire on every keystroke/
+// scroll event so we don't want to hit SQLite on each one.  After 1.5 s of
+// inactivity the final position is persisted.
+let _saveDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+function debouncedSave(fn: () => void) {
+  if (_saveDebounceTimer) clearTimeout(_saveDebounceTimer);
+  _saveDebounceTimer = setTimeout(fn, 1500);
+}
+
 export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
 export type LayoutMode = "ai-center" | "editor-center";
 export type FocusMode = "both" | "ai-only" | "editor-only";
@@ -564,6 +573,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         };
       });
     });
+    if (get().persistWorkspaces) get().saveCurrentWorkspaces();
   },
 
   closeFile: (idx) => {
@@ -618,7 +628,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().persistWorkspaces) get().saveCurrentWorkspaces();
   },
 
-  setActiveFile: (idx) => set((s) => updateWs(s, () => ({ activeFileIdx: idx }))),
+  setActiveFile: (idx) => {
+    set((s) => updateWs(s, () => ({ activeFileIdx: idx })));
+    if (get().persistWorkspaces) get().saveCurrentWorkspaces();
+  },
 
   markModified: (path, modified) =>
     set((s) =>
@@ -629,7 +642,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       })),
     ),
 
-  updateFileState: (path, fileState) =>
+  updateFileState: (path, fileState) => {
+    let changed = false;
     set((s) =>
       updateWs(s, (ws) => {
         const index = ws.openFiles.findIndex((f) => f.path === path);
@@ -645,6 +659,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ) {
           return {};
         }
+        changed = true;
         const openFiles = [...ws.openFiles];
         openFiles[index] = {
           ...current,
@@ -654,7 +669,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         };
         return { openFiles };
       }),
-    ),
+    );
+    if (changed && get().persistWorkspaces) {
+      debouncedSave(() => { if (get().persistWorkspaces) get().saveCurrentWorkspaces(); });
+    }
+  },
 
   markFileDeleted: (path) =>
     set((s) =>

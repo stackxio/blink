@@ -14,7 +14,7 @@ export interface AgentDef {
 export const ALL_AGENTS: AgentDef[] = [
   {
     id: "claude",
-    label: "Claude",
+    label: "Claude Code",
     description:
       "Anthropic's coding agent for reading code, editing files, and running terminal workflows.",
     binary: "claude",

@@ -21,7 +21,12 @@ export function getTerminalTheme() {
     background: get("--c-bg") || (isDark ? "#1e1e1e" : "#ffffff"),
     foreground: get("--c-fg") || (isDark ? "#d4d4d4" : "#1e1e1e"),
     cursor: get("--c-fg") || (isDark ? "#d4d4d4" : "#1e1e1e"),
-    selectionBackground: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+    // Use a solid, high-contrast selection colour so it stays visible in
+    // WKWebView's WebGL renderer.  Semi-transparent selections render at
+    // near-invisible opacity in some WKWebView versions.
+    selectionBackground: isDark ? "#3a7bd5" : "#b0c4de",
+    selectionForeground: isDark ? "#ffffff" : "#000000",
+    selectionInactiveBackground: isDark ? "#3a7bd566" : "#b0c4de66",
     black: isDark ? "#1e1e1e" : "#000000",
     red: "#f44747",
     green: "#6a9955",
