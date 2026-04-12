@@ -194,6 +194,9 @@ function BlinkCodePanel() {
   const [autoContext, setAutoContext] = useState<boolean>(
     () => localStorage.getItem("blink-auto-context") === "true",
   );
+  const [thinkingEnabled, setThinkingEnabled] = useState<boolean>(
+    () => localStorage.getItem("blink-thinking") === "true",
+  );
   const isCompactingRef = useRef(false);
   // Messages kept verbatim during partial compact (recent N messages)
   const compactKeptRef = useRef<PanelMessage[]>([]);
@@ -762,8 +765,6 @@ function BlinkCodePanel() {
       { id: assistantMsgId, role: "assistant", content: "", toolCalls: [], streaming: true },
     ]);
     setStreaming(true);
-    const isUltrathink = false;
-
     const images = imageItems.map((img) => ({
       data: img.dataUrl.split(",")[1] ?? img.dataUrl,
       mimeType: img.mimeType,
@@ -776,7 +777,7 @@ function BlinkCodePanel() {
         assistantMsgId,
         text: bridgeText,
         allowTools: config.allowTools,
-        ...(isUltrathink ? { thinking: true } : {}),
+        ...(thinkingEnabled ? { thinking: true } : {}),
         ...(images.length > 0 ? { images } : {}),
       }),
     });
@@ -1537,6 +1538,18 @@ function BlinkCodePanel() {
                   )}
                 </div>
                 <ModePill mode={mode} onChange={setMode} />
+                <button
+                  type="button"
+                  className={`blink-panel__thinking-btn${thinkingEnabled ? " blink-panel__thinking-btn--on" : ""}`}
+                  title={thinkingEnabled ? "Extended thinking on" : "Extended thinking off"}
+                  onClick={() => {
+                    const next = !thinkingEnabled;
+                    setThinkingEnabled(next);
+                    localStorage.setItem("blink-thinking", String(next));
+                  }}
+                >
+                  <Brain size={13} />
+                </button>
                 <ModelPill config={config} onChange={handleConfigChange} />
                 {contextUsage && (
                   <ContextCircle
@@ -2153,6 +2166,20 @@ function ProviderSettings({
                   </button>
                 </div>
               )}
+              <div className="blink-settings-panel__field blink-settings-panel__field--row">
+                <label>Max turns</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={64}
+                  style={{ width: 64, textAlign: "right" }}
+                  value={config.maxTurns}
+                  onChange={(e) => {
+                    const val = Math.max(1, Math.min(64, Number(e.target.value)));
+                    if (!isNaN(val)) onChange({ maxTurns: val });
+                  }}
+                />
+              </div>
             </div>
           </>
         )}

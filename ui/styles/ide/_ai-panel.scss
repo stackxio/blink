@@ -1412,6 +1412,35 @@
     }
   }
 
+  &__thinking-btn {
+    @include flex-center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--c-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    @include transition(background, color, border-color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+      border-color: color-mix(in srgb, var(--c-muted) 50%, var(--c-border));
+    }
+
+    &--on {
+      background: color-mix(in srgb, var(--c-accent) 15%, transparent);
+      color: var(--c-accent);
+      border-color: color-mix(in srgb, var(--c-accent) 40%, var(--c-border));
+
+      &:hover {
+        background: color-mix(in srgb, var(--c-accent) 25%, transparent);
+      }
+    }
+  }
+
   &__ctx-menu {
     position: absolute;
     bottom: calc(100% + 6px);
