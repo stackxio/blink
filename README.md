@@ -1,8 +1,6 @@
-# Blink
+# Codrift
 
-A lightweight, AI-first desktop IDE built on Tauri v2 and React. Blink combines a Monaco-based code editor, an integrated terminal, full LSP support, and a native AI agent panel into a single cross-platform application.
-
-The project is internally codenamed **Codrift**; both names appear throughout the codebase.
+A lightweight, AI-first desktop IDE built on Tauri v2 and React. Codrift combines a Monaco-based code editor, an integrated terminal, full LSP support, and a native AI agent panel into a single application.
 
 ---
 
@@ -54,15 +52,17 @@ The project is internally codenamed **Codrift**; both names appear throughout th
 
 The AI panel has two modes:
 
-**Built-in chat (BlinkCodePanel)** — a conversational interface backed by the configured AI provider (Ollama or a custom OpenAI-compatible API). Supports:
-- Threaded conversations persisted in SQLite
-- Tool call display with expand/collapse
-- Slash commands for common actions
-- Skill injection via system prompt
-- File and folder attachment context
-- Compact/summarize mode for long threads
+**Built-in chat** — a conversational interface backed by the configured AI provider (Ollama or a custom OpenAI-compatible API). Supports:
+- Threaded conversations persisted per workspace
+- 16 built-in tools: file read/write/edit, directory tree, git status/diff/log/commit, run commands, search, glob, and more
+- Slash commands: `/commit`, `/pr`, `/review`, `/fix`, `/test`, `/explain`, `/refactor`, `/diff`, `/compact`, and more
+- `/compact` — partial compress that summarizes old context while keeping recent messages verbatim
+- Skill injection via system prompt (from Settings > Skills)
+- File and folder attachment context, image attachments, @mention files
+- Memory: user preferences (`~/.codrift/user.md`) and project memory (`AGENTS.md`) injected into every session
+- Chat modes: Agent, Plan, Debug, Ask
 
-**CLI agent runner (CliAgentPanel)** — launches supported AI coding agents in a dedicated terminal. Supported agents:
+**CLI agent runner** — launches supported AI coding agents in a dedicated terminal. Supported agents:
 
 | Agent | Binary | Session resume |
 |---|---|---|
@@ -85,7 +85,6 @@ Session IDs are captured from terminal output and persisted per workspace so pre
 - Stash manager — create, apply, and delete stashes
 - Git log viewer — commit history with diff
 - Branch switcher and new-branch creation from the status bar
-- Branch checkout available from the status bar branch picker
 
 ### Search
 
@@ -93,7 +92,6 @@ Session IDs are captured from terminal output and persisted per workspace so pre
 - Case-sensitive, whole-word, and regex modes
 - Include/exclude glob filters
 - Find-and-replace across all matching files
-- Search history
 
 ### Local History
 
@@ -105,45 +103,32 @@ Session IDs are captured from terminal output and persisted per workspace so pre
 
 - Multiple workspaces open simultaneously as tabs in the titlebar
 - Each workspace maintains independent: open files, active file, split pane, side panel, bottom panel, terminal sessions, expanded directories, and layout mode
-- Workspace state is persisted to SQLite on every change and restored on next launch
+- Workspace state (open tabs, cursor positions, scroll positions) is persisted and restored on next launch
 - Recent workspaces list with fuzzy search
 - CLI integration — pass a file path or directory path as a command-line argument to open it at launch
 
-### Layout
-
-- Activity bar with four views: Explorer, Search, Source Control, Local History
-- Resizable side panel and bottom panel
-- AI panel opens as a right-side pane; width is persisted per workspace
-- Two layout modes: **Editor-center** and **AI-center** (swap which panel takes more space)
-- Three focus modes: **Both**, **Editor only**, **AI only** — cycled from the titlebar
-- Command palette (fuzzy search over all commands) with recent command history
-- Recent files popup
-
 ### Settings
 
-Settings are accessible from the titlebar and organized into sections:
-
-- **General** — auto-save, confirm on quit, workspace persistence, tab size, font size, minimap, word wrap, indent guides, sticky scroll, inlay hints, code actions, inline completions, semantic highlighting, format on save, bracket pairs, rulers, mouse-wheel zoom, keybinding customization
+- **General** — auto-save, confirm on quit, tab size, font size, minimap, word wrap, indent guides, sticky scroll, inlay hints, code actions, inline completions, format on save, keybinding customization
 - **AI Providers** — configure Ollama (endpoint + model) or a custom OpenAI-compatible API (endpoint, model, API key)
-- **Skills** — create, edit, and delete Markdown skill files that are injected as system prompts into the built-in chat and CLI agents
-- **Appearance** — dark / light / system theme, editor font family, VS Code theme import (upload a `.json` theme file), custom theme export
-- **Archived** — archived threads
+- **Skills** — create, edit, and delete Markdown skill files injected as system prompts
+- **Memory** — edit user memory (`~/.codrift/user.md`) and project memory (`AGENTS.md`) directly in settings
+- **Appearance** — dark / light / system theme, editor font family, VS Code theme import
 - **About / Licenses**
 
 ### Appearance
 
 - Dark, light, and system (auto) themes
-- Custom theme support using a JSON schema; themes map directly to CSS custom properties
-- VS Code theme import — upload any VS Code `.json` theme file and it is translated to the Blink theme format
-- Custom editor font family (SF Mono, JetBrains Mono, Fira Code, Source Code Pro, Cascadia Code, IBM Plex Mono, or system default)
-- Monaco editor theme is derived from the active app theme at runtime
+- Custom theme support using a JSON schema mapped to CSS custom properties
+- VS Code theme import — upload any VS Code `.json` theme file and it is translated to the Codrift theme format
+- Custom editor font family
 
 ### Other
 
 - **Quit confirmation** — optional dialog when there are unsaved files
 - **Auto-updater** — background update check with in-titlebar download progress and restart prompt
 - **Single-instance enforcement** — a second launch focuses the existing window
-- **macOS native** — custom titlebar with traffic-light integration and drag region; `macos-private-api` for vibrancy
+- **macOS native** — custom titlebar with traffic-light integration and drag region
 
 ---
 
@@ -167,42 +152,41 @@ Settings are accessible from the titlebar and organized into sections:
 ## Project Structure
 
 ```
-blink/
+codrift/
 ├── ui/                        # React frontend
 │   ├── ai/                    # AI panel (BlinkCodePanel, CliAgentPanel, agent definitions)
 │   ├── components/            # Shared UI primitives
-│   ├── features/settings/     # Settings page components (General, Providers, Skills, Appearance, ...)
+│   ├── features/settings/     # Settings pages (General, Providers, Skills, Memory, Appearance, …)
 │   ├── hooks/                 # Shared hooks
 │   ├── ide/
 │   │   ├── editor/            # Monaco editor wrapper, LSP client, git gutter, merge conflicts
-│   │   ├── explorer/          # File tree with virtual scrolling, file search
+│   │   ├── explorer/          # File tree with virtual scrolling
 │   │   ├── git/               # Git panel, hunk viewer, stash manager, log viewer
 │   │   ├── history/           # Local file history panel
 │   │   ├── layout/            # Activity bar, tab bar, titlebar, status bar, command palette
-│   │   ├── problems/          # LSP diagnostics panel
 │   │   ├── search/            # Workspace search and replace panel
-│   │   └── terminal/          # xterm.js terminal panel and instance
-│   ├── lib/                   # Theme, keybindings, VS Code theme import, storage keys
-│   ├── overlays/              # Settings overlay, extensions overlay
+│   │   └── terminal/          # xterm.js terminal panel
+│   ├── lib/                   # Theme, keybindings, VS Code theme import
+│   ├── overlays/              # Settings overlay
 │   ├── store.ts               # Zustand app and workspace state
 │   ├── App.tsx
 │   └── main.tsx
 ├── core/                      # Tauri / Rust backend
 │   ├── src/
-│   │   ├── commands/          # Tauri IPC commands (editor, terminal, git, LSP, AI bridge, ...)
-│   │   ├── connectors/        # Filesystem, clipboard helpers
+│   │   ├── commands/          # Tauri IPC commands (editor, terminal, git, LSP, AI bridge, …)
 │   │   ├── db/                # SQLite schema, queries, models
 │   │   ├── lsp/               # LSP manager, transport, server registry
 │   │   ├── services/          # Workspace persistence service
 │   │   ├── settings/          # App config, prompts, skills
-│   │   ├── lib.rs             # Tauri plugin and command registration
 │   │   └── main.rs
 │   ├── Cargo.toml
 │   └── tauri.conf.json
 ├── packages/
-│   └── blink-code/            # Shared TypeScript package: AI bridge, panel logic, slash commands, tools
-├── scripts/                   # Dev helper scripts
-├── Makefile
+│   └── blink-code/            # AI bridge: engine, providers, tools, slash commands, compact
+│       ├── ide-bridge.ts      # Entry point and message loop
+│       ├── tools/             # One file per AI tool (16 tools)
+│       └── panel/             # Engine, providers, memory, system prompt, slash commands
+├── scripts/
 ├── package.json
 └── vite.config.ts
 ```
@@ -211,7 +195,7 @@ blink/
 
 ## LSP Support
 
-The Rust backend manages LSP servers as child processes, multiplexing JSON-RPC messages over stdio. Servers are started automatically when a file with a recognized extension is opened. The following language servers are supported out of the box (installed separately):
+Servers are started automatically when a file with a recognized extension is opened. The following language servers are supported out of the box (installed separately):
 
 | Language | Server | Install |
 |---|---|---|
@@ -236,15 +220,14 @@ Custom server binaries can be placed in `~/.codrift/servers/` and will take prec
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install) (1.77.2 or later)
-- [Bun](https://bun.sh/) (1.3.10 or later)
+- [Rust](https://www.rust-lang.org/tools/install) (stable)
+- [Bun](https://bun.sh/) 1.3+
 
-### Install and run in development
+### Development
 
 ```bash
 bun install
-bun run hooks:install   # configure git hooks
-bun run app             # start Vite dev server + Tauri
+bun run app
 ```
 
 ### Production build
@@ -261,13 +244,10 @@ bun run app:build
 |---|---|
 | `bun run app` | Development mode (Vite + Tauri) |
 | `bun run app:build` | Production build |
-| `bun run dev` | Vite dev server only (no Tauri) |
 | `bun run typecheck` | TypeScript type check |
 | `bun run lint` | ESLint |
 | `bun run format` | Prettier + `cargo fmt` |
-| `bun run format:check` | Format check only (no writes) |
 | `bun run db:reset` | Delete `~/.codrift/codrift.db` so it is recreated on next launch |
-| `make check` | Format check + typecheck + `cargo check` |
 
 ---
 
@@ -276,11 +256,23 @@ bun run app:build
 | Path | Contents |
 |---|---|
 | `~/.codrift/codrift.db` | SQLite database: workspaces, open files, cursor positions, threads |
+| `~/.codrift/user.md` | Global user memory injected into every AI session |
 | `~/.codrift/servers/` | Locally installed LSP server binaries (checked before PATH) |
 | `~/.codrift/skills/` | Skill Markdown files editable in Settings > Skills |
+| `~/.codrift/sessions/` | AI chat thread history per workspace |
 
 ---
 
 ## Platform Support
 
-Blink currently targets **macOS** as its primary platform. Windows support is planned for a future release.
+Codrift currently targets **macOS** as its primary platform. Windows and Linux support is planned for a future release.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+[MIT](LICENSE)
