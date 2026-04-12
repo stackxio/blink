@@ -1,6 +1,8 @@
 # Codrift
 
-A lightweight, AI-first desktop IDE built on Tauri v2 and React. Codrift combines a Monaco-based code editor, an integrated terminal, full LSP support, and a native AI agent panel into a single application.
+**Why Codrift?** Modern dev workflows are split across too many tools — an editor here, a terminal there, an AI agent in another window, and a chat tab somewhere else. Codrift collapses all of it into a single workspace: Monaco editor, integrated terminal, multi-agent runner (Claude Code, Codex, Gemini…), and a native AI chat panel with OpenAI-compatible providers — all in one window, all sharing the same workspace context.
+
+![Codrift screenshot](.github/assets/screenshot.png)
 
 ---
 
