@@ -1,6 +1,6 @@
 [package]
 name = "codrift"
-version = "0.0.46"
+version = "0.0.47"
 description = "AI control layer for your computer"
 authors = ["Voxire"]
 license = ""
