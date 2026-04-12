@@ -52,11 +52,6 @@ export default function SettingsOverlay() {
     }
   }
 
-  const activeLabel =
-    settingsPage === "licenses"
-      ? "Licenses"
-      : NAV_ITEMS.find((i) => i.page === settingsPage)?.label ?? "Settings";
-
   return (
     <div
       className="settings-overlay"
@@ -102,7 +97,6 @@ export default function SettingsOverlay() {
 
           {/* Content */}
           <div className="settings-overlay__content">
-            <div className="settings-overlay__page-title">{activeLabel}</div>
             <div className="settings-overlay__inner">{renderPage()}</div>
           </div>
         </div>
