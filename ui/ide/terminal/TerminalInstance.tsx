@@ -350,6 +350,11 @@ export function TerminalInstance({
             matchBorder: "#ffdd0066",
             activeMatchBackground: "#ffdd0066",
             activeMatchBorder: "#ffdd00",
+            // Overview ruler is hidden (overviewRulerWidth defaults to 0) but
+            // the type requires these two fields — use transparent so they're
+            // invisible even if the ruler is ever enabled.
+            matchOverviewRuler: "#00000000",
+            activeMatchColorOverviewRuler: "#00000000",
           },
         };
         if (forward) {
