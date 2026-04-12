@@ -38,7 +38,7 @@
     }
 
     &--file {
-      color: var(--c-muted-fg);
+      color: color-mix(in srgb, var(--c-fg) 85%, var(--c-muted-fg));
     }
 
     &--drag-over {
