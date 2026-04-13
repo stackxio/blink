@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { X, Settings2, ChevronUp } from "lucide-react";
+import { X, Settings2, ChevronUp, History, Search, Pencil, Trash2 } from "lucide-react";
 import { TerminalInstance, type SpawnConfig } from "@/ide/terminal/TerminalInstance";
 import { AgentLogo } from "./agent-logos";
 import { ALL_AGENTS, type AgentDef, type AgentSettings } from "./agent-settings";
 
-// ── Saved session (persisted across app restarts) ─────────────────────────────
+// ── Saved session (persisted across app restarts — auto-resume) ───────────────
 
 interface SavedSession {
   agentId: string;
@@ -37,6 +37,74 @@ function persistSavedSessions(workspacePath: string | null, sessions: SavedSessi
   }
 }
 
+// ── Session history (accumulated — never auto-cleared, shown in the drawer) ───
+
+interface HistoryEntry {
+  id: string;
+  agentId: string;
+  label: string;
+  sessionId?: string;
+  savedAt: number;
+}
+
+const HISTORY_MAX = 100;
+
+function historyKey(workspacePath: string | null) {
+  return `codrift:agent-history:${workspacePath ?? "global"}`;
+}
+
+function loadHistory(workspacePath: string | null): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(historyKey(workspacePath));
+    if (!raw) return [];
+    return JSON.parse(raw) as HistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+function persistHistory(workspacePath: string | null, entries: HistoryEntry[]) {
+  const trimmed = entries.slice(0, HISTORY_MAX);
+  if (trimmed.length === 0) {
+    localStorage.removeItem(historyKey(workspacePath));
+  } else {
+    localStorage.setItem(historyKey(workspacePath), JSON.stringify(trimmed));
+  }
+}
+
+function upsertHistory(
+  workspacePath: string | null,
+  entry: Omit<HistoryEntry, "id">,
+  existingId?: string,
+): HistoryEntry[] {
+  const existing = loadHistory(workspacePath);
+  if (existingId) {
+    // Update in-place (rename or sessionId capture), keeping position
+    const updated = existing.map((e) =>
+      e.id === existingId ? { ...e, ...entry, id: existingId } : e,
+    );
+    if (updated.some((e) => e.id === existingId)) {
+      persistHistory(workspacePath, updated);
+      return updated;
+    }
+  }
+  const id = `h-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const next = [{ ...entry, id }, ...existing].slice(0, HISTORY_MAX);
+  persistHistory(workspacePath, next);
+  return next;
+}
+
+function relativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60_000);
+  const h = Math.floor(m / 60);
+  const d = Math.floor(h / 24);
+  if (m < 1) return "now";
+  if (m < 60) return `${m}m`;
+  if (h < 24) return `${h}h`;
+  return `${d}d`;
+}
+
 // ── Active session state ──────────────────────────────────────────────────────
 
 interface AgentSession {
@@ -44,10 +112,9 @@ interface AgentSession {
   agentId: string;
   label: string;
   spawn: SpawnConfig;
-  // Workspace this session belongs to.  Sessions are scoped per workspace:
-  // switching workspaces shows only that workspace's sessions, but all PTYs
-  // stay alive (mounted with display: none) so work isn't lost on switch.
   workspacePath: string | null;
+  /** History entry ID linked to this active session */
+  historyId?: string;
 }
 
 let sessionCounter = 0;
@@ -88,22 +155,19 @@ function extractSessionId(chunk: string): string | null {
   return null;
 }
 
-// ── Build the resume command for a specific saved session ─────────────────────
+// ── Build the resume command for a specific saved/history session ──────────────
 
 function buildSavedSessionCmd(
-  saved: SavedSession,
+  saved: SavedSession | HistoryEntry,
   agentSettings: AgentSettings,
   resolvedPaths: Record<string, string>,
 ): string[] | null {
   const agent = ALL_AGENTS.find((a) => a.id === saved.agentId);
   if (!agent) return null;
-  // Priority: customPath > absolute path from which > bare binary name.
-  // Using the absolute path bypasses shell wrappers (e.g. cmux's claude fn).
   const customPathSetting = agentSettings[agent.id]?.customPath?.trim();
   const exe = customPathSetting || resolvedPaths[agent.binary] || agent.binary;
 
   if (saved.sessionId) {
-    // Resume the exact session by ID
     if (agent.id === "claude") {
       return [exe, "--resume", saved.sessionId, "--dangerously-skip-permissions"];
     }
@@ -118,7 +182,6 @@ function buildSavedSessionCmd(
     }
   }
 
-  // No captured ID — continue the most-recent session silently (no picker)
   if (agent.id === "claude") {
     return [exe, "--continue", "--dangerously-skip-permissions"];
   }
@@ -144,31 +207,30 @@ interface Props {
 }
 
 export default function CliAgentPanel({ workspacePath, agentSettings, onSettings }: Props) {
-  // Map of binary name -> absolute path (as resolved by `/usr/bin/which`).
-  // Using the absolute path when spawning bypasses shell functions and aliases
-  // like cmux's `claude() { "$_CMUX_CLAUDE_WRAPPER" "$@"; }`.
   const [installedBinaries, setInstalledBinaries] = useState<Record<string, string>>({});
-  // All sessions across ALL workspaces live in one array and stay mounted.
-  // We filter by workspacePath in the render to show only the active workspace's
-  // sessions — the inactive ones remain in the DOM with display:none so their
-  // PTYs, xterm buffers, and listeners survive workspace switches.
   const [sessions, setSessions] = useState<AgentSession[]>([]);
-  // activeTermId is stored per workspace path ("" as key for null workspace).
   const [activeTermByWs, setActiveTermByWs] = useState<Record<string, string | null>>({});
   const [renamingTermId, setRenamingTermId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const renameInputRef = useRef<HTMLInputElement>(null);
-  // Per-workspace session counter so "Claude 2" doesn't bleed across workspaces
   const sessionCountsRef = useRef<Record<string, Record<string, number>>>({});
   const skillsRef = useRef<string>("");
+
+  // Session history drawer
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>([]);
+  const [historySearch, setHistorySearch] = useState("");
+  const [renamingHistoryId, setRenamingHistoryId] = useState<string | null>(null);
+  const [historyRenameValue, setHistoryRenameValue] = useState("");
+  const historySearchRef = useRef<HTMLInputElement>(null);
+  const historyRenameRef = useRef<HTMLInputElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   const wsKey = (p: string | null) => p ?? "";
   const activeTermId = activeTermByWs[wsKey(workspacePath)] ?? null;
 
-  // Per-termId captured session IDs (from terminal output parsing)
   const [capturedIds, setCapturedIds] = useState<Record<string, string>>({});
 
-  // Stable refs for beforeunload save and async effect closures
   const sessionsRef = useRef<AgentSession[]>(sessions);
   const capturedIdsRef = useRef<Record<string, string>>(capturedIds);
   const workspacePathRef = useRef<string | null>(workspacePath);
@@ -180,33 +242,65 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
   useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
+  // Load history when workspace changes or drawer opens
+  useEffect(() => {
+    setHistoryEntries(loadHistory(workspacePath));
+  }, [workspacePath]);
+
+  // Close history drawer on outside click
+  useEffect(() => {
+    if (!historyOpen) return;
+    function onPointerDown(e: PointerEvent) {
+      if (historyRef.current && !historyRef.current.contains(e.target as Node)) {
+        setHistoryOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setHistoryOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [historyOpen]);
+
+  // Focus search when drawer opens
+  useEffect(() => {
+    if (historyOpen) {
+      setHistorySearch("");
+      requestAnimationFrame(() => historySearchRef.current?.focus());
+    }
+  }, [historyOpen]);
+
+  // Focus rename input when it appears
+  useEffect(() => {
+    if (renamingHistoryId) {
+      requestAnimationFrame(() => {
+        historyRenameRef.current?.select();
+      });
+    }
+  }, [renamingHistoryId]);
+
   // ── Auto-resume saved sessions per workspace ─────────────────────────────────
-  // Each workspace auto-resumes its sessions the first time it becomes active.
-  // Switching between workspaces does not kill sessions — they stay mounted.
-  // When a workspace first becomes active, we load its saved sessions from
-  // localStorage and recreate them.  We track which workspaces have already
-  // been resumed so switching back doesn't duplicate sessions.
   const resumedWorkspacesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (workspacePath === null) return; // workspace still loading — wait
+    if (workspacePath === null) return;
     if (resumedWorkspacesRef.current.has(workspacePath)) return;
     resumedWorkspacesRef.current.add(workspacePath);
 
     const saved = loadSavedSessions(workspacePath);
     if (saved.length === 0) return;
 
-    // Clear immediately so a crash-loop can't keep re-spawning
     persistSavedSessions(workspacePath, []);
 
-    // Stagger starts so PTYs don't all race at once
     saved.forEach((s, i) => {
       setTimeout(() => {
         const agent = ALL_AGENTS.find((a) => a.id === s.agentId);
         if (!agent) return;
         const cmd = buildSavedSessionCmd(s, agentSettingsRef.current, installedBinariesRef.current);
         if (!cmd) return;
-        // Capture the workspacePath at spawn time so the session is scoped
-        // to the workspace it's resuming in, not whatever is active 200ms later.
         createSessionDirect(agent, cmd, s.label, workspacePath);
       }, i * 200);
     });
@@ -214,13 +308,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   }, [workspacePath]);
 
   // ── Persist active sessions to localStorage whenever they change ─────────────
-  // Group sessions by their own workspacePath, not the currently active one,
-  // so workspace A's sessions get saved to A's key even while the user is
-  // looking at workspace B.
   useEffect(() => {
-    // Build a map of workspacePath -> SavedSession[] for every workspace that
-    // currently has any sessions OR has been resumed (so we correctly clear
-    // workspaces whose sessions were all closed).
     const grouped = new Map<string | null, SavedSession[]>();
     for (const wsPath of resumedWorkspacesRef.current) {
       grouped.set(wsPath, []);
@@ -241,12 +329,11 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     }
   }, [sessions, capturedIds]);
 
-  // Save on beforeunload (catches hard closes before React can unmount)
+  // Save on beforeunload — also push current sessions into history
   useEffect(() => {
     const save = () => {
       const all = sessionsRef.current;
       if (all.length === 0) return;
-      // Group by each session's own workspacePath
       const grouped = new Map<string | null, SavedSession[]>();
       for (const sess of all) {
         const entry: SavedSession = {
@@ -261,6 +348,16 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       }
       for (const [wsPath, list] of grouped) {
         persistSavedSessions(wsPath, list);
+        // Also push into history so they appear in the drawer after restart
+        let hist = loadHistory(wsPath);
+        for (const s of list) {
+          // Upsert by historyId if we have one, else add new
+          const linked = all.find(
+            (a) => a.workspacePath === wsPath && a.agentId === s.agentId && a.label === s.label,
+          );
+          hist = upsertHistory(wsPath, { agentId: s.agentId, label: s.label, sessionId: s.sessionId, savedAt: s.savedAt }, linked?.historyId);
+        }
+        void hist; // already persisted by upsertHistory
       }
     };
     window.addEventListener("beforeunload", save);
@@ -273,22 +370,18 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     invoke<Record<string, string>>("which_cli", { names: binaries })
       .then(setInstalledBinaries)
       .catch(() => {
-        // Fallback: mark all as "installed" with their bare name so the UI
-        // doesn't vanish if the detection fails for some reason.
         const fallback: Record<string, string> = {};
         for (const b of binaries) fallback[b] = b;
         setInstalledBinaries(fallback);
       });
   }, []);
 
-  // Load combined skills once
   useEffect(() => {
     invoke<string>("get_combined_skills")
       .then((s) => { skillsRef.current = s; })
       .catch(() => {});
   }, []);
 
-  // Compute visible agents
   const visibleAgents = ALL_AGENTS.filter((agent) => {
     const cfg = agentSettings[agent.id];
     if (!cfg?.enabled) return false;
@@ -296,26 +389,17 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     return agent.binary in installedBinaries;
   });
 
-  /**
-   * Pick the best path for an agent's binary.
-   * Priority: user's customPath > resolved absolute path from which > bare name.
-   * Using the absolute path here bypasses shell functions/aliases that may
-   * shadow the real binary in the user's interactive shell (e.g. cmux).
-   */
   function resolveAgentPath(agent: AgentDef): string {
     const custom = agentSettings[agent.id]?.customPath?.trim();
     if (custom) return custom;
     return installedBinaries[agent.binary] || agent.binary;
   }
 
-  // Sessions visible in the CURRENT workspace only — used for UI tab list,
-  // session counts, empty-state detection, etc.
   const visibleSessions = useMemo(
     () => sessions.filter((s) => s.workspacePath === workspacePath),
     [sessions, workspacePath],
   );
 
-  // Active session count per agentId IN THE CURRENT WORKSPACE (for tooltip badge)
   const sessionCounts = useMemo(
     () =>
       visibleSessions.reduce<Record<string, number>>((acc, s) => {
@@ -327,64 +411,84 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
 
   // ── Session management ───────────────────────────────────────────────────────
 
-  /**
-   * Core session creator — label can be overridden (for auto-resumed sessions).
-   * wsPathOverride pins the session to a specific workspace at spawn time so
-   * auto-resume (which uses setTimeout) doesn't accidentally attach a session
-   * to whatever workspace is active 200ms later.
-   */
   function createSessionDirect(
     agent: AgentDef,
     cmd: string[],
     labelOverride?: string,
     wsPathOverride?: string | null,
+    historyId?: string,
   ) {
     sessionCounter++;
     const termId = `cli-agent-${Date.now()}-${sessionCounter}`;
     const wsPath = wsPathOverride !== undefined ? wsPathOverride : workspacePath;
     const wsKeyStr = wsKey(wsPath);
 
-    // Per-workspace counter so "Claude 2" doesn't bleed across workspaces.
     const wsCounts = (sessionCountsRef.current[wsKeyStr] ??= {});
     const agentCount = (wsCounts[agent.id] ?? 0) + 1;
     wsCounts[agent.id] = agentCount;
 
     const label = labelOverride ?? (agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`);
     const spawn: SpawnConfig = { cmd, cwd: wsPath };
-    setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn, workspacePath: wsPath }]);
+
+    // If no historyId provided, add a new history entry for this session
+    let hId = historyId;
+    if (!hId) {
+      const newHist = upsertHistory(wsPath, {
+        agentId: agent.id,
+        label,
+        savedAt: Date.now(),
+      });
+      hId = newHist[0]?.id;
+      setHistoryEntries(newHist);
+    }
+
+    setSessions((prev) => [...prev, { termId, agentId: agent.id, label, spawn, workspacePath: wsPath, historyId: hId }]);
     setActiveTermByWs((prev) => ({ ...prev, [wsKeyStr]: termId }));
   }
 
-  /** Start a fresh session (new chat) in the currently active workspace. */
   function createSession(agent: AgentDef) {
-    // Pass the resolved absolute path as customPath so buildCmd uses it as the
-    // first argv entry, bypassing shell wrappers (see resolveAgentPath above).
     const customPath = resolveAgentPath(agent);
     const cmd = agent.buildCmd({ customPath, skills: skillsRef.current });
     createSessionDirect(agent, cmd);
   }
 
-  /**
-   * ↩ Resume button in the header — opens the agent's interactive session picker
-   * (no specific session ID, so the agent presents its own list of past sessions).
-   */
   function resumeSession(agent: AgentDef) {
     if (!agent.resumeCmd) return;
     const customPath = resolveAgentPath(agent);
     createSessionDirect(agent, agent.resumeCmd({ customPath }));
   }
 
-  /** Called with raw PTY output chunks; tries to capture a session ID. */
+  /** Resume a specific history entry — opens it in a new terminal tab. */
+  function resumeHistoryEntry(entry: HistoryEntry) {
+    const agent = ALL_AGENTS.find((a) => a.id === entry.agentId);
+    if (!agent) return;
+    const cmd = buildSavedSessionCmd(entry, agentSettingsRef.current, installedBinariesRef.current);
+    if (!cmd) return;
+    setHistoryOpen(false);
+    createSessionDirect(agent, cmd, entry.label, workspacePath, entry.id);
+  }
+
   function handleTermData(termId: string, agentId: string, chunk: string) {
     if (!["claude", "codex", "gemini", "opencode"].includes(agentId)) return;
     if (capturedIdsRef.current[termId]) return;
     const id = extractSessionId(chunk);
     if (id) {
       setCapturedIds((prev) => (prev[termId] ? prev : { ...prev, [termId]: id }));
+      // Update the history entry with the captured session ID
+      const sess = sessionsRef.current.find((s) => s.termId === termId);
+      if (sess?.historyId) {
+        const updated = upsertHistory(
+          sess.workspacePath,
+          { agentId, label: sess.label, sessionId: id, savedAt: Date.now() },
+          sess.historyId,
+        );
+        if (sess.workspacePath === workspacePathRef.current) {
+          setHistoryEntries(updated);
+        }
+      }
     }
   }
 
-  /** Select a session, updating the active termId for its own workspace. */
   function selectSession(s: AgentSession) {
     setActiveTermByWs((prev) => ({ ...prev, [wsKey(s.workspacePath)]: s.termId }));
   }
@@ -399,17 +503,49 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   function commitRename(termId: string) {
     const trimmed = renameValue.trim();
     if (trimmed) {
-      setSessions((prev) => prev.map((s) => (s.termId === termId ? { ...s, label: trimmed } : s)));
+      setSessions((prev) =>
+        prev.map((s) => {
+          if (s.termId !== termId) return s;
+          // Also update history entry label
+          if (s.historyId) {
+            const updated = upsertHistory(
+              s.workspacePath,
+              { agentId: s.agentId, label: trimmed, sessionId: capturedIdsRef.current[termId], savedAt: Date.now() },
+              s.historyId,
+            );
+            if (s.workspacePath === workspacePathRef.current) {
+              setHistoryEntries(updated);
+            }
+          }
+          return { ...s, label: trimmed };
+        }),
+      );
     }
     setRenamingTermId(null);
   }
 
   async function closeSession(termId: string) {
-    try { await invoke("terminal_close", { id: termId }); } catch {}
     const closing = sessionsRef.current.find((s) => s.termId === termId);
+    // Push to history before closing
+    if (closing) {
+      const capturedId = capturedIdsRef.current[termId];
+      const updated = upsertHistory(
+        closing.workspacePath,
+        {
+          agentId: closing.agentId,
+          label: closing.label,
+          sessionId: capturedId,
+          savedAt: Date.now(),
+        },
+        closing.historyId,
+      );
+      if (closing.workspacePath === workspacePathRef.current) {
+        setHistoryEntries(updated);
+      }
+    }
+    try { await invoke("terminal_close", { id: termId }); } catch {}
     setSessions((prev) => prev.filter((s) => s.termId !== termId));
     if (closing) {
-      // Pick a new active session for the closing session's workspace only.
       setActiveTermByWs((prev) => {
         const k = wsKey(closing.workspacePath);
         if (prev[k] !== termId) return prev;
@@ -425,6 +561,41 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       return next;
     });
   }
+
+  // ── History entry actions ────────────────────────────────────────────────────
+
+  function deleteHistoryEntry(id: string) {
+    const next = historyEntries.filter((e) => e.id !== id);
+    setHistoryEntries(next);
+    persistHistory(workspacePath, next);
+  }
+
+  function startHistoryRename(entry: HistoryEntry) {
+    setRenamingHistoryId(entry.id);
+    setHistoryRenameValue(entry.label);
+  }
+
+  function commitHistoryRename(id: string) {
+    const trimmed = historyRenameValue.trim();
+    if (trimmed) {
+      const next = historyEntries.map((e) => (e.id === id ? { ...e, label: trimmed } : e));
+      setHistoryEntries(next);
+      persistHistory(workspacePath, next);
+    }
+    setRenamingHistoryId(null);
+  }
+
+  // ── Filtered history ─────────────────────────────────────────────────────────
+
+  const filteredHistory = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    if (!q) return historyEntries;
+    return historyEntries.filter(
+      (e) =>
+        e.label.toLowerCase().includes(q) ||
+        ALL_AGENTS.find((a) => a.id === e.agentId)?.label.toLowerCase().includes(q),
+    );
+  }, [historyEntries, historySearch]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -475,6 +646,15 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
           )}
         </div>
         <div className="cli-agent-panel__header-right">
+          {/* Session history button */}
+          <button
+            type="button"
+            className={`cli-agent-panel__icon-btn${historyOpen ? " cli-agent-panel__icon-btn--active" : ""}`}
+            title="Session history"
+            onClick={() => setHistoryOpen((o) => !o)}
+          >
+            <History size={13} />
+          </button>
           <button
             type="button"
             className="cli-agent-panel__icon-btn"
@@ -534,12 +714,104 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         </div>
       )}
 
-      {/* ── Terminal body ──
-          We render EVERY session across all workspaces so their xterm state
-          and backing PTYs survive workspace switches.  Only the active
-          workspace's currently-selected session is actually visible. */}
-      <div className="cli-agent-panel__body">
-        {visibleSessions.length === 0 && (
+      {/* ── Panel body (terminal + optional history overlay) ── */}
+      <div className="cli-agent-panel__body" style={{ position: "relative" }}>
+
+        {/* ── Session History Drawer ── */}
+        {historyOpen && (
+          <div ref={historyRef} className="cli-agent-panel__history">
+            <div className="cli-agent-panel__history-search-wrap">
+              <Search size={12} className="cli-agent-panel__history-search-icon" />
+              <input
+                ref={historySearchRef}
+                className="cli-agent-panel__history-search"
+                placeholder="Search sessions…"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    if (historySearch) setHistorySearch("");
+                    else setHistoryOpen(false);
+                  }
+                }}
+              />
+            </div>
+
+            <div className="cli-agent-panel__history-list">
+              {filteredHistory.length === 0 ? (
+                <div className="cli-agent-panel__history-empty">
+                  {historySearch ? "No matching sessions" : "No sessions yet"}
+                </div>
+              ) : (
+                filteredHistory.map((entry) => {
+                  const isRenaming = renamingHistoryId === entry.id;
+                  const agentDef = ALL_AGENTS.find((a) => a.id === entry.agentId);
+                  return (
+                    <div key={entry.id} className="cli-agent-panel__history-row">
+                      <button
+                        type="button"
+                        className="cli-agent-panel__history-row-main"
+                        onClick={() => resumeHistoryEntry(entry)}
+                        title={entry.sessionId ? `Session ID: ${entry.sessionId}` : "Resume (most recent)"}
+                      >
+                        <AgentLogo agentId={entry.agentId} size={13} className="cli-agent-panel__history-logo" />
+                        <div className="cli-agent-panel__history-info">
+                          {isRenaming ? (
+                            <input
+                              ref={historyRenameRef}
+                              className="cli-agent-panel__history-rename"
+                              value={historyRenameValue}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => setHistoryRenameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") { e.preventDefault(); commitHistoryRename(entry.id); }
+                                if (e.key === "Escape") setRenamingHistoryId(null);
+                              }}
+                              onBlur={() => commitHistoryRename(entry.id)}
+                            />
+                          ) : (
+                            <span className="cli-agent-panel__history-label">{entry.label}</span>
+                          )}
+                          <span className="cli-agent-panel__history-meta">
+                            {agentDef?.label ?? entry.agentId}
+                            {" · "}
+                            {relativeTime(entry.savedAt)}
+                          </span>
+                        </div>
+                      </button>
+                      <div className="cli-agent-panel__history-actions">
+                        <button
+                          type="button"
+                          className="cli-agent-panel__history-action-btn"
+                          title="Rename"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            startHistoryRename(entry);
+                          }}
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          className="cli-agent-panel__history-action-btn cli-agent-panel__history-action-btn--danger"
+                          title="Delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteHistoryEntry(entry.id);
+                          }}
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {visibleSessions.length === 0 && !historyOpen && (
           <EmptyState
             agents={visibleAgents}
             onSettings={onSettings}

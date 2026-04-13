@@ -2808,6 +2808,167 @@
     }
   }
 
+  // ── Active icon-btn variant ──
+
+  &__icon-btn--active {
+    background: var(--c-surface-raised);
+    color: var(--c-fg);
+  }
+
+  // ── Session history drawer ──
+
+  &__history {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    @include flex-col;
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border);
+    overflow: hidden;
+  }
+
+  &__history-search-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--c-border);
+    flex-shrink: 0;
+  }
+
+  &__history-search-icon {
+    flex-shrink: 0;
+    color: var(--c-muted-fg);
+  }
+
+  &__history-search {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+
+    &::placeholder {
+      color: var(--c-muted-fg);
+    }
+  }
+
+  &__history-list {
+    flex: 1;
+    overflow-y: auto;
+    @include scrollbar(3px);
+    padding: 4px 0;
+  }
+
+  &__history-empty {
+    padding: 24px 16px;
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--c-muted-fg);
+  }
+
+  &__history-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 0 6px;
+
+    &:hover {
+      .cli-agent-panel__history-actions {
+        opacity: 1;
+      }
+    }
+  }
+
+  &__history-row-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    padding: 7px 8px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+    @include transition(background);
+
+    &:hover {
+      background: var(--c-surface-raised);
+    }
+  }
+
+  &__history-logo {
+    flex-shrink: 0;
+    opacity: 0.85;
+  }
+
+  &__history-info {
+    @include flex-col;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  &__history-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--c-fg);
+    @include truncate;
+  }
+
+  &__history-meta {
+    font-size: 11px;
+    color: var(--c-muted-fg);
+  }
+
+  &__history-rename {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--c-accent);
+    color: var(--c-fg);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    font-weight: 500;
+    outline: none;
+    padding: 0 1px;
+    width: 100%;
+  }
+
+  &__history-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    @include transition(opacity);
+  }
+
+  &__history-action-btn {
+    @include flex-center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--c-muted-fg);
+    cursor: pointer;
+    @include transition(background, color);
+
+    &:hover {
+      background: var(--c-surface-raised);
+      color: var(--c-fg);
+    }
+
+    &--danger:hover {
+      background: color-mix(in srgb, var(--c-danger) 12%, transparent);
+      color: var(--c-danger);
+    }
+  }
+
   // ── Empty state ──
 
   &__empty {
