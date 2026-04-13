@@ -62,6 +62,9 @@ function defineCodriftTheme(monacoApi: any) {
       "editorLineNumber.activeForeground": cssVar("--c-fg", isDark ? "#f5f5f5" : "#222222"),
       "editorCursor.foreground": cssVar("--c-accent", "#64C5B9"),
       "editor.selectionBackground": isDark ? "#64c5b940" : "#0e948833",
+      // Keep selection visible when the editor loses focus (e.g. mouse moves
+      // to sidebar/toolbar).  Without this Monaco defaults to near-transparent.
+      "editor.inactiveSelectionBackground": isDark ? "#64c5b930" : "#0e948826",
       "editor.lineHighlightBackground": isDark ? "#2a2a2a80" : "#e9e9e980",
       "editorGutter.background": cssVar("--c-bg", isDark ? "#151515" : "#ffffff"),
       "editorWhitespace.foreground": "transparent",
