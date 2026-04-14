@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { exit } from "@tauri-apps/plugin-process";
 import { useTheme, changeTheme, type Theme } from "@/lib/theme";
 import { useAppStore } from "@/store";
 import { useWorkspaceConfig } from "@/hooks/useWorkspaceConfig";
@@ -132,8 +133,8 @@ function useQuitConfirm(): { open: boolean; onQuit: () => void; onCancel: () => 
             .workspaces.some((ws) => ws.openFiles.some((f) => f.modified));
 
         if (!hasUnsaved) {
-          // Nothing to confirm — close immediately.
-          getCurrentWindow().destroy().catch(() => {});
+          // Nothing to confirm — exit immediately.
+          exit(0).catch(() => getCurrentWindow().destroy().catch(() => {}));
           return;
         }
 
@@ -147,7 +148,7 @@ function useQuitConfirm(): { open: boolean; onQuit: () => void; onCancel: () => 
 
   const onQuit = () => {
     setOpen(false);
-    getCurrentWindow().destroy().catch(() => {});
+    exit(0).catch(() => getCurrentWindow().destroy().catch(() => {}));
   };
   const onCancel = () => setOpen(false);
 
