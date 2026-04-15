@@ -434,6 +434,8 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
   // Start/initialize bridge whenever bridgeKey or retryKey changes
   useEffect(() => {
     if (!workspacePath) return;
+    // Agent mode is handled entirely by CliAgentPanel — never start the bridge for it.
+    if (config.provider.type === "agent") return;
 
     setBridgeInitFailed(false);
     let cancelled = false;
@@ -518,9 +520,18 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
         const payload = event.payload as { line?: string } | null;
         const line = payload?.line?.trim();
         if (!line) return;
+        // Only surface actual runtime errors — skip stack-trace context lines
+        // (lines starting with "  " or digits like "13 | ...") and bare carets.
+        const isNoise =
+          /^\s+/.test(line) ||        // indented stack frame
+          /^\d+\s*\|/.test(line) ||   // source code context: "13 | foo"
+          /^\^+$/.test(line) ||       // caret pointer: "^^^"
+          line.startsWith("at ") ||   // stack frame: "at foo (bar.ts:1:2)"
+          line.startsWith("Bridge: "); // already-prefixed duplicate
+        if (isNoise) return;
         setMessages((prev) => [
           ...prev,
-          { id: crypto.randomUUID(), role: "system", content: `Bridge: ${line}` },
+          { id: crypto.randomUUID(), role: "system", content: `Bridge error: ${line}` },
         ]);
       });
     })();

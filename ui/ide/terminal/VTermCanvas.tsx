@@ -270,6 +270,10 @@ export function VTermCanvas({
   const mountedRef   = useRef(false);
   const colsRef      = useRef(80);
   const rowsRef      = useRef(24);
+  // Keep onData in a ref so changing it doesn't re-run the mount effect
+  // (which would recreate the terminal on every CliAgentPanel re-render).
+  const onDataRef    = useRef(onData);
+  useEffect(() => { onDataRef.current = onData; }, [onData]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -366,13 +370,6 @@ export function VTermCanvas({
         const frame = decodeFrame(event.payload.data);
         if (!frame) return;
         frameRef.current = frame;
-        // onData hook: emit the raw char content for session-ID capture etc.
-        // We reconstruct a rough text string from the cursor row for simplicity.
-        if (onData) {
-          // Just signal something happened; callers that need the raw stream
-          // can also subscribe to the vterm:frame event directly.
-          onData("");
-        }
         requestAnimationFrame(draw);
       })
         .then((fn) => { unlisten = fn; })
@@ -417,7 +414,7 @@ export function VTermCanvas({
       if (resizeTimer) clearTimeout(resizeTimer);
       mountedRef.current = false;
     };
-  }, [id, spawn, draw, computeSize, onData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, spawn, draw, computeSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard handler
   const handleKeyDown = useCallback(
