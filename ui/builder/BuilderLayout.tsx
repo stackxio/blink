@@ -51,7 +51,7 @@ export default function BuilderLayout() {
 
   const [widths, setWidths] = useState(loadBuilderWidths);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [browserOpen, setBrowserOpen] = useState(true);
+  const [browserOpen, setBrowserOpen] = useState(false);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [agentSettings] = useState<AgentSettings>(loadAgentSettings);
