@@ -2621,10 +2621,41 @@
     min-width: 0;
     overflow: hidden;
     position: relative;
+    display: flex;
+    flex-direction: column;
+
+    > div {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .xterm {
+      flex: 1;
+      min-height: 0;
+      min-width: 0;
+      padding: 4px 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .xterm-rows {
+      flex: 1;
+    }
+
+    .xterm-screen {
+      flex: 1;
+      min-height: 0;
+    }
 
     // Let xterm manage its own overflow — forced scrollbars shift the viewport
     // width and cause FitAddon to compute different cols vs the visible canvas area.
     .xterm-viewport {
+      @include scrollbar;
       background: transparent !important;
     }
   }

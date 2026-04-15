@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { Terminal } from "@xterm/xterm";
@@ -120,6 +120,17 @@ export function TerminalInstance({
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const mountedRef = useRef(false);
+  const refitTerminal = useCallback(() => {
+    try {
+      fitRef.current?.fit();
+    } catch {}
+
+    const term = termRef.current;
+    if (!term) return;
+    try {
+      term.refresh(0, Math.max(0, term.rows - 1));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current || mountedRef.current) return;
@@ -205,12 +216,10 @@ export function TerminalInstance({
         term.dispose();
         return;
       }
-      try {
-        fit.fit();
-      } catch {}
 
       termRef.current = term;
       fitRef.current = fit;
+      refitTerminal();
 
       // 4. If we are responsible for spawning the process, call terminal_create
       //    with the EXACT cols/rows xterm measured — the process starts at the
@@ -254,7 +263,7 @@ export function TerminalInstance({
         ? setTimeout(() => {
             sigwinchTimer = null;
             if (disposed) return;
-            try { fit.fit(); } catch {}
+            refitTerminal();
           }, 300)
         : null;
 
@@ -293,9 +302,7 @@ export function TerminalInstance({
         if (resizeTimer) clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
           resizeTimer = null;
-          try {
-            fit.fit();
-          } catch {}
+          refitTerminal();
         }, 50);
       });
       ro.observe(container);
@@ -318,7 +325,7 @@ export function TerminalInstance({
 
       // 8. Manual refit trigger (e.g. when search bar opens/closes).
       function onRefit() {
-        try { fit.fit(); } catch {}
+        refitTerminal();
       }
       document.addEventListener("blink:terminal-refit", onRefit);
 
@@ -382,17 +389,18 @@ export function TerminalInstance({
       disposed = true;
       cleanupFn();
     };
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [id, refitTerminal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (visible && fitRef.current) {
+    if (visible) {
       requestAnimationFrame(() => {
-        try {
-          fitRef.current?.fit();
-        } catch {}
+        refitTerminal();
+        requestAnimationFrame(() => {
+          refitTerminal();
+        });
       });
     }
-  }, [visible]);
+  }, [visible, refitTerminal]);
 
   return (
     <div

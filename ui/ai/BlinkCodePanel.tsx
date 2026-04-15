@@ -2025,7 +2025,7 @@ function ModelPill({
 
 // ── ProviderSettings ──────────────────────────────────────────────────────────
 
-function ProviderSettings({
+export function ProviderSettings({
   config,
   agentSettings,
   onAgentSettingsChange,

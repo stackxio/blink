@@ -42,6 +42,8 @@ export default function Titlebar() {
   const setAppMode = useAppStore((s) => s.setAppMode);
   const builderBrowserOpen = useAppStore((s) => s.builderBrowserOpen);
   const toggleBuilderBrowser = useAppStore((s) => s.toggleBuilderBrowser);
+  const builderSidebarOpen = useAppStore((s) => s.builderSidebarOpen);
+  const toggleBuilderSidebar = useAppStore((s) => s.toggleBuilderSidebar);
   const ws = useAppStore((s) => s.activeWorkspace());
   const focusMode = ws?.focusMode ?? "both";
   const layoutMode = ws?.layoutMode ?? "ai-center";
@@ -153,17 +155,28 @@ export default function Titlebar() {
             <Sparkles size={14} />
           </button>
         )}
-        {/* Browser preview toggle (builder mode only) */}
+        {/* Builder-mode-only toggles */}
         {appMode === "builder" && (
-          <button
-            type="button"
-            className="titlebar__action"
-            title={builderBrowserOpen ? "Hide browser preview" : "Show browser preview"}
-            onClick={toggleBuilderBrowser}
-            style={builderBrowserOpen ? { color: "var(--c-accent)" } : undefined}
-          >
-            <Globe size={14} />
-          </button>
+          <>
+            <button
+              type="button"
+              className="titlebar__action"
+              title={builderSidebarOpen ? "Hide chat list" : "Show chat list"}
+              onClick={toggleBuilderSidebar}
+              style={builderSidebarOpen ? { color: "var(--c-accent)" } : undefined}
+            >
+              <PanelLeft size={14} />
+            </button>
+            <button
+              type="button"
+              className="titlebar__action"
+              title={builderBrowserOpen ? "Hide browser preview" : "Show browser preview"}
+              onClick={toggleBuilderBrowser}
+              style={builderBrowserOpen ? { color: "var(--c-accent)" } : undefined}
+            >
+              <Globe size={14} />
+            </button>
+          </>
         )}
         {/* Editor ↔ Builder mode toggle */}
         <div className="titlebar__mode-toggle">

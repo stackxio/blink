@@ -1,5 +1,4 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { PanelLeft } from "lucide-react";
 import { useAppStore } from "@/store";
 import PanelResizer from "@/ide/layout/PanelResizer";
 import ChatSidebar, {
@@ -9,8 +8,9 @@ import ChatSidebar, {
   type BuilderChat,
 } from "./ChatSidebar";
 import BrowserPanel from "./BrowserPanel";
-import { loadAgentSettings, type AgentSettings } from "@/ai/agent-settings";
-import { loadBlinkCodeConfig } from "@@/panel/config";
+import { loadAgentSettings, saveAgentSettings, type AgentSettings } from "@/ai/agent-settings";
+import { loadBlinkCodeConfig, saveBlinkCodeConfig, type BlinkCodeConfig } from "@@/panel/config";
+import { ProviderSettings } from "@/ai/BlinkCodePanel";
 
 const CliAgentPanel = lazy(() => import("@/ai/CliAgentPanel"));
 
@@ -49,18 +49,24 @@ function makeChat(workspacePath: string): BuilderChat {
 export default function BuilderLayout() {
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
-  const openSettings = useAppStore((s) => s.openSettings);
   const browserOpen = useAppStore((s) => s.builderBrowserOpen);
+  const sidebarOpen = useAppStore((s) => s.builderSidebarOpen);
 
   const [widths, setWidths] = useState(loadBuilderWidths);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [agentSettings] = useState<AgentSettings>(loadAgentSettings);
+  const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
+  const [config, setConfig] = useState<BlinkCodeConfig>(loadBlinkCodeConfig);
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
 
-  // Detect if the active provider is openai-compat (custom) for context menu
-  const isCustomProvider = loadBlinkCodeConfig().provider.type === "openai-compat";
+  const isCustomProvider = config.provider.type === "openai-compat";
+
+  function handleConfigChange(patch: Partial<BlinkCodeConfig>) {
+    const next = { ...config, ...patch };
+    setConfig(next);
+    saveBlinkCodeConfig(next);
+  }
 
   function handleStreamingChange(chatId: string, streaming: boolean) {
     setStreamingChatIds((prev) => {
@@ -81,7 +87,6 @@ export default function BuilderLayout() {
 
     let loaded = loadChats(workspacePath);
 
-    // Auto-create a chat if this workspace has none yet
     if (loaded.length === 0) {
       const first = makeChat(workspacePath);
       loaded = [first];
@@ -90,7 +95,6 @@ export default function BuilderLayout() {
 
     setChats(loaded);
 
-    // Restore the last active chat (or default to first)
     const savedActive = localStorage.getItem(activeChatStorageKey(workspacePath));
     const valid = loaded.find((c) => c.id === savedActive);
     setActiveChatId(valid?.id ?? loaded[0].id);
@@ -119,7 +123,6 @@ export default function BuilderLayout() {
     if (!workspacePath) return;
     const next = chats.filter((c) => c.id !== id);
 
-    // Always keep at least one chat
     if (next.length === 0) {
       const replacement = makeChat(workspacePath);
       next.push(replacement);
@@ -173,48 +176,49 @@ export default function BuilderLayout() {
               onNewChat={handleNewChat}
               onDeleteChat={handleDeleteChat}
               onRenameChat={handleRenameChat}
-              onClose={() => setSidebarOpen(false)}
             />
           </div>
           <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
         </>
       )}
 
-      {/* Center: One CliAgentPanel per chat — all mounted, CSS-hidden when inactive.
-          This keeps PTY sessions and terminal state alive while switching chats. */}
+      {/* Center */}
       <div className="builder-layout__center">
-        {/* Left-edge sidebar toggle (only shown when sidebar is closed) */}
-        {!sidebarOpen && (
-          <button
-            type="button"
-            className="builder-layout__sidebar-tab"
-            title="Show chats"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <PanelLeft size={13} />
-          </button>
-        )}
-
-        <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
-          {chats.map((chat) => (
-            <div
-              key={chat.id}
-              className="builder-layout__agent-pane"
-              style={{ display: chat.id === activeChatId ? "flex" : "none" }}
-            >
-              <CliAgentPanel
-                workspacePath={workspacePath}
-                chatId={chat.id}
-                agentSettings={agentSettings}
-                onSettings={() => openSettings("providers")}
-                onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
-              />
-            </div>
-          ))}
-        </Suspense>
-
-        {chats.length === 0 && (
-          <div className="builder-layout__loading">No workspace open</div>
+        {settingsOpen ? (
+          /* Inline provider + agent settings — same panel as BlinkCodePanel uses */
+          <div className="builder-layout__settings-pane">
+            <ProviderSettings
+              config={config}
+              agentSettings={agentSettings}
+              onAgentSettingsChange={(s) => {
+                setAgentSettings(s);
+                saveAgentSettings(s);
+              }}
+              onChange={handleConfigChange}
+              onClose={() => setSettingsOpen(false)}
+            />
+          </div>
+        ) : (
+          <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
+            {chats.map((chat) => (
+              <div
+                key={chat.id}
+                className="builder-layout__agent-pane"
+                style={{ display: chat.id === activeChatId ? "flex" : "none" }}
+              >
+                <CliAgentPanel
+                  workspacePath={workspacePath}
+                  chatId={chat.id}
+                  agentSettings={agentSettings}
+                  onSettings={() => setSettingsOpen(true)}
+                  onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
+                />
+              </div>
+            ))}
+            {chats.length === 0 && (
+              <div className="builder-layout__loading">No workspace open</div>
+            )}
+          </Suspense>
         )}
       </div>
 

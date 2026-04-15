@@ -235,6 +235,8 @@ interface AppState {
   // Builder
   builderBrowserOpen: boolean;
   toggleBuilderBrowser: () => void;
+  builderSidebarOpen: boolean;
+  toggleBuilderSidebar: () => void;
 
   // Global actions
   setTheme: (t: Theme) => void;
@@ -329,6 +331,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   appMode: loadAppMode(),
   builderBrowserOpen: false,
   toggleBuilderBrowser: () => set((s) => ({ builderBrowserOpen: !s.builderBrowserOpen })),
+  builderSidebarOpen: true,
+  toggleBuilderSidebar: () => set((s) => ({ builderSidebarOpen: !s.builderSidebarOpen })),
   aiPanelOpen: true,
   aiPanelWidth: 560,
   persistWorkspaces: true,
