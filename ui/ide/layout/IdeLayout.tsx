@@ -677,11 +677,13 @@ export default function IdeLayout() {
         </div>
       )}
 
-      {/* ── Builder mode ── */}
+      {/* ── Builder mode ── spans all grid columns in row 2 */}
       {appMode === "builder" && (
-        <Suspense fallback={null}>
-          <BuilderLayout />
-        </Suspense>
+        <div className="ide__builder">
+          <Suspense fallback={null}>
+            <BuilderLayout />
+          </Suspense>
+        </div>
       )}
 
       {/* ── Editor mode ── */}

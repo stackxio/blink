@@ -43,6 +43,15 @@
     }
   }
 
+  // ── Builder mode — full-width row 2 ──
+  &__builder {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    display: flex;
+    overflow: hidden;
+    min-width: 0;
+  }
+
   // ── Main area ──
   &__main {
     grid-row: 2;
