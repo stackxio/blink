@@ -127,6 +127,9 @@ jobs:
             fs.writeFileSync('core/Cargo.toml', cargo);
           "
 
+      - name: Compile bridge binary
+        run: bun run bundle:bridge:exe
+
       - name: Build Tauri app
         run: TAURI_DIR=core bun run tauri build --target ${{ matrix.target }}
         env:

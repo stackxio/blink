@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build && bun run bundle:bridge",
     "bundle:bridge": "bun build packages/blink-code/ide-bridge.ts --outfile core/bridge/ide-bridge.js --target bun",
+    "bundle:bridge:exe": "bun build --compile --target=bun-macos-arm64 packages/blink-code/ide-bridge.ts --outfile core/binaries/blink-bridge-aarch64-apple-darwin",
     "typecheck": "tsc -b --noEmit",
     "lint": "eslint .",
     "format:js": "prettier --write .",

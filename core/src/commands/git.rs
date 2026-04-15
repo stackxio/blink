@@ -1,9 +1,8 @@
 use serde::Serialize;
 use serde_json::json;
 use std::process::Command;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
-use tokio::process::Command as TokioCommand;
 use tokio::time::{timeout, Duration};
 
 #[derive(Debug, Serialize)]
@@ -39,26 +38,7 @@ fn run_git(path: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-use crate::commands::blink_code_bridge::BRIDGE_JS;
-
-fn default_bridge_script(app: &AppHandle) -> std::path::PathBuf {
-    if !BRIDGE_JS.is_empty() {
-        if let Ok(cache_dir) = app.path().app_cache_dir() {
-            let _ = std::fs::create_dir_all(&cache_dir);
-            let dest = cache_dir.join("ide-bridge.js");
-            if std::fs::write(&dest, BRIDGE_JS).is_ok() {
-                return dest;
-            }
-        }
-    }
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../packages/blink-code/ide-bridge.ts")
-        .canonicalize()
-        .unwrap_or_else(|_| {
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../packages/blink-code/ide-bridge.ts")
-        })
-}
+use crate::commands::blink_code_bridge::{resolve_bridge, spawn_bridge};
 
 const MAX_COMMIT_DIFF_CHARS: usize = 60_000;
 const MAX_UNTRACKED_FILES_FOR_COMMIT_PROMPT: usize = 24;
@@ -523,39 +503,21 @@ pub async fn git_generate_commit_message(
     staged_only: Option<bool>,
 ) -> Result<String, String> {
     let diff = build_commit_diff(&path, staged_only.unwrap_or(true))?;
-    let script = default_bridge_script(&app);
-    if !script.is_file() {
-        return Err(format!("Bridge script not found: {}", script.display()));
-    }
+    let exec = resolve_bridge(&app)?;
+    let mut spawned = spawn_bridge(&exec, &path)?;
 
-    let script_str = script
-        .to_str()
-        .ok_or_else(|| "Bridge script path is not valid UTF-8".to_string())?
-        .to_string();
-
-    let mut child = TokioCommand::new("bun")
-        .arg("run")
-        .arg(&script_str)
-        .current_dir(&path)
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|e| format!("Failed to spawn bun run {}: {}", script_str, e))?;
-
-    let mut stdin = child
-        .stdin
-        .take()
-        .ok_or_else(|| "Could not capture bridge stdin".to_string())?;
-    let stdout = child
+    let stdout = spawned
+        .child
         .stdout
         .take()
         .ok_or_else(|| "Could not capture bridge stdout".to_string())?;
-    let stderr = child
+    let stderr = spawned
+        .child
         .stderr
         .take()
         .ok_or_else(|| "Could not capture bridge stderr".to_string())?;
+    let mut stdin = spawned.stdin;
+    let mut child = spawned.child;
 
     let stderr_task = tokio::spawn(async move {
         let mut reader = BufReader::new(stderr);

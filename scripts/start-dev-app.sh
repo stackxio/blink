@@ -34,7 +34,17 @@ for i in {1..30}; do
 done
 curl -s -o /dev/null "$DEV_URL" || { echo "Dev server did not become ready."; exit 1; }
 
-# 3. Build Rust binary (debug) in dev mode so it uses devUrl instead of bundled assets
+# 3. Ensure compiled bridge binary exists (required by Tauri resource bundling).
+#    Only rebuild if missing or source is newer — keeps subsequent dev starts fast.
+BRIDGE_BIN="$PROJECT_ROOT/core/binaries/blink-bridge-aarch64-apple-darwin"
+BRIDGE_SRC="$PROJECT_ROOT/packages/blink-code/ide-bridge.ts"
+if [ ! -f "$BRIDGE_BIN" ] || [ "$BRIDGE_SRC" -nt "$BRIDGE_BIN" ]; then
+  echo "Compiling bridge binary (first run or source changed)..."
+  mkdir -p "$PROJECT_ROOT/core/binaries"
+  (cd "$PROJECT_ROOT" && bun run bundle:bridge:exe)
+fi
+
+# 4. Build Rust binary (debug) in dev mode so it uses devUrl instead of bundled assets
 echo "Building app (dev mode)..."
 touch "$CORE/build.rs"  # force icon re-embed on every dev launch
 (cd "$CORE" && export DEP_TAURI_DEV=true && cargo build)

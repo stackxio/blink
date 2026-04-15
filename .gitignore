@@ -10,6 +10,10 @@ core/bridge
 # Rust
 core/target
 
+# Compiled bridge binary (built by bundle:bridge:exe, not checked in)
+core/binaries/blink-bridge*
+!core/binaries/.gitkeep
+
 # Logs
 *.log
 npm-debug.log*
