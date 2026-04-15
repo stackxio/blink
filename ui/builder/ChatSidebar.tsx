@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, MessageSquare, Trash2, Clock, FolderOpen } from "lucide-react";
+import { Plus, MessageSquare, Trash2, Clock } from "lucide-react";
 import { z } from "zod";
 
 // ── Chat model ────────────────────────────────────────────────────────────────
@@ -52,8 +52,6 @@ function relativeTime(ts: number): string {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
-  workspacePath: string | null;
-  workspaceName: string | null;
   chats: BuilderChat[];
   activeChatId: string | null;
   streamingChatIds?: Set<string>;
@@ -64,8 +62,6 @@ interface Props {
 }
 
 export default function ChatSidebar({
-  workspacePath,
-  workspaceName,
   chats,
   activeChatId,
   streamingChatIds,
@@ -90,16 +86,6 @@ export default function ChatSidebar({
 
   return (
     <div className="chat-sidebar">
-      {/* Workspace context */}
-      {workspaceName && (
-        <div className="chat-sidebar__workspace">
-          <FolderOpen size={12} />
-          <span className="chat-sidebar__workspace-name" title={workspacePath ?? ""}>
-            {workspaceName}
-          </span>
-        </div>
-      )}
-
       <div className="chat-sidebar__header">
         <span className="chat-sidebar__title">Chats</span>
         <button

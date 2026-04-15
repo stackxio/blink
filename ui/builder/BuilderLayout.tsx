@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { PanelRight } from "lucide-react";
+import { PanelRight, PanelLeft } from "lucide-react";
 import { useAppStore } from "@/store";
 import PanelResizer from "@/ide/layout/PanelResizer";
 import ChatSidebar, {
@@ -48,9 +48,9 @@ function makeChat(workspacePath: string): BuilderChat {
 export default function BuilderLayout() {
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
-  const workspaceName = ws?.name ?? null;
 
   const [widths, setWidths] = useState(loadBuilderWidths);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [browserOpen, setBrowserOpen] = useState(true);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -155,27 +155,38 @@ export default function BuilderLayout() {
 
   return (
     <div className="builder-layout">
-      {/* Left: Chat sidebar */}
-      <div className="builder-layout__sidebar" style={{ width: widths.sidebar }}>
-        <ChatSidebar
-          workspacePath={workspacePath}
-          workspaceName={workspaceName}
-          chats={chats}
-          activeChatId={activeChatId}
-          streamingChatIds={streamingChatIds}
-          onSelectChat={handleSelectChat}
-          onNewChat={handleNewChat}
-          onDeleteChat={handleDeleteChat}
-          onRenameChat={handleRenameChat}
-        />
-      </div>
-
-      <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
+      {/* Left: Chat sidebar (collapsible) */}
+      {sidebarOpen && (
+        <>
+          <div className="builder-layout__sidebar" style={{ width: widths.sidebar }}>
+            <ChatSidebar
+              chats={chats}
+              activeChatId={activeChatId}
+              streamingChatIds={streamingChatIds}
+              onSelectChat={handleSelectChat}
+              onNewChat={handleNewChat}
+              onDeleteChat={handleDeleteChat}
+              onRenameChat={handleRenameChat}
+            />
+          </div>
+          <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
+        </>
+      )}
 
       {/* Center: One CliAgentPanel per chat — all mounted, CSS-hidden when inactive.
           This keeps PTY sessions and terminal state alive while switching chats. */}
       <div className="builder-layout__center">
-        {/* Browser toggle button — top-right corner of agent area */}
+        {/* Top-left: sidebar toggle */}
+        <button
+          type="button"
+          className={`builder-layout__sidebar-toggle${sidebarOpen ? " builder-layout__sidebar-toggle--active" : ""}`}
+          title={sidebarOpen ? "Hide chats" : "Show chats"}
+          onClick={() => setSidebarOpen((v) => !v)}
+        >
+          <PanelLeft size={14} />
+        </button>
+
+        {/* Top-right: browser toggle */}
         <button
           type="button"
           className={`builder-layout__browser-toggle${browserOpen ? " builder-layout__browser-toggle--active" : ""}`}

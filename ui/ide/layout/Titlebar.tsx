@@ -112,7 +112,7 @@ export default function Titlebar() {
             </button>
           </div>
         )}
-        {aiPanelOpen && focusMode === "both" && (
+        {appMode === "editor" && aiPanelOpen && focusMode === "both" && (
           <button
             type="button"
             className="titlebar__action"
@@ -128,24 +128,28 @@ export default function Titlebar() {
             {layoutMode === "ai-center" ? <PanelLeft size={14} /> : <PanelRight size={14} />}
           </button>
         )}
-        <button
-          type="button"
-          className="titlebar__action"
-          title={focusModeTitle(focusMode)}
-          onClick={cycleFocusMode}
-          style={focusMode !== "both" ? { color: "var(--c-accent)" } : undefined}
-        >
-          {focusModeIcon(focusMode)}
-        </button>
-        <button
-          type="button"
-          className="titlebar__action"
-          title="AI Assistant (⌘L)"
-          onClick={toggleAiPanel}
-          style={aiPanelOpen ? { color: "var(--c-accent)" } : undefined}
-        >
-          <Sparkles size={14} />
-        </button>
+        {appMode === "editor" && (
+          <button
+            type="button"
+            className="titlebar__action"
+            title={focusModeTitle(focusMode)}
+            onClick={cycleFocusMode}
+            style={focusMode !== "both" ? { color: "var(--c-accent)" } : undefined}
+          >
+            {focusModeIcon(focusMode)}
+          </button>
+        )}
+        {appMode === "editor" && (
+          <button
+            type="button"
+            className="titlebar__action"
+            title="AI Assistant (⌘L)"
+            onClick={toggleAiPanel}
+            style={aiPanelOpen ? { color: "var(--c-accent)" } : undefined}
+          >
+            <Sparkles size={14} />
+          </button>
+        )}
         {/* Editor ↔ Builder mode toggle */}
         <div className="titlebar__mode-toggle">
           <button
