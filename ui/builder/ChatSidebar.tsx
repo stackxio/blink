@@ -160,6 +160,8 @@ interface Props {
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
   onRenameChat: (id: string, name: string) => void;
+  onUpdateChat: (id: string, patch: Partial<BuilderChat>) => void;
+  onForkChat: (id: string) => void;
   onClose?: () => void;
 }
 
@@ -172,12 +174,13 @@ export default function ChatSidebar({
   onNewChat,
   onDeleteChat,
   onRenameChat,
+  onUpdateChat,
+  onForkChat,
   onClose,
 }: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [ctxMenu, setCtxMenu] = useState<CtxMenuState | null>(null);
-  const [localChats, setLocalChats] = useState<Map<string, Partial<BuilderChat>>>(new Map());
 
   function startRename(chat: BuilderChat, e?: React.MouseEvent) {
     e?.stopPropagation();
@@ -196,25 +199,14 @@ export default function ChatSidebar({
     setCtxMenu({ chatId: chat.id, x: e.clientX, y: e.clientY });
   }
 
-  function patchChat(id: string, patch: Partial<BuilderChat>) {
-    setLocalChats((prev) => {
-      const next = new Map(prev);
-      next.set(id, { ...prev.get(id), ...patch });
-      return next;
-    });
-  }
-
-  // Merge parent chats with local metadata overrides (pin, unread, archive)
-  const mergedChats = chats.map((c) => ({ ...c, ...localChats.get(c.id) }));
-
-  // Sort: pinned first
-  const sorted = [...mergedChats].sort((a, b) => {
+  // Chats are already filtered (no archived) and come from parent — just sort pinned first
+  const sorted = [...chats].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
     return 0;
   });
 
-  const ctxChat = ctxMenu ? mergedChats.find((c) => c.id === ctxMenu.chatId) : null;
+  const ctxChat = ctxMenu ? chats.find((c) => c.id === ctxMenu.chatId) : null;
 
   const closeCtx = useCallback(() => setCtxMenu(null), []);
 
@@ -316,19 +308,11 @@ export default function ChatSidebar({
           chat={ctxChat}
           isCustomProvider={isCustomProvider}
           onClose={closeCtx}
-          onRename={() => { const c = mergedChats.find(x => x.id === ctxMenu.chatId); if (c) startRename(c); }}
-          onPin={() => patchChat(ctxMenu.chatId, { pinned: !ctxChat.pinned })}
-          onMarkUnread={() => patchChat(ctxMenu.chatId, { unread: !ctxChat.unread })}
-          onFork={() => {
-            // Fork: create a new chat with the same name + " (fork)"
-            const base = mergedChats.find(x => x.id === ctxMenu.chatId);
-            if (base) {
-              onRenameChat; // no-op; forks need a new chat — handled via onNewChat
-              // We call onNewChat and rely on BuilderLayout to handle it
-              onNewChat();
-            }
-          }}
-          onArchive={() => patchChat(ctxMenu.chatId, { archived: true })}
+          onRename={() => { const c = chats.find(x => x.id === ctxMenu.chatId); if (c) startRename(c); }}
+          onPin={() => onUpdateChat(ctxMenu.chatId, { pinned: !ctxChat.pinned })}
+          onMarkUnread={() => onUpdateChat(ctxMenu.chatId, { unread: !ctxChat.unread })}
+          onFork={() => onForkChat(ctxMenu.chatId)}
+          onArchive={() => onUpdateChat(ctxMenu.chatId, { archived: true })}
           onDelete={() => onDeleteChat(ctxMenu.chatId)}
         />
       )}

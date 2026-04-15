@@ -8,7 +8,7 @@ import ChatSidebar, {
   type BuilderChat,
 } from "./ChatSidebar";
 import BrowserPanel from "./BrowserPanel";
-import { loadBlinkCodeConfig } from "@@/panel/config";
+import { chatMessagesKey } from "@/ai/BlinkCodePanel";
 
 const BlinkCodePanel = lazy(() => import("@/ai/BlinkCodePanel"));
 
@@ -31,15 +31,9 @@ function saveBuilderWidths(sidebar: number, browser: number) {
 
 // ── Chat factory ──────────────────────────────────────────────────────────────
 
-function makeChat(workspacePath: string): BuilderChat {
+function makeChat(workspacePath: string, name = "New Chat"): BuilderChat {
   const now = Date.now();
-  return {
-    id: crypto.randomUUID(),
-    name: "New Chat",
-    workspacePath,
-    createdAt: now,
-    updatedAt: now,
-  };
+  return { id: crypto.randomUUID(), name, workspacePath, createdAt: now, updatedAt: now };
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -49,13 +43,12 @@ export default function BuilderLayout() {
   const workspacePath = ws?.path ?? null;
   const browserOpen = useAppStore((s) => s.builderBrowserOpen);
   const sidebarOpen = useAppStore((s) => s.builderSidebarOpen);
+  const isCustomProvider = useAppStore((s) => s.blinkCodeProviderType === "openai-compat");
 
   const [widths, setWidths] = useState(loadBuilderWidths);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
-
-  const isCustomProvider = loadBlinkCodeConfig().provider.type === "openai-compat";
 
   function handleStreamingChange(chatId: string, streaming: boolean) {
     setStreamingChatIds((prev) => {
@@ -67,22 +60,14 @@ export default function BuilderLayout() {
   }
 
   useEffect(() => {
-    if (!workspacePath) {
-      setChats([]);
-      setActiveChatId(null);
-      return;
-    }
-
+    if (!workspacePath) { setChats([]); setActiveChatId(null); return; }
     let loaded = loadChats(workspacePath);
-
     if (loaded.length === 0) {
       const first = makeChat(workspacePath);
       loaded = [first];
       persistChats(workspacePath, loaded);
     }
-
     setChats(loaded);
-
     const savedActive = localStorage.getItem(activeChatStorageKey(workspacePath));
     const valid = loaded.find((c) => c.id === savedActive);
     setActiveChatId(valid?.id ?? loaded[0].id);
@@ -102,23 +87,17 @@ export default function BuilderLayout() {
 
   function handleSelectChat(chat: BuilderChat) {
     setActiveChatId(chat.id);
-    if (workspacePath) {
-      localStorage.setItem(activeChatStorageKey(workspacePath), chat.id);
-    }
+    if (workspacePath) localStorage.setItem(activeChatStorageKey(workspacePath), chat.id);
   }
 
   function handleDeleteChat(id: string) {
     if (!workspacePath) return;
+    // Clean up persisted messages for this chat
+    localStorage.removeItem(chatMessagesKey(id));
     const next = chats.filter((c) => c.id !== id);
-
-    if (next.length === 0) {
-      const replacement = makeChat(workspacePath);
-      next.push(replacement);
-    }
-
+    if (next.length === 0) next.push(makeChat(workspacePath));
     setChats(next);
     persistChats(workspacePath, next);
-
     if (activeChatId === id) {
       const fallback = next[0];
       setActiveChatId(fallback.id);
@@ -128,11 +107,38 @@ export default function BuilderLayout() {
 
   function handleRenameChat(id: string, name: string) {
     if (!workspacePath) return;
-    const next = chats.map((c) =>
-      c.id === id ? { ...c, name, updatedAt: Date.now() } : c,
-    );
+    const next = chats.map((c) => c.id === id ? { ...c, name, updatedAt: Date.now() } : c);
     setChats(next);
     persistChats(workspacePath, next);
+  }
+
+  function handleUpdateChat(id: string, patch: Partial<BuilderChat>) {
+    if (!workspacePath) return;
+    const next = chats.map((c) => c.id === id ? { ...c, ...patch, updatedAt: Date.now() } : c);
+    setChats(next);
+    persistChats(workspacePath, next);
+  }
+
+  function handleForkChat(id: string) {
+    if (!workspacePath) return;
+    const original = chats.find((c) => c.id === id);
+    if (!original) return;
+
+    const fork = makeChat(workspacePath, `Fork of ${original.name}`);
+
+    // Copy persisted messages from original to fork
+    try {
+      const raw = localStorage.getItem(chatMessagesKey(id));
+      if (raw) localStorage.setItem(chatMessagesKey(fork.id), raw);
+    } catch {}
+
+    // Insert fork right after the original
+    const idx = chats.findIndex((c) => c.id === id);
+    const next = [...chats.slice(0, idx + 1), fork, ...chats.slice(idx + 1)];
+    setChats(next);
+    persistChats(workspacePath, next);
+    setActiveChatId(fork.id);
+    localStorage.setItem(activeChatStorageKey(workspacePath), fork.id);
   }
 
   // ── Panel resizing ──────────────────────────────────────────────────────────
@@ -149,14 +155,16 @@ export default function BuilderLayout() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  // Filter out archived chats from the visible list
+  const visibleChats = chats.filter((c) => !c.archived);
+
   return (
     <div className="builder-layout">
-      {/* Left: Chat sidebar */}
       {sidebarOpen && (
         <>
           <div className="builder-layout__sidebar" style={{ width: widths.sidebar }}>
             <ChatSidebar
-              chats={chats}
+              chats={visibleChats}
               activeChatId={activeChatId}
               streamingChatIds={streamingChatIds}
               isCustomProvider={isCustomProvider}
@@ -164,16 +172,18 @@ export default function BuilderLayout() {
               onNewChat={handleNewChat}
               onDeleteChat={handleDeleteChat}
               onRenameChat={handleRenameChat}
+              onUpdateChat={handleUpdateChat}
+              onForkChat={handleForkChat}
             />
           </div>
           <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
         </>
       )}
 
-      {/* Center: one BlinkCodePanel per chat, CSS-hidden when inactive */}
+      {/* All chats mounted; CSS-hidden when inactive to keep PTY/chat state alive */}
       <div className="builder-layout__center">
         <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
-          {chats.map((chat) => (
+          {chats.filter((c) => !c.archived).map((chat) => (
             <div
               key={chat.id}
               className="builder-layout__agent-pane"
@@ -186,19 +196,14 @@ export default function BuilderLayout() {
             </div>
           ))}
         </Suspense>
-
         {chats.length === 0 && (
           <div className="builder-layout__loading">No workspace open</div>
         )}
       </div>
 
-      {/* Right: Browser preview */}
       {browserOpen && (
         <>
-          <PanelResizer
-            direction="horizontal"
-            onResize={(d) => setBrowserWidth(widths.browser - d)}
-          />
+          <PanelResizer direction="horizontal" onResize={(d) => setBrowserWidth(widths.browser - d)} />
           <div className="builder-layout__browser" style={{ width: widths.browser }}>
             <BrowserPanel workspacePath={workspacePath} />
           </div>

@@ -48,6 +48,28 @@ import {
 } from "@@/panel/compact";
 import type { BridgeOutEvent, HistoryDisplayMessage, ThreadMeta } from "@contracts/bridge-protocol";
 
+// ── Chat message persistence (scoped by chatId for Builder mode) ───────────────
+
+export function chatMessagesKey(chatId: string) {
+  return `codrift:blink-messages:${chatId}`;
+}
+
+function loadPersistedMessages(chatId: string): PanelMessage[] {
+  try {
+    const raw = localStorage.getItem(chatMessagesKey(chatId));
+    if (!raw) return [];
+    return JSON.parse(raw) as PanelMessage[];
+  } catch {
+    return [];
+  }
+}
+
+function persistMessages(chatId: string, messages: PanelMessage[]) {
+  // Keep last 200 messages to cap storage
+  const trimmed = messages.slice(-200);
+  localStorage.setItem(chatMessagesKey(chatId), JSON.stringify(trimmed));
+}
+
 // ── Message types ─────────────────────────────────────────────────────────────
 
 interface ToolCallEntry {
@@ -182,13 +204,26 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
     return ws.openFiles[ws.activeFileIdx] ?? null;
   });
 
+  const setBlinkCodeProviderType = useAppStore((s) => s.setBlinkCodeProviderType);
   const [config, setConfig] = useState<BlinkCodeConfig>(loadBlinkCodeConfig);
-  const [messages, setMessages] = useState<PanelMessage[]>([]);
+  const [messages, setMessages] = useState<PanelMessage[]>(() =>
+    chatId ? loadPersistedMessages(chatId) : [],
+  );
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
 
   // Notify parent (Builder sidebar badge) when streaming state changes
   useEffect(() => { onStreamingChange?.(streaming); }, [streaming, onStreamingChange]);
+
+  // Reload messages when chatId changes (switching builder chats)
+  useEffect(() => {
+    if (chatId) setMessages(loadPersistedMessages(chatId));
+  }, [chatId]);
+
+  // Persist messages whenever they change (only when scoped to a chatId)
+  useEffect(() => {
+    if (chatId && messages.length > 0) persistMessages(chatId, messages);
+  }, [chatId, messages]);
   const [permReq, setPermReq] = useState<PermReq | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slashSuggestions, setSlashSuggestions] = useState<typeof SLASH_COMMANDS>([]);
@@ -1163,6 +1198,8 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
     const updated = { ...config, ...partial };
     setConfig(updated);
     saveBlinkCodeConfig(updated);
+    const ptype = updated.provider.type === "agent" ? "agent" : "openai-compat";
+    setBlinkCodeProviderType(ptype);
   }
 
   const isCLIProvider = config.provider.type === "agent";

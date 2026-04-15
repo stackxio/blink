@@ -237,6 +237,9 @@ interface AppState {
   toggleBuilderBrowser: () => void;
   builderSidebarOpen: boolean;
   toggleBuilderSidebar: () => void;
+  /** Mirrors the active BlinkCode provider type so components outside BlinkCodePanel can react to changes. */
+  blinkCodeProviderType: "agent" | "openai-compat";
+  setBlinkCodeProviderType: (t: "agent" | "openai-compat") => void;
 
   // Global actions
   setTheme: (t: Theme) => void;
@@ -333,6 +336,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleBuilderBrowser: () => set((s) => ({ builderBrowserOpen: !s.builderBrowserOpen })),
   builderSidebarOpen: true,
   toggleBuilderSidebar: () => set((s) => ({ builderSidebarOpen: !s.builderSidebarOpen })),
+  blinkCodeProviderType: (() => {
+    try {
+      const raw = localStorage.getItem("codrift-code-config");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.provider?.type === "agent") return "agent";
+      }
+    } catch {}
+    return "openai-compat";
+  })() as "agent" | "openai-compat",
+  setBlinkCodeProviderType: (t) => set({ blinkCodeProviderType: t }),
   aiPanelOpen: true,
   aiPanelWidth: 560,
   persistWorkspaces: true,
