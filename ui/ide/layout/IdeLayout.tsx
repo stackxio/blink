@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useCallback, useState, useEffect, useRef, lazy, Suspense, type ReactNode } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -25,6 +25,53 @@ import RecentFilesPopup from "./RecentFilesPopup";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
 import MarkdownPreview from "@/ide/editor/MarkdownPreview";
 import { BookOpen } from "lucide-react";
+
+// ── Lightweight React confirm dialog (replaces native browser confirm()) ──────
+function CloseConfirmDialog({
+  message,
+  onConfirm,
+  onCancel,
+}: {
+  message: ReactNode;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { cancelRef.current?.focus(); }, []);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onCancel(); }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
+    }}>
+      <div style={{
+        background: "var(--c-surface, #1e1e1e)",
+        border: "1px solid var(--c-border, #333)",
+        borderRadius: 10, padding: "24px 28px 20px",
+        width: 320, boxShadow: "0 20px 50px rgba(0,0,0,0.45)",
+        display: "flex", flexDirection: "column", gap: 14,
+      }}>
+        <span style={{ fontSize: 13, color: "var(--c-fg, #d4d4d4)", lineHeight: 1.5 }}>{message}</span>
+        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+          <button ref={cancelRef} onClick={onCancel} style={{
+            padding: "5px 14px", borderRadius: 6, border: "1px solid var(--c-border, #444)",
+            background: "transparent", color: "var(--c-fg, #d4d4d4)", cursor: "pointer", fontSize: 13,
+          }}>Cancel</button>
+          <button onClick={onConfirm} style={{
+            padding: "5px 14px", borderRadius: 6, border: "none",
+            background: "var(--c-accent, #64C5B9)", color: "#fff",
+            cursor: "pointer", fontSize: 13, fontWeight: 500,
+          }}>OK</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function IdeLayout() {
   const navigate = useNavigate();
@@ -89,7 +136,20 @@ export default function IdeLayout() {
   const [symbolSearchMode, setSymbolSearchMode] = useState<"document" | "workspace" | null>(null);
   const [gitBranch, setGitBranch] = useState<string | null>(null);
   const [liveCursor, setLiveCursor] = useState<{ line?: number; col?: number }>({});
+  // React-based confirmation dialog (replaces native browser confirm())
+  const [closeConfirm, setCloseConfirm] = useState<{ message: ReactNode; onConfirm: () => void } | null>(null);
+  // Cached keybindings — avoids JSON.parse(localStorage) on every keypress
+  const bindingsCacheRef = useRef(loadBindings());
+  const keymapCacheRef = useRef(loadKeymap());
   const fileContentCacheRef = useRef(new Map<string, string>());
+  // Cap the file content cache at 50 entries to prevent unbounded memory growth.
+  // Evicts the oldest entry (Map preserves insertion order).
+  function setCachedContent(path: string, content: string) {
+    const cache = fileContentCacheRef.current;
+    cache.delete(path); // remove so re-insertion moves it to "newest"
+    cache.set(path, content);
+    if (cache.size > 50) cache.delete(cache.keys().next().value!);
+  }
   const pendingFileStateRef = useRef<{
     path: string;
     state: { cursorLine?: number; cursorCol?: number; scrollTop?: number };
@@ -241,7 +301,7 @@ export default function IdeLayout() {
       // Always bust the cache so switching to this tab shows fresh content
       invoke<string>("read_file_content", { path: changedPath })
         .then((content) => {
-          fileContentCacheRef.current.set(changedPath, content);
+          setCachedContent(changedPath, content);
           if (isActive) setFileContent(content);
         })
         .catch(() => {});
@@ -324,7 +384,7 @@ export default function IdeLayout() {
     if (!activeFile) return;
     try {
       await invoke("write_file_content", { path: activeFile.path, content });
-      fileContentCacheRef.current.set(activeFile.path, content);
+      setCachedContent(activeFile.path, content);
       markModified(activeFile.path, false);
       // Snapshot local history — fire and forget
       invoke("create_local_history_entry", {
@@ -336,28 +396,39 @@ export default function IdeLayout() {
   }
 
   // Unsaved changes confirmation wrappers
-  async function handleCloseFile(idx: number) {
+  function handleCloseFile(idx: number) {
     const ws = useAppStore.getState().activeWorkspace();
     if (!ws) return;
     const file = ws.openFiles[idx];
     if (file?.modified) {
-      const ok = confirm(`Save changes to ${file.name}?`);
-      if (!ok) return;
-      // Save the file first
-      try {
-        const content = await invoke<string>("read_file_content", { path: file.path });
-        await invoke("write_file_content", { path: file.path, content });
-        markModified(file.path, false);
-      } catch {}
+      setCloseConfirm({
+        message: <>Discard unsaved changes to <strong>{file.name}</strong>?</>,
+        onConfirm: () => {
+          setCloseConfirm(null);
+          closeFile(idx);
+        },
+      });
+      return;
     }
     closeFile(idx);
   }
 
+  // Keep binding cache fresh whenever the user saves a new keybinding or switches keymap
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key === "codrift:keybindings") bindingsCacheRef.current = loadBindings();
+      if (e.key === "codrift:keymap") keymapCacheRef.current = loadKeymap();
+    }
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const map = loadBindings();
-      const km = loadKeymap();
+      // Use cached bindings — avoids JSON.parse(localStorage) on every keypress
+      const map = bindingsCacheRef.current;
+      const km = keymapCacheRef.current;
 
       // toggle_terminal: Ctrl+` (VS Code) | Alt+F12 (JetBrains)
       if (matchesKey(e, effectiveKey("toggle_terminal", map, km))) {
@@ -511,7 +582,7 @@ export default function IdeLayout() {
       };
     invoke<string>("read_file_content", { path: activeFile.path })
       .then((content) => {
-        fileContentCacheRef.current.set(activeFile.path, content);
+        setCachedContent(activeFile.path, content);
         if (!cancelled) setFileContent(content);
       })
       .catch(() => {
@@ -531,8 +602,11 @@ export default function IdeLayout() {
     if (!ws) return;
     const hasModified = ws.openFiles.some((f) => f.modified);
     if (hasModified) {
-      const ok = confirm("Save all unsaved changes before closing?");
-      if (!ok) return;
+      setCloseConfirm({
+        message: "Discard unsaved changes in all open files?",
+        onConfirm: () => { setCloseConfirm(null); closeAllFiles(); },
+      });
+      return;
     }
     closeAllFiles();
   }
@@ -542,8 +616,11 @@ export default function IdeLayout() {
     if (!ws) return;
     const hasModified = ws.openFiles.some((f, i) => i !== idx && f.modified);
     if (hasModified) {
-      const ok = confirm("Save unsaved changes in other files before closing?");
-      if (!ok) return;
+      setCloseConfirm({
+        message: "Discard unsaved changes in other open files?",
+        onConfirm: () => { setCloseConfirm(null); closeOtherFiles(idx); },
+      });
+      return;
     }
     closeOtherFiles(idx);
   }
@@ -637,7 +714,7 @@ export default function IdeLayout() {
                     <LocalHistoryPanel
                       filePath={activeFile?.path ?? null}
                       onRestore={(content, filePath) => {
-                        fileContentCacheRef.current.set(filePath, content);
+                        setCachedContent(filePath, content);
                         if (activeFile?.path === filePath) {
                           setFileContent(content);
                           markModified(filePath, false);
@@ -1059,6 +1136,15 @@ export default function IdeLayout() {
           workspaceName={workspaceName}
         />
       </div>
+
+      {/* Unsaved-changes confirmation dialog */}
+      {closeConfirm && (
+        <CloseConfirmDialog
+          message={closeConfirm.message}
+          onConfirm={closeConfirm.onConfirm}
+          onCancel={() => setCloseConfirm(null)}
+        />
+      )}
     </div>
   );
 }

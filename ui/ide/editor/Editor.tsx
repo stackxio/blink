@@ -803,6 +803,7 @@ export default function Editor({
             lightbulb: { enabled: opts.codeActions ? ("on" as const) : ("off" as const) },
             inlayHints: { enabled: opts.inlayHints ? ("on" as const) : ("off" as const) },
             linkedEditing: true,
+            renderWhitespace: "none",
           });
           editorRef.current = editor;
           const bootModel = editor.getModel();

@@ -216,6 +216,8 @@ function BlinkCodePanel() {
   const threadSearchRef = useRef<HTMLInputElement>(null);
 
   const [bridgeReady, setBridgeReady] = useState(false);
+  const [bridgeInitFailed, setBridgeInitFailed] = useState(false);
+  const [bridgeRetryKey, setBridgeRetryKey] = useState(0);
   const [lastUserMessage, setLastUserMessage] = useState<string>("");
   const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
   const bridgeReadyRef = useRef(false);
@@ -363,14 +365,15 @@ function BlinkCodePanel() {
     [workspacePath, config],
   );
 
-  // Start/initialize bridge whenever bridgeKey changes
+  // Start/initialize bridge whenever bridgeKey or retryKey changes
   useEffect(() => {
     if (!workspacePath) return;
 
+    setBridgeInitFailed(false);
     let cancelled = false;
     const run = async () => {
-      // Avoid double-inits when React re-renders quickly.
-      if (bridgeKeyRef.current === bridgeKey) return;
+      // Avoid double-inits when React re-renders quickly (but always allow explicit retries).
+      if (bridgeKeyRef.current === bridgeKey && bridgeRetryKey === 0) return;
       bridgeKeyRef.current = bridgeKey;
 
       bridgeReadyRef.current = false;
@@ -413,6 +416,7 @@ function BlinkCodePanel() {
 
     run().catch((e) => {
       if (cancelled) return;
+      setBridgeInitFailed(true);
       setMessages([
         { id: crypto.randomUUID(), role: "system", content: `Bridge init failed: ${e}` },
       ]);
@@ -421,7 +425,7 @@ function BlinkCodePanel() {
     return () => {
       cancelled = true;
     };
-  }, [bridgeKey, workspacePath, workspaceName]);
+  }, [bridgeKey, workspacePath, workspaceName, bridgeRetryKey]);
 
   // Bridge event listener (global for the panel)
   useEffect(() => {
@@ -1481,17 +1485,34 @@ function BlinkCodePanel() {
                   ))}
                 </div>
               )}
-              <textarea
-                ref={textareaRef}
-                className="blink-panel__textarea"
-                placeholder={streaming ? "" : "Message Blink…"}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                onPaste={handleImagePaste}
-                rows={1}
-                disabled={!bridgeReady && !streaming}
-              />
+              {bridgeInitFailed && !bridgeReady ? (
+                <div className="blink-panel__bridge-error">
+                  <span>Failed to connect to AI bridge.</span>
+                  <button
+                    type="button"
+                    className="blink-panel__reconnect-btn"
+                    onClick={() => {
+                      setBridgeInitFailed(false);
+                      bridgeKeyRef.current = null;
+                      setBridgeRetryKey((k) => k + 1);
+                    }}
+                  >
+                    Reconnect
+                  </button>
+                </div>
+              ) : (
+                <textarea
+                  ref={textareaRef}
+                  className="blink-panel__textarea"
+                  placeholder={streaming ? "" : "Message Blink…"}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handleImagePaste}
+                  rows={1}
+                  disabled={!bridgeReady && !streaming}
+                />
+              )}
               <div className="blink-panel__input-footer">
                 <div className="blink-panel__ctx-btn-wrap" ref={contextMenuRef}>
                   <button

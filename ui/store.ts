@@ -19,7 +19,7 @@ function debouncedSaveForFile(path: string, fn: () => void) {
   );
 }
 
-export type SidePanelView = "explorer" | "chat" | "search" | "git" | "history";
+export type SidePanelView = "explorer" | "search" | "git" | "history";
 export type LayoutMode = "ai-center" | "editor-center";
 export type FocusMode = "both" | "ai-only" | "editor-only";
 export type BottomPanelTab = "terminal" | "problems";
@@ -121,7 +121,7 @@ function sidebarViewStorageKey(path: string) {
 function loadSidebarView(path: string): SidePanelView {
   try {
     const stored = localStorage.getItem(sidebarViewStorageKey(path));
-    if (stored === "explorer" || stored === "chat" || stored === "search" || stored === "git") {
+    if (stored === "explorer" || stored === "search" || stored === "git" || stored === "history") {
       return stored;
     }
   } catch {}
@@ -353,7 +353,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ activeWorkspaceId: existing.id });
       return;
     }
-    const id = `ws-${Date.now()}`;
+    const id = `ws-${crypto.randomUUID()}`;
     const ws = createWorkspace(id, path, name);
     set((s) => ({
       workspaces: [...s.workspaces, ws],
@@ -516,7 +516,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().addRecentFile(path, name);
     set((s) => {
       if (s.workspaces.length === 0) {
-        const id = `ws-${Date.now()}`;
+        const id = `ws-${crypto.randomUUID()}`;
         const ws = createWorkspace(id, "", "Untitled");
         const newFile: OpenFile = {
           path,

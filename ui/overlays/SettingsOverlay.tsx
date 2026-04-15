@@ -16,7 +16,6 @@ const NAV_ITEMS: { label: string; page: SettingsPage }[] = [
   { label: "Skills", page: "skills" },
   { label: "Memory", page: "memory" },
   { label: "Appearance", page: "appearance" },
-  { label: "Archived", page: "archived" },
   { label: "About", page: "about" },
 ];
 
