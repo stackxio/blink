@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 // PanelLeft and PanelRight are used for the layout mode toggle button below
 import { useAppStore } from "@/store";
-import type { FocusMode, AppMode } from "@/store";
+import type { FocusMode } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import WorkspaceTabs from "./WorkspaceTabs";
 
