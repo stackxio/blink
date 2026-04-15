@@ -8,11 +8,9 @@ import ChatSidebar, {
   type BuilderChat,
 } from "./ChatSidebar";
 import BrowserPanel from "./BrowserPanel";
-import { loadAgentSettings, saveAgentSettings, type AgentSettings } from "@/ai/agent-settings";
-import { loadBlinkCodeConfig, saveBlinkCodeConfig, type BlinkCodeConfig } from "@@/panel/config";
-import { ProviderSettings } from "@/ai/BlinkCodePanel";
+import { loadBlinkCodeConfig } from "@@/panel/config";
 
-const CliAgentPanel = lazy(() => import("@/ai/CliAgentPanel"));
+const BlinkCodePanel = lazy(() => import("@/ai/BlinkCodePanel"));
 
 // ── Width persistence ─────────────────────────────────────────────────────────
 
@@ -53,20 +51,11 @@ export default function BuilderLayout() {
   const sidebarOpen = useAppStore((s) => s.builderSidebarOpen);
 
   const [widths, setWidths] = useState(loadBuilderWidths);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
-  const [config, setConfig] = useState<BlinkCodeConfig>(loadBlinkCodeConfig);
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
 
-  const isCustomProvider = config.provider.type === "openai-compat";
-
-  function handleConfigChange(patch: Partial<BlinkCodeConfig>) {
-    const next = { ...config, ...patch };
-    setConfig(next);
-    saveBlinkCodeConfig(next);
-  }
+  const isCustomProvider = loadBlinkCodeConfig().provider.type === "openai-compat";
 
   function handleStreamingChange(chatId: string, streaming: boolean) {
     setStreamingChatIds((prev) => {
@@ -77,7 +66,6 @@ export default function BuilderLayout() {
     });
   }
 
-  // Load chats for the active workspace; auto-create first chat if none exist
   useEffect(() => {
     if (!workspacePath) {
       setChats([]);
@@ -163,7 +151,7 @@ export default function BuilderLayout() {
 
   return (
     <div className="builder-layout">
-      {/* Left: Chat sidebar (collapsible) */}
+      {/* Left: Chat sidebar */}
       {sidebarOpen && (
         <>
           <div className="builder-layout__sidebar" style={{ width: widths.sidebar }}>
@@ -182,47 +170,29 @@ export default function BuilderLayout() {
         </>
       )}
 
-      {/* Center */}
+      {/* Center: one BlinkCodePanel per chat, CSS-hidden when inactive */}
       <div className="builder-layout__center">
-        {settingsOpen ? (
-          /* Inline provider + agent settings — same panel as BlinkCodePanel uses */
-          <div className="builder-layout__settings-pane">
-            <ProviderSettings
-              config={config}
-              agentSettings={agentSettings}
-              onAgentSettingsChange={(s) => {
-                setAgentSettings(s);
-                saveAgentSettings(s);
-              }}
-              onChange={handleConfigChange}
-              onClose={() => setSettingsOpen(false)}
-            />
-          </div>
-        ) : (
-          <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
-            {chats.map((chat) => (
-              <div
-                key={chat.id}
-                className="builder-layout__agent-pane"
-                style={{ display: chat.id === activeChatId ? "flex" : "none" }}
-              >
-                <CliAgentPanel
-                  workspacePath={workspacePath}
-                  chatId={chat.id}
-                  agentSettings={agentSettings}
-                  onSettings={() => setSettingsOpen(true)}
-                  onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
-                />
-              </div>
-            ))}
-            {chats.length === 0 && (
-              <div className="builder-layout__loading">No workspace open</div>
-            )}
-          </Suspense>
+        <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
+          {chats.map((chat) => (
+            <div
+              key={chat.id}
+              className="builder-layout__agent-pane"
+              style={{ display: chat.id === activeChatId ? "flex" : "none" }}
+            >
+              <BlinkCodePanel
+                chatId={chat.id}
+                onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
+              />
+            </div>
+          ))}
+        </Suspense>
+
+        {chats.length === 0 && (
+          <div className="builder-layout__loading">No workspace open</div>
         )}
       </div>
 
-      {/* Right: Browser preview (toggle lives in titlebar) */}
+      {/* Right: Browser preview */}
       {browserOpen && (
         <>
           <PanelResizer

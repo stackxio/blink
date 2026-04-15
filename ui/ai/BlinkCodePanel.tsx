@@ -166,7 +166,14 @@ function presetToConfig(preset: string): BlinkCodeConfig["provider"] {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-function BlinkCodePanel() {
+interface BlinkCodePanelProps {
+  /** Scopes CLI agent sessions and chat history to a specific chat (Builder mode). */
+  chatId?: string | null;
+  /** Called when the streaming/active state changes (Builder mode sidebar badge). */
+  onStreamingChange?: (streaming: boolean) => void;
+}
+
+function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {}) {
   const workspacePath = useAppStore((s) => s.activeWorkspace()?.path ?? null);
   const workspaceName = useAppStore((s) => s.activeWorkspace()?.name ?? null);
   const activeFile = useAppStore((s) => {
@@ -179,6 +186,9 @@ function BlinkCodePanel() {
   const [messages, setMessages] = useState<PanelMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+
+  // Notify parent (Builder sidebar badge) when streaming state changes
+  useEffect(() => { onStreamingChange?.(streaming); }, [streaming, onStreamingChange]);
   const [permReq, setPermReq] = useState<PermReq | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [slashSuggestions, setSlashSuggestions] = useState<typeof SLASH_COMMANDS>([]);
@@ -1175,8 +1185,10 @@ function BlinkCodePanel() {
         ) : (
           <CliAgentPanel
             workspacePath={workspacePath}
+            chatId={chatId}
             agentSettings={agentSettings}
             onSettings={() => setSettingsOpen(true)}
+            onStreamingChange={onStreamingChange}
           />
         )}
       </div>
@@ -2025,7 +2037,7 @@ function ModelPill({
 
 // ── ProviderSettings ──────────────────────────────────────────────────────────
 
-export function ProviderSettings({
+function ProviderSettings({
   config,
   agentSettings,
   onAgentSettingsChange,
