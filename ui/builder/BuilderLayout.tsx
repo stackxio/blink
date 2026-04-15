@@ -37,7 +37,7 @@ function makeChat(workspacePath: string): BuilderChat {
   const now = Date.now();
   return {
     id: crypto.randomUUID(),
-    name: `Chat ${new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+    name: "New Chat",
     workspacePath,
     createdAt: now,
     updatedAt: now,
