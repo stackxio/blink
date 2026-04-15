@@ -175,6 +175,10 @@ export default function Editor({
   const staticCleanupRef = useRef<(() => void) | null>(null);
   const inlineCompletionDisposablesRef = useRef<Array<() => void>>([]);
   const currentFileUriRef = useRef<string | null>(null);
+  // Set to true when Monaco fires onDidChangeCursorPosition due to user interaction.
+  // The initialCursorLine effect reads this to skip setPosition() (which collapses
+  // selection) when the prop change was triggered by the user themselves.
+  const userMovedCursorRef = useRef(false);
   const filePathRef = useRef(filePath);
   const workspacePathRef = useRef<string | null>(null);
   const trimTrailingWhitespaceRef = useRef(false);
@@ -255,6 +259,15 @@ export default function Editor({
       return;
     prevCursorLineRef.current = initialCursorLine;
     prevCursorColRef.current = initialCursorCol;
+
+    // If the prop change was caused by the user moving the cursor inside Monaco
+    // (the feedback loop: user moves → onCursorChange → store → prop update),
+    // skip setPosition() so we don't collapse an active text selection.
+    if (userMovedCursorRef.current) {
+      userMovedCursorRef.current = false;
+      return;
+    }
+
     if (!initialCursorLine || initialCursorLine <= 0) return;
     const editor = editorRef.current;
     if (!editor) return;
@@ -799,6 +812,11 @@ export default function Editor({
           }
 
           const cursorDisposable = editor.onDidChangeCursorPosition(() => {
+            // Mark that the cursor move originated from within Monaco (user
+            // interaction). The initialCursorLine effect checks this flag to
+            // avoid calling setPosition() in response to its own feedback loop,
+            // which would collapse any active text selection.
+            userMovedCursorRef.current = true;
             updateCursorState();
             if (inlineEditRef.current.open) {
               closeInlineEdit();
