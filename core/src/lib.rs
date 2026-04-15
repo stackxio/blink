@@ -272,6 +272,7 @@ pub fn run() {
             commands::editor::reveal_in_finder,
             commands::editor::delete_path,
             commands::editor::rename_path,
+            commands::editor::move_path,
             commands::editor::create_file,
             commands::editor::create_directory,
             commands::editor::search_in_files,

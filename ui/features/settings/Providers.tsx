@@ -1,6 +1,11 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { z } from "zod";
 import { saveBlinkCodeConfig, loadBlinkCodeConfig } from "@@/panel/config";
+
+const OllamaTagsSchema = z.object({
+  models: z.array(z.object({ name: z.string() })).optional(),
+});
 
 interface Settings {
   active_provider: string;
@@ -88,7 +93,8 @@ export default function SettingsProviders() {
     setFetchingModels(true);
     try {
       const resp = await fetch(`${settings.ollama.endpoint}/api/tags`);
-      const data = await resp.json() as { models?: Array<{ name: string }> };
+      const raw = await resp.json();
+      const data = OllamaTagsSchema.parse(raw);
       const models = (data.models ?? []).map((m) => m.name);
       setOllamaModels(models);
       if (models.length > 0 && !settings.ollama.model) {

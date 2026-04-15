@@ -528,6 +528,19 @@ pub async fn rename_path(old_path: String, new_name: String) -> Result<String, S
     Ok(new_path.to_string_lossy().to_string())
 }
 
+/// Move a file or folder to a different directory (cross-directory drag-drop).
+#[tauri::command]
+pub async fn move_path(src_path: String, dest_path: String) -> Result<String, String> {
+    let dest = PathBuf::from(&dest_path);
+    if let Some(parent) = dest.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).map_err(|e| format!("Failed to create dest dir: {}", e))?;
+        }
+    }
+    fs::rename(&src_path, &dest_path).map_err(|e| format!("Failed to move: {}", e))?;
+    Ok(dest_path)
+}
+
 /// Create a new file.
 #[tauri::command]
 pub async fn create_file(path: String) -> Result<(), String> {

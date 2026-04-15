@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { Plus, MessageSquare, Trash2, Clock, FolderOpen } from "lucide-react";
+import { z } from "zod";
 
 // ── Chat model ────────────────────────────────────────────────────────────────
 
-export interface BuilderChat {
-  id: string;
-  name: string;
-  workspacePath: string;
-  createdAt: number;
-  updatedAt: number;
-}
+const BuilderChatSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  workspacePath: z.string(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+export type BuilderChat = z.infer<typeof BuilderChatSchema>;
 
 // ── Persistence helpers (used by BuilderLayout to own the state) ──────────────
 
@@ -24,7 +27,9 @@ export function activeChatStorageKey(workspacePath: string) {
 export function loadChats(workspacePath: string): BuilderChat[] {
   try {
     const raw = localStorage.getItem(chatsStorageKey(workspacePath));
-    return raw ? (JSON.parse(raw) as BuilderChat[]) : [];
+    if (!raw) return [];
+    const parsed = z.array(BuilderChatSchema).safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : [];
   } catch {
     return [];
   }

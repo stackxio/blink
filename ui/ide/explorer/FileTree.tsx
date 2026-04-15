@@ -559,7 +559,7 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     const name = srcPath.split("/").pop() || srcPath;
     const destPath = `${destDir}/${name}`;
     try {
-      await invoke("rename_path", { oldPath: srcPath, newPath: destPath });
+      await invoke("move_path", { srcPath, destPath });
       if (rootPath) {
         const sourceDir = parentDirectory(srcPath);
         if (sourceDir === destDir) {
@@ -785,8 +785,8 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
                     }
                     onDoubleClick={() => {
                       if (node.is_dir) return;
-                      // Single-click already opened as preview; double-click = start rename
-                      startRenameForNode(node);
+                      // Double-click = open permanently (promote preview tab)
+                      onFileSelect(node.path, node.name, false);
                     }}
                     onContextMenu={(e) => {
                       e.preventDefault();
@@ -827,7 +827,16 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
                     <span className="file-tree__icon">
                       <ExplorerIcon name={node.name} isDir={node.is_dir} expanded={node.expanded} />
                     </span>
-                    <span className="file-tree__name">{node.name}</span>
+                    <span
+                      className="file-tree__name"
+                      onDoubleClick={(e) => {
+                        // Double-click on the NAME label = inline rename (F2 equivalent)
+                        e.stopPropagation();
+                        startRenameForNode(node);
+                      }}
+                    >
+                      {node.name}
+                    </span>
                   </button>
                 );
               })}

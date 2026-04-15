@@ -25,6 +25,7 @@ import GitLogViewer from "./GitLogViewer";
 import HunkViewer from "./HunkViewer";
 import StashManager from "./StashManager";
 import { loadBlinkCodeConfig } from "@@/panel/config";
+import { toast } from "@/store";
 
 const FILE_RENDER_BATCH = 200;
 
@@ -247,8 +248,11 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
     try {
       await invoke("git_push", { path: workspacePath });
       setPushPullStatus("Pushed.");
+      toast("Pushed to remote.", "success");
     } catch (e) {
-      setPushPullStatus(`Push failed: ${String(e)}`);
+      const msg = String(e);
+      setPushPullStatus(`Push failed`);
+      toast(`Git push failed: ${msg}`, "error", 6000);
     }
     setTimeout(() => setPushPullStatus(null), 3000);
   }
@@ -260,8 +264,11 @@ export default function GitPanel({ workspacePath, onFileSelect }: Props) {
       await invoke("git_pull", { path: workspacePath });
       setPushPullStatus("Pulled.");
       refresh();
+      toast("Pulled from remote.", "success");
     } catch (e) {
-      setPushPullStatus(`Pull failed: ${String(e)}`);
+      const msg = String(e);
+      setPushPullStatus(`Pull failed`);
+      toast(`Git pull failed: ${msg}`, "error", 6000);
     }
     setTimeout(() => setPushPullStatus(null), 3000);
   }

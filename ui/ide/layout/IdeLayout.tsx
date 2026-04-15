@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef, lazy, Suspense, type ReactNod
 import { Outlet, useNavigate, useLocation } from "react-router";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { useAppStore } from "@/store";
+import { useAppStore, toast } from "@/store";
 import { loadBindings, loadKeymap, matchesKey, effectiveKey } from "@/lib/key-bindings";
 import Titlebar from "./Titlebar";
 import ActivityBar from "./ActivityBar";
@@ -226,7 +226,9 @@ export default function IdeLayout() {
         await invoke("write_file_content", { path: activeFile.path, content: code });
         markModified(activeFile.path, false);
         document.dispatchEvent(new CustomEvent("blink:reload-file", { detail: { path: activeFile.path } }));
-      } catch {}
+      } catch (e) {
+        toast(`Failed to save ${activeFile.name}: ${String(e)}`, "error");
+      }
     }
     document.addEventListener("blink:navigate", onNavigate);
     document.addEventListener("blink:file-search", onFileSearch);
@@ -394,7 +396,9 @@ export default function IdeLayout() {
         content,
         maxSnapshots: 50,
       }).catch(() => {});
-    } catch {}
+    } catch (e) {
+      toast(`Failed to save ${activeFile.name}: ${String(e)}`, "error");
+    }
   }
 
   // Unsaved changes confirmation wrappers

@@ -859,3 +859,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       }),
     ),
 }));
+
+
+/** Module-level helper so non-React files can fire toasts without importing the hook. */
+export function toast(message: string, type: Toast["type"] = "info", duration = 4000) {
+  useAppStore.getState().addToast(message, type, duration);
+}
