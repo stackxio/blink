@@ -4,20 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Blink</title>
-    <link
-      rel="preload"
-      href="/fonts/JetBrainsMono-Regular.ttf"
-      as="font"
-      type="font/ttf"
-      crossorigin="anonymous"
-    />
-    <link
-      rel="preload"
-      href="/fonts/JetBrainsMono-Bold.ttf"
-      as="font"
-      type="font/ttf"
-      crossorigin="anonymous"
-    />
+    <link rel="preload" href="/fonts/JetBrainsMono-Regular.ttf" as="font" type="font/ttf" crossorigin />
+    <link rel="preload" href="/fonts/JetBrainsMono-Bold.ttf" as="font" type="font/ttf" crossorigin />
+    <style>
+      /* Satisfy the browser's preload-consumption check so it doesn't warn
+         about the fonts being preloaded but never used via CSS.
+         The actual font loading uses the FontFace API in JS. */
+      @font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url("/fonts/JetBrainsMono-Regular.ttf"); font-display: swap; }
+      @font-face { font-family: "JetBrains Mono"; font-weight: 700; src: url("/fonts/JetBrainsMono-Bold.ttf"); font-display: swap; }
+    </style>
     <script>
       (function () {
         var stored = localStorage.getItem("blink-theme");
