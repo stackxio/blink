@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { useAppStore } from "@/store";
 import PanelResizer from "@/ide/layout/PanelResizer";
 import ChatSidebar, {
@@ -50,14 +50,18 @@ export default function BuilderLayout() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
 
-  function handleStreamingChange(chatId: string, streaming: boolean) {
+  const handleStreamingChange = useCallback((chatId: string, streaming: boolean) => {
     setStreamingChatIds((prev) => {
+      // Bail early if nothing actually changes — avoids a re-render that would
+      // create a new onStreamingChange reference and trigger an infinite loop.
+      if (streaming && prev.has(chatId)) return prev;
+      if (!streaming && !prev.has(chatId)) return prev;
       const next = new Set(prev);
       if (streaming) next.add(chatId);
       else next.delete(chatId);
       return next;
     });
-  }
+  }, []);
 
   useEffect(() => {
     if (!workspacePath) { setChats([]); setActiveChatId(null); return; }

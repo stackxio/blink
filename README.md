@@ -219,6 +219,18 @@ Custom server binaries can be placed in `~/.codrift/servers/` and will take prec
 
 ---
 
+## Installation
+
+Download the latest `.dmg` from [Releases](https://github.com/stackxio/codrift/releases/latest), drag **Codrift.app** to `/Applications`, then run:
+
+```bash
+xattr -cr /Applications/Codrift.app
+```
+
+This removes the macOS quarantine flag that blocks apps downloaded outside the App Store. You only need to do this once.
+
+---
+
 ## Getting Started
 
 ### Prerequisites

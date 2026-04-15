@@ -1706,7 +1706,7 @@ function MessageRow({
   if (msg.role === "system") {
     return (
       <div className="blink-msg blink-msg--system">
-        <span className="blink-msg__system-text">{msg.content}</span>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
         {msg.content.startsWith("Error:") && isLast && onRetry && (
           <button type="button" className="blink-msg__retry-btn" onClick={onRetry} title="Retry">
             <RefreshCw size={11} />
