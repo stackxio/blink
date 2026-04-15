@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
-import { Plus, MessageSquare, Trash2, Clock } from "lucide-react";
+import { useState } from "react";
+import { Plus, MessageSquare, Trash2, Clock, FolderOpen } from "lucide-react";
 
 // ── Chat model ────────────────────────────────────────────────────────────────
-// A "chat" is a named session container scoped to a workspace.
-// In v1 it's a label + timestamp; in future iterations agent sessions will be
-// scoped by chatId so each chat has its own agent history.
 
 export interface BuilderChat {
   id: string;
@@ -14,37 +11,27 @@ export interface BuilderChat {
   updatedAt: number;
 }
 
-function chatsKey(workspacePath: string) {
+// ── Persistence helpers (used by BuilderLayout to own the state) ──────────────
+
+export function chatsStorageKey(workspacePath: string) {
   return `codrift:builder-chats:${workspacePath}`;
 }
 
-function activeChatKey(workspacePath: string) {
+export function activeChatStorageKey(workspacePath: string) {
   return `codrift:builder-active-chat:${workspacePath}`;
 }
 
 export function loadChats(workspacePath: string): BuilderChat[] {
   try {
-    const raw = localStorage.getItem(chatsKey(workspacePath));
+    const raw = localStorage.getItem(chatsStorageKey(workspacePath));
     return raw ? (JSON.parse(raw) as BuilderChat[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveChats(workspacePath: string, chats: BuilderChat[]) {
-  localStorage.setItem(chatsKey(workspacePath), JSON.stringify(chats));
-}
-
-function loadActiveChat(workspacePath: string): string | null {
-  return localStorage.getItem(activeChatKey(workspacePath));
-}
-
-function saveActiveChat(workspacePath: string, chatId: string | null) {
-  if (chatId) {
-    localStorage.setItem(activeChatKey(workspacePath), chatId);
-  } else {
-    localStorage.removeItem(activeChatKey(workspacePath));
-  }
+export function persistChats(workspacePath: string, chats: BuilderChat[]) {
+  localStorage.setItem(chatsStorageKey(workspacePath), JSON.stringify(chats));
 }
 
 function relativeTime(ts: number): string {
@@ -61,51 +48,27 @@ function relativeTime(ts: number): string {
 
 interface Props {
   workspacePath: string | null;
+  workspaceName: string | null;
+  chats: BuilderChat[];
   activeChatId: string | null;
   onSelectChat: (chat: BuilderChat) => void;
-  onNewChat: (chat: BuilderChat) => void;
+  onNewChat: () => void;
+  onDeleteChat: (id: string) => void;
+  onRenameChat: (id: string, name: string) => void;
 }
 
-export default function ChatSidebar({ workspacePath, activeChatId, onSelectChat, onNewChat }: Props) {
-  const [chats, setChats] = useState<BuilderChat[]>([]);
+export default function ChatSidebar({
+  workspacePath,
+  workspaceName,
+  chats,
+  activeChatId,
+  onSelectChat,
+  onNewChat,
+  onDeleteChat,
+  onRenameChat,
+}: Props) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
-
-  useEffect(() => {
-    if (!workspacePath) { setChats([]); return; }
-    const loaded = loadChats(workspacePath);
-    setChats(loaded);
-  }, [workspacePath]);
-
-  function createChat() {
-    if (!workspacePath) return;
-    const now = Date.now();
-    const chat: BuilderChat = {
-      id: crypto.randomUUID(),
-      name: `Chat ${new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
-      workspacePath,
-      createdAt: now,
-      updatedAt: now,
-    };
-    const next = [chat, ...chats];
-    setChats(next);
-    saveChats(workspacePath, next);
-    saveActiveChat(workspacePath, chat.id);
-    onNewChat(chat);
-  }
-
-  function deleteChat(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!workspacePath) return;
-    const next = chats.filter((c) => c.id !== id);
-    setChats(next);
-    saveChats(workspacePath, next);
-    if (activeChatId === id) {
-      const fallback = next[0] ?? null;
-      saveActiveChat(workspacePath, fallback?.id ?? null);
-      if (fallback) onSelectChat(fallback);
-    }
-  }
 
   function startRename(chat: BuilderChat, e: React.MouseEvent) {
     e.stopPropagation();
@@ -114,24 +77,29 @@ export default function ChatSidebar({ workspacePath, activeChatId, onSelectChat,
   }
 
   function commitRename(id: string) {
-    if (!workspacePath || !renameValue.trim()) { setRenamingId(null); return; }
-    const next = chats.map((c) =>
-      c.id === id ? { ...c, name: renameValue.trim(), updatedAt: Date.now() } : c,
-    );
-    setChats(next);
-    saveChats(workspacePath, next);
+    if (renameValue.trim()) onRenameChat(id, renameValue.trim());
     setRenamingId(null);
   }
 
   return (
     <div className="chat-sidebar">
+      {/* Workspace context */}
+      {workspaceName && (
+        <div className="chat-sidebar__workspace">
+          <FolderOpen size={12} />
+          <span className="chat-sidebar__workspace-name" title={workspacePath ?? ""}>
+            {workspaceName}
+          </span>
+        </div>
+      )}
+
       <div className="chat-sidebar__header">
         <span className="chat-sidebar__title">Chats</span>
         <button
           type="button"
           className="chat-sidebar__new-btn"
           title="New chat"
-          onClick={createChat}
+          onClick={onNewChat}
         >
           <Plus size={14} />
         </button>
@@ -142,11 +110,12 @@ export default function ChatSidebar({ workspacePath, activeChatId, onSelectChat,
           <div className="chat-sidebar__empty">
             <MessageSquare size={24} />
             <span>No chats yet</span>
-            <button type="button" className="chat-sidebar__start-btn" onClick={createChat}>
+            <button type="button" className="chat-sidebar__start-btn" onClick={onNewChat}>
               Start a chat
             </button>
           </div>
         )}
+
         {chats.map((chat) => (
           <div
             key={chat.id}
@@ -170,7 +139,10 @@ export default function ChatSidebar({ workspacePath, activeChatId, onSelectChat,
             ) : (
               <>
                 <MessageSquare size={13} className="chat-sidebar__item-icon" />
-                <span className="chat-sidebar__item-name" onDoubleClick={(e) => startRename(chat, e)}>
+                <span
+                  className="chat-sidebar__item-name"
+                  onDoubleClick={(e) => startRename(chat, e)}
+                >
                   {chat.name}
                 </span>
                 <span className="chat-sidebar__item-time">
@@ -180,8 +152,8 @@ export default function ChatSidebar({ workspacePath, activeChatId, onSelectChat,
                 <button
                   type="button"
                   className="chat-sidebar__item-del"
-                  title="Delete"
-                  onClick={(e) => deleteChat(chat.id, e)}
+                  title="Delete chat"
+                  onClick={(e) => { e.stopPropagation(); onDeleteChat(chat.id); }}
                 >
                   <Trash2 size={12} />
                 </button>

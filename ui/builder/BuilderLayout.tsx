@@ -1,11 +1,19 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { PanelRight } from "lucide-react";
 import { useAppStore } from "@/store";
 import PanelResizer from "@/ide/layout/PanelResizer";
-import ChatSidebar, { loadChats, type BuilderChat } from "./ChatSidebar";
+import ChatSidebar, {
+  loadChats,
+  persistChats,
+  activeChatStorageKey,
+  type BuilderChat,
+} from "./ChatSidebar";
 import BrowserPanel from "./BrowserPanel";
 import { loadAgentSettings, type AgentSettings } from "@/ai/agent-settings";
 
 const CliAgentPanel = lazy(() => import("@/ai/CliAgentPanel"));
+
+// ── Width persistence ─────────────────────────────────────────────────────────
 
 const DEFAULT_SIDEBAR_WIDTH = 220;
 const DEFAULT_BROWSER_WIDTH = 480;
@@ -22,55 +30,118 @@ function saveBuilderWidths(sidebar: number, browser: number) {
   localStorage.setItem("codrift:builder-widths", JSON.stringify({ sidebar, browser }));
 }
 
+// ── Chat factory ──────────────────────────────────────────────────────────────
+
+function makeChat(workspacePath: string): BuilderChat {
+  const now = Date.now();
+  return {
+    id: crypto.randomUUID(),
+    name: `Chat ${new Date(now).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+    workspacePath,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function BuilderLayout() {
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
   const workspaceName = ws?.name ?? null;
 
   const [widths, setWidths] = useState(loadBuilderWidths);
+  const [browserOpen, setBrowserOpen] = useState(true);
+  const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [agentSettings, setAgentSettings] = useState<AgentSettings>(loadAgentSettings);
+  const [agentSettings] = useState<AgentSettings>(loadAgentSettings);
 
-  // Load or create initial chat when workspace changes
+  // Load chats for the active workspace; auto-create first chat if none exist
   useEffect(() => {
-    if (!workspacePath) { setActiveChatId(null); return; }
-    const existing = localStorage.getItem(`codrift:builder-active-chat:${workspacePath}`);
-    const chats = loadChats(workspacePath);
-    if (existing && chats.find((c) => c.id === existing)) {
-      setActiveChatId(existing);
-    } else if (chats.length > 0) {
-      setActiveChatId(chats[0].id);
-    } else {
+    if (!workspacePath) {
+      setChats([]);
       setActiveChatId(null);
+      return;
     }
+
+    let loaded = loadChats(workspacePath);
+
+    // Auto-create a chat if this workspace has none yet
+    if (loaded.length === 0) {
+      const first = makeChat(workspacePath);
+      loaded = [first];
+      persistChats(workspacePath, loaded);
+    }
+
+    setChats(loaded);
+
+    // Restore the last active chat (or default to first)
+    const savedActive = localStorage.getItem(activeChatStorageKey(workspacePath));
+    const valid = loaded.find((c) => c.id === savedActive);
+    setActiveChatId(valid?.id ?? loaded[0].id);
   }, [workspacePath]);
+
+  // ── Chat actions ────────────────────────────────────────────────────────────
+
+  function handleNewChat() {
+    if (!workspacePath) return;
+    const chat = makeChat(workspacePath);
+    const next = [chat, ...chats];
+    setChats(next);
+    persistChats(workspacePath, next);
+    setActiveChatId(chat.id);
+    localStorage.setItem(activeChatStorageKey(workspacePath), chat.id);
+  }
 
   function handleSelectChat(chat: BuilderChat) {
     setActiveChatId(chat.id);
     if (workspacePath) {
-      localStorage.setItem(`codrift:builder-active-chat:${workspacePath}`, chat.id);
+      localStorage.setItem(activeChatStorageKey(workspacePath), chat.id);
     }
   }
 
-  function handleNewChat(chat: BuilderChat) {
-    setActiveChatId(chat.id);
+  function handleDeleteChat(id: string) {
+    if (!workspacePath) return;
+    const next = chats.filter((c) => c.id !== id);
+
+    // Always keep at least one chat
+    if (next.length === 0) {
+      const replacement = makeChat(workspacePath);
+      next.push(replacement);
+    }
+
+    setChats(next);
+    persistChats(workspacePath, next);
+
+    if (activeChatId === id) {
+      const fallback = next[0];
+      setActiveChatId(fallback.id);
+      localStorage.setItem(activeChatStorageKey(workspacePath), fallback.id);
+    }
   }
 
+  function handleRenameChat(id: string, name: string) {
+    if (!workspacePath) return;
+    const next = chats.map((c) =>
+      c.id === id ? { ...c, name, updatedAt: Date.now() } : c,
+    );
+    setChats(next);
+    persistChats(workspacePath, next);
+  }
+
+  // ── Panel resizing ──────────────────────────────────────────────────────────
+
   function setSidebarWidth(w: number) {
-    const next = Math.max(160, Math.min(340, w));
-    setWidths((prev) => {
-      saveBuilderWidths(next, prev.browser);
-      return { ...prev, sidebar: next };
-    });
+    const clamped = Math.max(160, Math.min(340, w));
+    setWidths((prev) => { saveBuilderWidths(clamped, prev.browser); return { ...prev, sidebar: clamped }; });
   }
 
   function setBrowserWidth(w: number) {
-    const next = Math.max(300, Math.min(900, w));
-    setWidths((prev) => {
-      saveBuilderWidths(prev.sidebar, next);
-      return { ...prev, browser: next };
-    });
+    const clamped = Math.max(300, Math.min(900, w));
+    setWidths((prev) => { saveBuilderWidths(prev.sidebar, clamped); return { ...prev, browser: clamped }; });
   }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="builder-layout">
@@ -78,37 +149,64 @@ export default function BuilderLayout() {
       <div className="builder-layout__sidebar" style={{ width: widths.sidebar }}>
         <ChatSidebar
           workspacePath={workspacePath}
+          workspaceName={workspaceName}
+          chats={chats}
           activeChatId={activeChatId}
           onSelectChat={handleSelectChat}
           onNewChat={handleNewChat}
+          onDeleteChat={handleDeleteChat}
+          onRenameChat={handleRenameChat}
         />
       </div>
 
-      <PanelResizer
-        direction="horizontal"
-        onResize={(delta) => setSidebarWidth(widths.sidebar + delta)}
-      />
+      <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
 
-      {/* Center: Agent panel */}
+      {/* Center: One CliAgentPanel per chat — all mounted, CSS-hidden when inactive.
+          This keeps PTY sessions and terminal state alive while switching chats. */}
       <div className="builder-layout__center">
-        <Suspense fallback={<div className="builder-layout__loading">Loading agent…</div>}>
-          <CliAgentPanel
-            workspacePath={workspacePath}
-            agentSettings={agentSettings}
-            onSettings={() => {}}
-          />
+        {/* Browser toggle button — top-right corner of agent area */}
+        <button
+          type="button"
+          className={`builder-layout__browser-toggle${browserOpen ? " builder-layout__browser-toggle--active" : ""}`}
+          title={browserOpen ? "Hide browser" : "Show browser"}
+          onClick={() => setBrowserOpen((v) => !v)}
+        >
+          <PanelRight size={14} />
+        </button>
+
+        <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
+          {chats.map((chat) => (
+            <div
+              key={chat.id}
+              className="builder-layout__agent-pane"
+              style={{ display: chat.id === activeChatId ? "flex" : "none" }}
+            >
+              <CliAgentPanel
+                workspacePath={workspacePath}
+                agentSettings={agentSettings}
+                onSettings={() => {}}
+              />
+            </div>
+          ))}
         </Suspense>
+
+        {chats.length === 0 && (
+          <div className="builder-layout__loading">No workspace open</div>
+        )}
       </div>
 
-      <PanelResizer
-        direction="horizontal"
-        onResize={(delta) => setBrowserWidth(widths.browser - delta)}
-      />
-
-      {/* Right: Browser preview */}
-      <div className="builder-layout__browser" style={{ width: widths.browser }}>
-        <BrowserPanel workspacePath={workspacePath} />
-      </div>
+      {/* Right: Browser preview (hideable) */}
+      {browserOpen && (
+        <>
+          <PanelResizer
+            direction="horizontal"
+            onResize={(d) => setBrowserWidth(widths.browser - d)}
+          />
+          <div className="builder-layout__browser" style={{ width: widths.browser }}>
+            <BrowserPanel workspacePath={workspacePath} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
