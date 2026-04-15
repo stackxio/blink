@@ -12,6 +12,7 @@ import {
   PanelRight,
   Code,
   Play,
+  Globe,
 } from "lucide-react";
 // PanelLeft and PanelRight are used for the layout mode toggle button below
 import { useAppStore } from "@/store";
@@ -39,6 +40,8 @@ export default function Titlebar() {
   const setLayoutMode = useAppStore((s) => s.setLayoutMode);
   const appMode = useAppStore((s) => s.appMode);
   const setAppMode = useAppStore((s) => s.setAppMode);
+  const builderBrowserOpen = useAppStore((s) => s.builderBrowserOpen);
+  const toggleBuilderBrowser = useAppStore((s) => s.toggleBuilderBrowser);
   const ws = useAppStore((s) => s.activeWorkspace());
   const focusMode = ws?.focusMode ?? "both";
   const layoutMode = ws?.layoutMode ?? "ai-center";
@@ -148,6 +151,18 @@ export default function Titlebar() {
             style={aiPanelOpen ? { color: "var(--c-accent)" } : undefined}
           >
             <Sparkles size={14} />
+          </button>
+        )}
+        {/* Browser preview toggle (builder mode only) */}
+        {appMode === "builder" && (
+          <button
+            type="button"
+            className="titlebar__action"
+            title={builderBrowserOpen ? "Hide browser preview" : "Show browser preview"}
+            onClick={toggleBuilderBrowser}
+            style={builderBrowserOpen ? { color: "var(--c-accent)" } : undefined}
+          >
+            <Globe size={14} />
           </button>
         )}
         {/* Editor ↔ Builder mode toggle */}

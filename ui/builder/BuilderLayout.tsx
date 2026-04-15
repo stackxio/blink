@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { PanelRight, PanelLeft } from "lucide-react";
+import { PanelLeft } from "lucide-react";
 import { useAppStore } from "@/store";
 import PanelResizer from "@/ide/layout/PanelResizer";
 import ChatSidebar, {
@@ -10,6 +10,7 @@ import ChatSidebar, {
 } from "./ChatSidebar";
 import BrowserPanel from "./BrowserPanel";
 import { loadAgentSettings, type AgentSettings } from "@/ai/agent-settings";
+import { loadBlinkCodeConfig } from "@@/panel/config";
 
 const CliAgentPanel = lazy(() => import("@/ai/CliAgentPanel"));
 
@@ -48,14 +49,18 @@ function makeChat(workspacePath: string): BuilderChat {
 export default function BuilderLayout() {
   const ws = useAppStore((s) => s.activeWorkspace());
   const workspacePath = ws?.path ?? null;
+  const openSettings = useAppStore((s) => s.openSettings);
+  const browserOpen = useAppStore((s) => s.builderBrowserOpen);
 
   const [widths, setWidths] = useState(loadBuilderWidths);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [browserOpen, setBrowserOpen] = useState(false);
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [agentSettings] = useState<AgentSettings>(loadAgentSettings);
   const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
+
+  // Detect if the active provider is openai-compat (custom) for context menu
+  const isCustomProvider = loadBlinkCodeConfig().provider.type === "openai-compat";
 
   function handleStreamingChange(chatId: string, streaming: boolean) {
     setStreamingChatIds((prev) => {
@@ -163,10 +168,12 @@ export default function BuilderLayout() {
               chats={chats}
               activeChatId={activeChatId}
               streamingChatIds={streamingChatIds}
+              isCustomProvider={isCustomProvider}
               onSelectChat={handleSelectChat}
               onNewChat={handleNewChat}
               onDeleteChat={handleDeleteChat}
               onRenameChat={handleRenameChat}
+              onClose={() => setSidebarOpen(false)}
             />
           </div>
           <PanelResizer direction="horizontal" onResize={(d) => setSidebarWidth(widths.sidebar + d)} />
@@ -176,25 +183,17 @@ export default function BuilderLayout() {
       {/* Center: One CliAgentPanel per chat — all mounted, CSS-hidden when inactive.
           This keeps PTY sessions and terminal state alive while switching chats. */}
       <div className="builder-layout__center">
-        {/* Top-left: sidebar toggle */}
-        <button
-          type="button"
-          className={`builder-layout__sidebar-toggle${sidebarOpen ? " builder-layout__sidebar-toggle--active" : ""}`}
-          title={sidebarOpen ? "Hide chats" : "Show chats"}
-          onClick={() => setSidebarOpen((v) => !v)}
-        >
-          <PanelLeft size={14} />
-        </button>
-
-        {/* Top-right: browser toggle */}
-        <button
-          type="button"
-          className={`builder-layout__browser-toggle${browserOpen ? " builder-layout__browser-toggle--active" : ""}`}
-          title={browserOpen ? "Hide browser" : "Show browser"}
-          onClick={() => setBrowserOpen((v) => !v)}
-        >
-          <PanelRight size={14} />
-        </button>
+        {/* Left-edge sidebar toggle (only shown when sidebar is closed) */}
+        {!sidebarOpen && (
+          <button
+            type="button"
+            className="builder-layout__sidebar-tab"
+            title="Show chats"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <PanelLeft size={13} />
+          </button>
+        )}
 
         <Suspense fallback={<div className="builder-layout__loading">Loading…</div>}>
           {chats.map((chat) => (
@@ -207,7 +206,7 @@ export default function BuilderLayout() {
                 workspacePath={workspacePath}
                 chatId={chat.id}
                 agentSettings={agentSettings}
-                onSettings={() => {}}
+                onSettings={() => openSettings("providers")}
                 onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
               />
             </div>
@@ -219,7 +218,7 @@ export default function BuilderLayout() {
         )}
       </div>
 
-      {/* Right: Browser preview (hideable) */}
+      {/* Right: Browser preview (toggle lives in titlebar) */}
       {browserOpen && (
         <>
           <PanelResizer

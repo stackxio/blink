@@ -232,6 +232,10 @@ interface AppState {
   // Computed
   activeWorkspace: () => Workspace | null;
 
+  // Builder
+  builderBrowserOpen: boolean;
+  toggleBuilderBrowser: () => void;
+
   // Global actions
   setTheme: (t: Theme) => void;
   setAppMode: (mode: AppMode) => void;
@@ -323,6 +327,8 @@ function loadAppMode(): AppMode {
 export const useAppStore = create<AppState>((set, get) => ({
   theme: "dark",
   appMode: loadAppMode(),
+  builderBrowserOpen: false,
+  toggleBuilderBrowser: () => set((s) => ({ builderBrowserOpen: !s.builderBrowserOpen })),
   aiPanelOpen: true,
   aiPanelWidth: 560,
   persistWorkspaces: true,

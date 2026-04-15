@@ -43,59 +43,29 @@
     flex-direction: column;
   }
 
-  &__sidebar-toggle {
+  // Left-edge tab to reopen the sidebar when it's closed
+  &__sidebar-tab {
     position: absolute;
-    top: 8px;
-    left: 10px;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
     z-index: 10;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--radius-sm);
+    width: 18px;
+    height: 48px;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     border: 1px solid var(--c-border);
+    border-left: none;
     background: var(--c-surface);
     color: var(--c-muted-fg);
     cursor: pointer;
-    @include transition(background, color, border-color);
+    @include transition(background, color);
 
     &:hover {
       background: var(--c-surface-raised);
       color: var(--c-fg);
-    }
-
-    &--active {
-      color: var(--c-accent);
-      border-color: var(--c-accent);
-    }
-  }
-
-  &__browser-toggle {
-    position: absolute;
-    top: 8px;
-    right: 10px;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--c-border);
-    background: var(--c-surface);
-    color: var(--c-muted-fg);
-    cursor: pointer;
-    @include transition(background, color, border-color);
-
-    &:hover {
-      background: var(--c-surface-raised);
-      color: var(--c-fg);
-    }
-
-    &--active {
-      color: var(--c-accent);
-      border-color: var(--c-accent);
     }
   }
 
@@ -161,7 +131,14 @@
     letter-spacing: 0.06em;
   }
 
-  &__new-btn {
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  &__new-btn,
+  &__close-btn {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -262,11 +239,12 @@
         border-radius: 0 3px 3px 0;
       }
     }
-  }
 
-  &__item-icon {
-    color: var(--c-muted-fg);
-    flex-shrink: 0;
+    &--pinned {
+      .chat-sidebar__item-name {
+        color: var(--c-fg);
+      }
+    }
   }
 
   &__item-name {
@@ -277,6 +255,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+
+    &--unread {
+      color: var(--c-fg);
+      font-weight: 600;
+    }
   }
 
   &__item-badge {
@@ -562,4 +545,85 @@
 @keyframes chat-badge-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.35; }
+}
+
+// ── Chat status dot ───────────────────────────────────────────────────────────
+
+.chat-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &--idle {
+    background: var(--c-muted-fg);
+    opacity: 0.35;
+  }
+
+  &--streaming {
+    background: var(--c-accent);
+    animation: chat-badge-pulse 1.2s ease-in-out infinite;
+  }
+}
+
+// ── Chat context menu ─────────────────────────────────────────────────────────
+
+.chat-ctx-menu {
+  background: var(--c-surface-raised);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: none;
+    background: transparent;
+    color: var(--c-fg);
+    font-size: 12px;
+    font-family: inherit;
+    border-radius: calc(var(--radius-sm) - 1px);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    @include transition(background, color);
+
+    svg {
+      color: var(--c-muted-fg);
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background: var(--c-surface);
+
+      svg {
+        color: var(--c-fg);
+      }
+    }
+
+    &--danger {
+      color: var(--c-danger, #e05252);
+
+      svg {
+        color: var(--c-danger, #e05252);
+      }
+
+      &:hover {
+        background: rgba(224, 82, 82, 0.12);
+      }
+    }
+  }
+
+  &__divider {
+    height: 1px;
+    background: var(--c-border);
+    margin: 3px 4px;
+  }
 }
