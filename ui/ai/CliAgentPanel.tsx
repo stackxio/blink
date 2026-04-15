@@ -15,13 +15,16 @@ interface SavedSession {
   savedAt: number;
 }
 
-function savedSessionsKey(workspacePath: string | null) {
-  return `codrift:saved-sessions:${workspacePath ?? "global"}`;
+// chatId scopes storage keys so each Builder chat has isolated history.
+// When chatId is omitted (Editor mode AI panel), behaviour is unchanged.
+function savedSessionsKey(workspacePath: string | null, chatId?: string | null) {
+  const base = workspacePath ?? "global";
+  return chatId ? `codrift:saved-sessions:${base}:${chatId}` : `codrift:saved-sessions:${base}`;
 }
 
-function loadSavedSessions(workspacePath: string | null): SavedSession[] {
+function loadSavedSessions(workspacePath: string | null, chatId?: string | null): SavedSession[] {
   try {
-    const raw = localStorage.getItem(savedSessionsKey(workspacePath));
+    const raw = localStorage.getItem(savedSessionsKey(workspacePath, chatId));
     if (!raw) return [];
     return JSON.parse(raw) as SavedSession[];
   } catch {
@@ -29,11 +32,11 @@ function loadSavedSessions(workspacePath: string | null): SavedSession[] {
   }
 }
 
-function persistSavedSessions(workspacePath: string | null, sessions: SavedSession[]) {
+function persistSavedSessions(workspacePath: string | null, sessions: SavedSession[], chatId?: string | null) {
   if (sessions.length === 0) {
-    localStorage.removeItem(savedSessionsKey(workspacePath));
+    localStorage.removeItem(savedSessionsKey(workspacePath, chatId));
   } else {
-    localStorage.setItem(savedSessionsKey(workspacePath), JSON.stringify(sessions));
+    localStorage.setItem(savedSessionsKey(workspacePath, chatId), JSON.stringify(sessions));
   }
 }
 
@@ -49,13 +52,14 @@ interface HistoryEntry {
 
 const HISTORY_MAX = 100;
 
-function historyKey(workspacePath: string | null) {
-  return `codrift:agent-history:${workspacePath ?? "global"}`;
+function historyKey(workspacePath: string | null, chatId?: string | null) {
+  const base = workspacePath ?? "global";
+  return chatId ? `codrift:agent-history:${base}:${chatId}` : `codrift:agent-history:${base}`;
 }
 
-function loadHistory(workspacePath: string | null): HistoryEntry[] {
+function loadHistory(workspacePath: string | null, chatId?: string | null): HistoryEntry[] {
   try {
-    const raw = localStorage.getItem(historyKey(workspacePath));
+    const raw = localStorage.getItem(historyKey(workspacePath, chatId));
     if (!raw) return [];
     return JSON.parse(raw) as HistoryEntry[];
   } catch {
@@ -63,12 +67,12 @@ function loadHistory(workspacePath: string | null): HistoryEntry[] {
   }
 }
 
-function persistHistory(workspacePath: string | null, entries: HistoryEntry[]) {
+function persistHistory(workspacePath: string | null, entries: HistoryEntry[], chatId?: string | null) {
   const trimmed = entries.slice(0, HISTORY_MAX);
   if (trimmed.length === 0) {
-    localStorage.removeItem(historyKey(workspacePath));
+    localStorage.removeItem(historyKey(workspacePath, chatId));
   } else {
-    localStorage.setItem(historyKey(workspacePath), JSON.stringify(trimmed));
+    localStorage.setItem(historyKey(workspacePath, chatId), JSON.stringify(trimmed));
   }
 }
 
@@ -76,21 +80,22 @@ function upsertHistory(
   workspacePath: string | null,
   entry: Omit<HistoryEntry, "id">,
   existingId?: string,
+  chatId?: string | null,
 ): HistoryEntry[] {
-  const existing = loadHistory(workspacePath);
+  const existing = loadHistory(workspacePath, chatId);
   if (existingId) {
     // Update in-place (rename or sessionId capture), keeping position
     const updated = existing.map((e) =>
       e.id === existingId ? { ...e, ...entry, id: existingId } : e,
     );
     if (updated.some((e) => e.id === existingId)) {
-      persistHistory(workspacePath, updated);
+      persistHistory(workspacePath, updated, chatId);
       return updated;
     }
   }
   const id = `h-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const next = [{ ...entry, id }, ...existing].slice(0, HISTORY_MAX);
-  persistHistory(workspacePath, next);
+  persistHistory(workspacePath, next, chatId);
   return next;
 }
 
@@ -202,11 +207,13 @@ function buildSavedSessionCmd(
 
 interface Props {
   workspacePath: string | null;
+  /** Scopes all localStorage keys to this chat — each Builder chat gets isolated history. */
+  chatId?: string | null;
   agentSettings: AgentSettings;
   onSettings: () => void;
 }
 
-export default function CliAgentPanel({ workspacePath, agentSettings, onSettings }: Props) {
+export default function CliAgentPanel({ workspacePath, chatId, agentSettings, onSettings }: Props) {
   const [installedBinaries, setInstalledBinaries] = useState<Record<string, string>>({});
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [activeTermByWs, setActiveTermByWs] = useState<Record<string, string | null>>({});
@@ -242,10 +249,10 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
   useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
-  // Load history when workspace changes or drawer opens
+  // Load history when workspace or chat changes, or drawer opens
   useEffect(() => {
-    setHistoryEntries(loadHistory(workspacePath));
-  }, [workspacePath]);
+    setHistoryEntries(loadHistory(workspacePath, chatId));
+  }, [workspacePath, chatId]);
 
   // Close history drawer on outside click
   useEffect(() => {
@@ -283,17 +290,19 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     }
   }, [renamingHistoryId]);
 
-  // ── Auto-resume saved sessions per workspace ─────────────────────────────────
+  // ── Auto-resume saved sessions per workspace+chat ────────────────────────────
   const resumedWorkspacesRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (workspacePath === null) return;
-    if (resumedWorkspacesRef.current.has(workspacePath)) return;
-    resumedWorkspacesRef.current.add(workspacePath);
+    // Use workspace+chat as the resume key so each chat resumes independently
+    const resumeKey = chatId ? `${workspacePath}:${chatId}` : workspacePath;
+    if (resumedWorkspacesRef.current.has(resumeKey)) return;
+    resumedWorkspacesRef.current.add(resumeKey);
 
-    const saved = loadSavedSessions(workspacePath);
+    const saved = loadSavedSessions(workspacePath, chatId);
     if (saved.length === 0) return;
 
-    persistSavedSessions(workspacePath, []);
+    persistSavedSessions(workspacePath, [], chatId);
 
     saved.forEach((s, i) => {
       setTimeout(() => {
@@ -305,12 +314,14 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       }, i * 200);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspacePath]);
+  }, [workspacePath, chatId]);
 
   // ── Persist active sessions to localStorage whenever they change ─────────────
   useEffect(() => {
     const grouped = new Map<string | null, SavedSession[]>();
-    for (const wsPath of resumedWorkspacesRef.current) {
+    for (const resumeKey of resumedWorkspacesRef.current) {
+      // resumeKey may be "wsPath:chatId" or just "wsPath" — extract workspace part
+      const wsPath = chatId ? resumeKey.replace(`:${chatId}`, "") : resumeKey;
       grouped.set(wsPath, []);
     }
     for (const s of sessions) {
@@ -325,9 +336,9 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
       grouped.set(s.workspacePath, list);
     }
     for (const [wsPath, list] of grouped) {
-      persistSavedSessions(wsPath, list);
+      persistSavedSessions(wsPath, list, chatId);
     }
-  }, [sessions, capturedIds]);
+  }, [sessions, capturedIds, chatId]);
 
   // Save on beforeunload — also push current sessions into history
   useEffect(() => {
@@ -347,15 +358,15 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         grouped.set(sess.workspacePath, list);
       }
       for (const [wsPath, list] of grouped) {
-        persistSavedSessions(wsPath, list);
+        persistSavedSessions(wsPath, list, chatId);
         // Also push into history so they appear in the drawer after restart
-        let hist = loadHistory(wsPath);
+        let hist = loadHistory(wsPath, chatId);
         for (const s of list) {
           // Upsert by historyId if we have one, else add new
           const linked = all.find(
             (a) => a.workspacePath === wsPath && a.agentId === s.agentId && a.label === s.label,
           );
-          hist = upsertHistory(wsPath, { agentId: s.agentId, label: s.label, sessionId: s.sessionId, savedAt: s.savedAt }, linked?.historyId);
+          hist = upsertHistory(wsPath, { agentId: s.agentId, label: s.label, sessionId: s.sessionId, savedAt: s.savedAt }, linked?.historyId, chatId);
         }
         void hist; // already persisted by upsertHistory
       }
@@ -437,7 +448,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
         agentId: agent.id,
         label,
         savedAt: Date.now(),
-      });
+      }, undefined, chatId);
       hId = newHist[0]?.id;
       setHistoryEntries(newHist);
     }
@@ -481,6 +492,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
           sess.workspacePath,
           { agentId, label: sess.label, sessionId: id, savedAt: Date.now() },
           sess.historyId,
+          chatId,
         );
         if (sess.workspacePath === workspacePathRef.current) {
           setHistoryEntries(updated);
@@ -512,6 +524,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
               s.workspacePath,
               { agentId: s.agentId, label: trimmed, sessionId: capturedIdsRef.current[termId], savedAt: Date.now() },
               s.historyId,
+              chatId,
             );
             if (s.workspacePath === workspacePathRef.current) {
               setHistoryEntries(updated);
@@ -538,6 +551,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
           savedAt: Date.now(),
         },
         closing.historyId,
+        chatId,
       );
       if (closing.workspacePath === workspacePathRef.current) {
         setHistoryEntries(updated);
@@ -580,7 +594,7 @@ export default function CliAgentPanel({ workspacePath, agentSettings, onSettings
     if (trimmed) {
       const next = historyEntries.map((e) => (e.id === id ? { ...e, label: trimmed } : e));
       setHistoryEntries(next);
-      persistHistory(workspacePath, next);
+      persistHistory(workspacePath, next, chatId);
     }
     setRenamingHistoryId(null);
   }

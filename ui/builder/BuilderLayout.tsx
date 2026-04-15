@@ -183,6 +183,7 @@ export default function BuilderLayout() {
             >
               <CliAgentPanel
                 workspacePath={workspacePath}
+                chatId={chat.id}
                 agentSettings={agentSettings}
                 onSettings={() => {}}
               />
