@@ -208,6 +208,7 @@ pub fn run() {
             app.manage(std::sync::Mutex::new(conn));
             app.manage(std::sync::Mutex::new(StartupPath(startup_path)));
             app.manage(commands::terminal::create_terminal_state());
+            app.manage(commands::vterm::create_vterm_state());
             app.manage(std::sync::Mutex::new(commands::watcher::WatcherState::new()));
             app.manage(lsp::manager::create_lsp_state());
             app.manage(commands::blink_code_bridge::bridge_state());
@@ -283,6 +284,11 @@ pub fn run() {
             commands::terminal::terminal_resize,
             commands::terminal::terminal_close,
             commands::terminal::which_cli,
+            commands::vterm::vterm_create,
+            commands::vterm::vterm_write,
+            commands::vterm::vterm_resize,
+            commands::vterm::vterm_close,
+            commands::vterm::vterm_snapshot,
             commands::workspaces::save_workspaces,
             commands::workspaces::load_workspaces,
             commands::lsp::lsp_start,

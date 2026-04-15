@@ -10,6 +10,7 @@ pub mod lsp;
 pub mod settings;
 pub mod skills;
 pub mod terminal;
+pub mod vterm;
 pub mod threads;
 pub mod tools;
 pub mod updater;

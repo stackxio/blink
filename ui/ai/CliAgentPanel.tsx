@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { X, Settings2, ChevronUp, History, Search, Pencil, Trash2 } from "lucide-react";
-import { TerminalInstance, type SpawnConfig } from "@/ide/terminal/TerminalInstance";
+import { VTermCanvas, type VTermSpawnConfig } from "@/ide/terminal/VTermCanvas";
 import { AgentLogo } from "./agent-logos";
 import { ALL_AGENTS, type AgentDef, type AgentSettings } from "./agent-settings";
 
@@ -116,7 +116,7 @@ interface AgentSession {
   termId: string;
   agentId: string;
   label: string;
-  spawn: SpawnConfig;
+  spawn: VTermSpawnConfig;
   workspacePath: string | null;
   /** History entry ID linked to this active session */
   historyId?: string;
@@ -446,7 +446,7 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
     wsCounts[agent.id] = agentCount;
 
     const label = labelOverride ?? (agentCount === 1 ? agent.label : `${agent.label} ${agentCount}`);
-    const spawn: SpawnConfig = { cmd, cwd: wsPath };
+    const spawn: VTermSpawnConfig = { cmd, cwd: wsPath };
 
     // If no historyId provided, add a new history entry for this session
     let hId = historyId;
@@ -849,7 +849,7 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
               className="cli-agent-panel__term-wrap"
               style={{ display: isVisibleTab ? "flex" : "none" }}
             >
-              <TerminalInstance
+              <VTermCanvas
                 id={s.termId}
                 visible={isVisibleTab}
                 spawn={s.spawn}
