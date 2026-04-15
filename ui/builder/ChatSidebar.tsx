@@ -51,6 +51,7 @@ interface Props {
   workspaceName: string | null;
   chats: BuilderChat[];
   activeChatId: string | null;
+  streamingChatIds?: Set<string>;
   onSelectChat: (chat: BuilderChat) => void;
   onNewChat: () => void;
   onDeleteChat: (id: string) => void;
@@ -62,6 +63,7 @@ export default function ChatSidebar({
   workspaceName,
   chats,
   activeChatId,
+  streamingChatIds,
   onSelectChat,
   onNewChat,
   onDeleteChat,
@@ -145,6 +147,9 @@ export default function ChatSidebar({
                 >
                   {chat.name}
                 </span>
+                {streamingChatIds?.has(chat.id) && chat.id !== activeChatId && (
+                  <span className="chat-sidebar__item-badge" title="Agent is running" />
+                )}
                 <span className="chat-sidebar__item-time">
                   <Clock size={10} />
                   {relativeTime(chat.updatedAt)}

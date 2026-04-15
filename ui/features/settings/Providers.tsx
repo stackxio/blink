@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { saveBlinkCodeConfig, loadBlinkCodeConfig } from "@@/panel/config";
 
 interface Settings {
   active_provider: string;
@@ -11,6 +12,8 @@ interface Settings {
 export default function SettingsProviders() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saved, setSaved] = useState(false);
+  const [ollamaModels, setOllamaModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
 
   useEffect(() => {
     invoke<Settings>("get_settings")
@@ -31,17 +34,71 @@ export default function SettingsProviders() {
 
   function setActiveProvider(provider: string) {
     if (!settings) return;
-    save({ ...settings, active_provider: provider });
+    const updated = { ...settings, active_provider: provider };
+    save(updated);
+    syncToBlinkCodeConfig(updated);
   }
 
   function setOllama(patch: Partial<Settings["ollama"]>) {
     if (!settings) return;
-    save({ ...settings, ollama: { ...settings.ollama, ...patch } });
+    const updated = { ...settings, ollama: { ...settings.ollama, ...patch } };
+    save(updated);
+    // Sync to BlinkCodePanel config so the AI chat panel uses the same endpoint/model
+    if (updated.active_provider === "ollama") {
+      syncToBlinkCodeConfig(updated);
+    }
   }
 
   function setCustom(patch: Partial<Settings["custom"]>) {
     if (!settings) return;
-    save({ ...settings, custom: { ...settings.custom, ...patch } });
+    const updated = { ...settings, custom: { ...settings.custom, ...patch } };
+    save(updated);
+    if (updated.active_provider === "custom") {
+      syncToBlinkCodeConfig(updated);
+    }
+  }
+
+  function syncToBlinkCodeConfig(s: Settings) {
+    const existing = loadBlinkCodeConfig();
+    if (s.active_provider === "ollama") {
+      saveBlinkCodeConfig({
+        ...existing,
+        provider: {
+          type: "openai-compat",
+          baseUrl: s.ollama.endpoint ? `${s.ollama.endpoint}/v1` : "http://localhost:11434/v1",
+          model: s.ollama.model,
+          apiKey: "ollama",
+        },
+      });
+    } else if (s.active_provider === "custom") {
+      saveBlinkCodeConfig({
+        ...existing,
+        provider: {
+          type: "openai-compat",
+          baseUrl: s.custom.endpoint,
+          model: s.custom.model,
+          apiKey: s.custom.api_key || undefined,
+        },
+      });
+    }
+  }
+
+  async function fetchOllamaModels() {
+    if (!settings?.ollama.endpoint) return;
+    setFetchingModels(true);
+    try {
+      const resp = await fetch(`${settings.ollama.endpoint}/api/tags`);
+      const data = await resp.json() as { models?: Array<{ name: string }> };
+      const models = (data.models ?? []).map((m) => m.name);
+      setOllamaModels(models);
+      if (models.length > 0 && !settings.ollama.model) {
+        setOllama({ model: models[0] });
+      }
+    } catch {
+      // Ollama not running or unreachable
+    } finally {
+      setFetchingModels(false);
+    }
   }
 
   if (!settings) return null;
@@ -118,14 +175,36 @@ export default function SettingsProviders() {
                 onChange={(e) => setOllama({ endpoint: e.target.value })}
                 style={{ flex: 1, minWidth: 180 }}
               />
-              <input
-                type="text"
-                className="input input--sm"
-                placeholder="Model (e.g. llama3)"
-                value={settings.ollama.model}
-                onChange={(e) => setOllama({ model: e.target.value })}
-                style={{ flex: 1, minWidth: 140 }}
-              />
+              {ollamaModels.length > 0 ? (
+                <select
+                  className="input input--sm"
+                  value={settings.ollama.model}
+                  onChange={(e) => setOllama({ model: e.target.value })}
+                  style={{ flex: 1, minWidth: 140 }}
+                >
+                  {ollamaModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  className="input input--sm"
+                  placeholder="Model (e.g. llama3)"
+                  value={settings.ollama.model}
+                  onChange={(e) => setOllama({ model: e.target.value })}
+                  style={{ flex: 1, minWidth: 140 }}
+                />
+              )}
+              <button
+                type="button"
+                className="btn btn--default btn--sm"
+                onClick={fetchOllamaModels}
+                disabled={fetchingModels || !settings.ollama.endpoint}
+                title="Fetch available models from Ollama"
+              >
+                {fetchingModels ? "…" : "Fetch models"}
+              </button>
             </div>
           </div>
         )}

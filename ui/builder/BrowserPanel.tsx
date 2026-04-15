@@ -75,6 +75,7 @@ export default function BrowserPanel({ workspacePath }: Props) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [frameKey, setFrameKey] = useState(0); // forces iframe reload
+  const [devServerTermId, setDevServerTermId] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // Reload config when workspace changes
@@ -116,23 +117,31 @@ export default function BrowserPanel({ workspacePath }: Props) {
 
   async function startServer() {
     if (!workspacePath || !config.runCmd.trim()) return;
+    const termId = `browser-dev-server-${Date.now()}`;
     try {
-      // Spawn the run command in a new terminal tab (using existing terminal infra)
-      await invoke("spawn_terminal", {
-        workspacePath,
-        cmd: config.runCmd,
-        label: "Dev Server",
+      await invoke("terminal_create", {
+        id: termId,
+        cwd: workspacePath,
+        rows: 24,
+        cols: 120,
+        shell: null,
+        command: ["/bin/sh", "-c", config.runCmd],
       });
+      setDevServerTermId(termId);
       setRunning(true);
       // Give the server a moment to start, then refresh the preview
       setTimeout(() => setFrameKey((k) => k + 1), 2500);
     } catch {
-      // Fallback: user runs it manually
+      // If terminal_create fails, still mark running so user can refresh manually
       setRunning(true);
     }
   }
 
-  function stopServer() {
+  async function stopServer() {
+    if (devServerTermId) {
+      await invoke("terminal_close", { id: devServerTermId }).catch(() => {});
+      setDevServerTermId(null);
+    }
     setRunning(false);
   }
 

@@ -6,7 +6,6 @@ import SettingsProviders from "@/features/settings/Providers";
 import SettingsSkills from "@/features/settings/Skills";
 import SettingsMemory from "@/features/settings/Memory";
 import SettingsAppearance from "@/features/settings/Appearance";
-import SettingsArchived from "@/features/settings/Archived";
 import SettingsAbout from "@/features/settings/About";
 import SettingsLicenses from "@/features/settings/Licenses";
 
@@ -44,7 +43,6 @@ export default function SettingsOverlay() {
       case "skills":     return <SettingsSkills />;
       case "memory":     return <SettingsMemory />;
       case "appearance": return <SettingsAppearance />;
-      case "archived":   return <SettingsArchived />;
       case "about":      return <SettingsAbout onNavigate={navigate} />;
       case "licenses":   return <SettingsLicenses onNavigate={navigate} />;
       default:           return <SettingsGeneral />;

@@ -55,6 +55,16 @@ export default function BuilderLayout() {
   const [chats, setChats] = useState<BuilderChat[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [agentSettings] = useState<AgentSettings>(loadAgentSettings);
+  const [streamingChatIds, setStreamingChatIds] = useState<Set<string>>(new Set());
+
+  function handleStreamingChange(chatId: string, streaming: boolean) {
+    setStreamingChatIds((prev) => {
+      const next = new Set(prev);
+      if (streaming) next.add(chatId);
+      else next.delete(chatId);
+      return next;
+    });
+  }
 
   // Load chats for the active workspace; auto-create first chat if none exist
   useEffect(() => {
@@ -152,6 +162,7 @@ export default function BuilderLayout() {
           workspaceName={workspaceName}
           chats={chats}
           activeChatId={activeChatId}
+          streamingChatIds={streamingChatIds}
           onSelectChat={handleSelectChat}
           onNewChat={handleNewChat}
           onDeleteChat={handleDeleteChat}
@@ -186,6 +197,7 @@ export default function BuilderLayout() {
                 chatId={chat.id}
                 agentSettings={agentSettings}
                 onSettings={() => {}}
+                onStreamingChange={(streaming) => handleStreamingChange(chat.id, streaming)}
               />
             </div>
           ))}

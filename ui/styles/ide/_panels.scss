@@ -181,3 +181,24 @@
     min-width: 0;
   }
 }
+
+// ── Problems panel ────────────────────────────────────────────────────────────
+
+.problems-panel__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+  cursor: pointer;
+  color: var(--c-fg);
+  @include transition(background);
+
+  &:hover {
+    background: var(--c-surface-raised);
+  }
+}

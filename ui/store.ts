@@ -29,9 +29,15 @@ export type SettingsPage =
   | "skills"
   | "memory"
   | "appearance"
-  | "archived"
   | "about"
   | "licenses";
+
+export interface Toast {
+  id: string;
+  message: string;
+  type: "info" | "success" | "error" | "warning";
+  duration: number; // ms
+}
 
 export interface DiagnosticEntry {
   uri: string;
@@ -209,6 +215,11 @@ interface AppState {
   settingsPage: SettingsPage;
   openSettings: (page?: SettingsPage) => void;
   closeSettings: () => void;
+  // Toasts
+  toasts: Toast[];
+  addToast: (message: string, type?: Toast["type"], duration?: number) => void;
+  removeToast: (id: string) => void;
+
   // Diagnostics (global — keyed by file URI)
   diagnostics: Record<string, DiagnosticEntry[]>;
   diagnosticSummary: { errors: number; warnings: number };
@@ -320,6 +331,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   openSettings: (page = "general") => set({ settingsOpen: true, settingsPage: page }),
   closeSettings: () => set({ settingsOpen: false }),
   setSettingsPage: (page) => set({ settingsPage: page }),
+  toasts: [],
+  addToast: (message, type = "info", duration = 4000) => {
+    const id = crypto.randomUUID();
+    set((s) => ({ toasts: [...s.toasts, { id, message, type, duration }] }));
+    setTimeout(() => {
+      set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) }));
+    }, duration);
+  },
+  removeToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
   diagnostics: {},
   diagnosticSummary: { errors: 0, warnings: 0 },
   setDiagnosticsForUri: (uri, diags) =>

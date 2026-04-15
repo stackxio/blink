@@ -247,6 +247,15 @@
     min-width: 0;
   }
 
+  &__item-badge {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--c-accent);
+    flex-shrink: 0;
+    animation: chat-badge-pulse 1.4s ease-in-out infinite;
+  }
+
   &__item-time {
     display: flex;
     align-items: center;
@@ -516,4 +525,9 @@
     color: var(--c-fg);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
+}
+
+@keyframes chat-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.35; }
 }

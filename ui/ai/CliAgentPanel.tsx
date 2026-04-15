@@ -211,9 +211,11 @@ interface Props {
   chatId?: string | null;
   agentSettings: AgentSettings;
   onSettings: () => void;
+  /** Called when the streaming/active state changes — used by Builder for chat tab badges. */
+  onStreamingChange?: (streaming: boolean) => void;
 }
 
-export default function CliAgentPanel({ workspacePath, chatId, agentSettings, onSettings }: Props) {
+export default function CliAgentPanel({ workspacePath, chatId, agentSettings, onSettings, onStreamingChange }: Props) {
   const [installedBinaries, setInstalledBinaries] = useState<Record<string, string>>({});
   const [sessions, setSessions] = useState<AgentSession[]>([]);
   const [activeTermByWs, setActiveTermByWs] = useState<Record<string, string | null>>({});
@@ -247,6 +249,11 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
   useEffect(() => { capturedIdsRef.current = capturedIds; }, [capturedIds]);
   useEffect(() => { workspacePathRef.current = workspacePath; }, [workspacePath]);
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
+
+  // Notify parent when active session count changes (used for Builder chat tab badges)
+  useEffect(() => {
+    onStreamingChange?.(sessions.length > 0);
+  }, [sessions.length, onStreamingChange]);
   useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
   // Load history when workspace or chat changes, or drawer opens

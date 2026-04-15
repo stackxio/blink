@@ -71,22 +71,8 @@ export default function ProblemsPanel() {
               <button
                 key={i}
                 type="button"
+                className="problems-panel__item"
                 onClick={() => handleClick(entry.uri, entry.line, entry.character)}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 8,
-                  width: "100%",
-                  padding: "5px 12px",
-                  background: "transparent",
-                  border: "none",
-                  borderBottom: "1px solid var(--c-border)",
-                  textAlign: "left",
-                  cursor: "pointer",
-                  color: "var(--c-fg)",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--c-surface-raised)")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <span
                   style={{

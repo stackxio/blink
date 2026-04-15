@@ -415,10 +415,14 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
     setCtxMenu(null);
   }
 
+  function startRenameForNode(node: TreeNode) {
+    setRenaming({ path: node.path, name: node.name });
+    setCtxMenu(null);
+  }
+
   function handleStartRename() {
     if (!ctxMenu) return;
-    setRenaming({ path: ctxMenu.node.path, name: ctxMenu.node.name });
-    setCtxMenu(null);
+    startRenameForNode(ctxMenu.node);
   }
 
   async function handleDelete() {
@@ -779,7 +783,11 @@ const FileTree = forwardRef<FileTreeHandle, Props>(function FileTree(
                         ? toggleDir(node, nodePath)
                         : onFileSelect(node.path, node.name, true)
                     }
-                    onDoubleClick={() => !node.is_dir && onFileSelect(node.path, node.name, false)}
+                    onDoubleClick={() => {
+                      if (node.is_dir) return;
+                      // Single-click already opened as preview; double-click = start rename
+                      startRenameForNode(node);
+                    }}
                     onContextMenu={(e) => {
                       e.preventDefault();
                       setCtxMenu({ x: e.clientX, y: e.clientY, node });

@@ -10,6 +10,7 @@ import IdeLayout from "@/ide/layout/IdeLayout";
 import Welcome from "@/ide/layout/Welcome";
 import SettingsOverlay from "@/overlays/SettingsOverlay";
 import ExtensionsOverlay from "@/overlays/ExtensionsOverlay";
+import ToastContainer from "@/components/Toast";
 
 // Sync backend settings → localStorage on startup so the editor reads correct values
 function useSyncSettingsToLocalStorage() {
@@ -207,6 +208,9 @@ export default function App() {
 
       {/* Quit confirmation — rendered above everything else */}
       {quitOpen && <QuitConfirmDialog onQuit={onQuit} onCancel={onCancel} />}
+
+      {/* Toast notifications */}
+      <ToastContainer />
     </BrowserRouter>
   );
 }

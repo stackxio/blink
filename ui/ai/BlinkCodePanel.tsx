@@ -58,6 +58,12 @@ interface ToolCallEntry {
   expanded: boolean;
 }
 
+/** Ordered sequence of text chunks and tool calls as they arrived during streaming.
+ *  Present on new messages; absent on messages loaded from history (backward compat). */
+type MessagePart =
+  | { type: "text"; content: string }
+  | { type: "tool_call"; id: string };
+
 type PanelMessage =
   | { id: string; role: "user"; content: string }
   | {
@@ -66,6 +72,8 @@ type PanelMessage =
       content: string;
       thinkingContent?: string;
       toolCalls: ToolCallEntry[];
+      /** Ordered parts for inline tool-call rendering. Absent on history-loaded messages. */
+      parts?: MessagePart[];
       streaming?: boolean;
     }
   | { id: string; role: "system"; content: string };
@@ -243,7 +251,20 @@ function BlinkCodePanel() {
       prev.map((message) => {
         if (message.role !== "assistant") return message;
         const delta = pending.get(message.id);
-        return delta ? { ...message, content: message.content + delta } : message;
+        if (!delta) return message;
+        const newContent = message.content + delta;
+        // Maintain parts ordering: append to last text part or create a new one
+        if (message.parts !== undefined) {
+          const parts = [...message.parts];
+          const last = parts[parts.length - 1];
+          if (last && last.type === "text") {
+            parts[parts.length - 1] = { ...last, content: last.content + delta };
+          } else {
+            parts.push({ type: "text", content: delta });
+          }
+          return { ...message, content: newContent, parts };
+        }
+        return { ...message, content: newContent };
       }),
     );
   }, []);
@@ -414,11 +435,28 @@ function BlinkCodePanel() {
       // Bridge will emit `bridge_ready` once the Bun side has processed `init`.
     };
 
-    run().catch((e) => {
+    run().catch(async (e) => {
       if (cancelled) return;
       setBridgeInitFailed(true);
+      const errStr = String(e);
+      // Detect bun-not-found errors and surface a clear install prompt
+      const looksLikeBunError =
+        errStr.includes("bun") ||
+        errStr.includes("No such file or directory") ||
+        errStr.includes("os error 2");
+      if (looksLikeBunError) {
+        const found = await invoke<Record<string, string>>("which_cli", { names: ["bun"] }).catch(() => ({} as Record<string, string>));
+        if (!found["bun"]) {
+          setMessages([{
+            id: crypto.randomUUID(),
+            role: "system",
+            content: "Bun is not installed — the AI chat bridge requires it.\n\nInstall Bun: https://bun.sh\n\n```\ncurl -fsSL https://bun.sh/install | bash\n```",
+          }]);
+          return;
+        }
+      }
       setMessages([
-        { id: crypto.randomUUID(), role: "system", content: `Bridge init failed: ${e}` },
+        { id: crypto.randomUUID(), role: "system", content: `Bridge init failed: ${errStr}` },
       ]);
     });
 
@@ -520,11 +558,14 @@ function BlinkCodePanel() {
           case "tool_call_start": {
             const { assistantMsgId, callId, name } = msg;
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId && m.role === "assistant"
-                  ? { ...m, toolCalls: [...m.toolCalls, { id: callId, name, expanded: false }] }
-                  : m,
-              ),
+              prev.map((m) => {
+                if (m.id !== assistantMsgId || m.role !== "assistant") return m;
+                const newToolCalls = [...m.toolCalls, { id: callId, name, expanded: false }];
+                const newParts = m.parts !== undefined
+                  ? [...m.parts, { type: "tool_call" as const, id: callId }]
+                  : undefined;
+                return { ...m, toolCalls: newToolCalls, parts: newParts };
+              }),
             );
             break;
           }
@@ -766,7 +807,7 @@ function BlinkCodePanel() {
     currentAssistantMsgIdRef.current = assistantMsgId;
     setMessages((prev) => [
       ...prev,
-      { id: assistantMsgId, role: "assistant", content: "", toolCalls: [], streaming: true },
+      { id: assistantMsgId, role: "assistant", content: "", toolCalls: [], parts: [], streaming: true },
     ]);
     setStreaming(true);
     const images = imageItems.map((img) => ({
@@ -1640,14 +1681,37 @@ function MessageRow({
       {msg.thinkingContent && (
         <ThinkingBlock content={msg.thinkingContent} streaming={msg.streaming && !msg.content} />
       )}
-      {msg.toolCalls.map((tc) => (
-        <ToolCallRow key={tc.id} call={tc} onToggle={() => onToggleTool(tc.id)} />
-      ))}
-      {msg.content && (
-        <div className="blink-msg__text">
-          <MarkdownText text={msg.content} />
-          {msg.streaming && <span className="blink-msg__cursor" />}
-        </div>
+      {msg.parts ? (
+        // New: ordered inline rendering — tool calls appear where they were invoked
+        msg.parts.map((part, i) => {
+          if (part.type === "tool_call") {
+            const tc = msg.toolCalls.find((t) => t.id === part.id);
+            if (!tc) return null;
+            return <ToolCallRow key={tc.id} call={tc} onToggle={() => onToggleTool(tc.id)} />;
+          }
+          // text part
+          if (!part.content) return null;
+          const isLastPart = i === msg.parts!.length - 1;
+          return (
+            <div key={i} className="blink-msg__text">
+              <MarkdownText text={part.content} />
+              {msg.streaming && isLastPart && <span className="blink-msg__cursor" />}
+            </div>
+          );
+        })
+      ) : (
+        // Legacy: messages loaded from history (no parts — flat layout)
+        <>
+          {msg.toolCalls.map((tc) => (
+            <ToolCallRow key={tc.id} call={tc} onToggle={() => onToggleTool(tc.id)} />
+          ))}
+          {msg.content && (
+            <div className="blink-msg__text">
+              <MarkdownText text={msg.content} />
+              {msg.streaming && <span className="blink-msg__cursor" />}
+            </div>
+          )}
+        </>
       )}
       {msg.streaming && !msg.content && !msg.toolCalls.length && !msg.thinkingContent && (
         <div className="blink-msg__thinking">
