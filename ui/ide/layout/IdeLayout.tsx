@@ -25,6 +25,7 @@ import RecentFilesPopup from "./RecentFilesPopup";
 import Breadcrumbs from "@/ide/editor/Breadcrumbs";
 import MarkdownPreview from "@/ide/editor/MarkdownPreview";
 import { BookOpen } from "lucide-react";
+const BuilderLayout = lazy(() => import("@/builder/BuilderLayout"));
 
 // ── Lightweight React confirm dialog (replaces native browser confirm()) ──────
 function CloseConfirmDialog({
@@ -77,6 +78,7 @@ export default function IdeLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const appMode = useAppStore((s) => s.appMode);
   const toggleBottomPanel = useAppStore((s) => s.toggleBottomPanel);
   const toggleSidePanel = useAppStore((s) => s.toggleSidePanel);
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
@@ -668,13 +670,23 @@ export default function IdeLayout() {
         <Titlebar />
       </div>
 
-      {/* Activity bar */}
-      <div className="ide__activity-bar">
-        <ActivityBar />
-      </div>
+      {/* Activity bar — hidden in builder mode */}
+      {appMode === "editor" && (
+        <div className="ide__activity-bar">
+          <ActivityBar />
+        </div>
+      )}
 
+      {/* ── Builder mode ── */}
+      {appMode === "builder" && (
+        <Suspense fallback={null}>
+          <BuilderLayout />
+        </Suspense>
+      )}
+
+      {/* ── Editor mode ── */}
       {/* Side panel */}
-      {sidePanelOpen && (
+      {appMode === "editor" && sidePanelOpen && (
         <div className="ide__side-panel" style={{ width: sidePanelWidth }}>
           <div className="side-panel">
             {sidePanelView === "git" ? (
@@ -772,7 +784,7 @@ export default function IdeLayout() {
       )}
 
       {/* Main area */}
-      <div className="ide__main">
+      {appMode === "editor" && <div className="ide__main">
         <div className={workspaceClasses}>
           {/* Editor column (editor area + bottom panel) */}
           <div className="ide__editor-col">
@@ -1097,6 +1109,8 @@ export default function IdeLayout() {
         </div>
         {/* end ide__workspace */}
       </div>
+      }
+      {/* end editor mode */}
 
       {/* File search overlay (Cmd+P) */}
       {fileSearchOpen && workspacePath && (

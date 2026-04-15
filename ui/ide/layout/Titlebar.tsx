@@ -10,10 +10,12 @@ import {
   Code2,
   PanelLeft,
   PanelRight,
+  Code,
+  Play,
 } from "lucide-react";
 // PanelLeft and PanelRight are used for the layout mode toggle button below
 import { useAppStore } from "@/store";
-import type { FocusMode } from "@/store";
+import type { FocusMode, AppMode } from "@/store";
 import { useUpdateCheck } from "@/hooks/useUpdateCheck";
 import WorkspaceTabs from "./WorkspaceTabs";
 
@@ -35,6 +37,8 @@ export default function Titlebar() {
   const aiPanelOpen = useAppStore((s) => s.aiPanelOpen);
   const cycleFocusMode = useAppStore((s) => s.cycleFocusMode);
   const setLayoutMode = useAppStore((s) => s.setLayoutMode);
+  const appMode = useAppStore((s) => s.appMode);
+  const setAppMode = useAppStore((s) => s.setAppMode);
   const ws = useAppStore((s) => s.activeWorkspace());
   const focusMode = ws?.focusMode ?? "both";
   const layoutMode = ws?.layoutMode ?? "ai-center";
@@ -142,6 +146,27 @@ export default function Titlebar() {
         >
           <Sparkles size={14} />
         </button>
+        {/* Editor ↔ Builder mode toggle */}
+        <div className="titlebar__mode-toggle">
+          <button
+            type="button"
+            className={`titlebar__mode-btn${appMode === "editor" ? " titlebar__mode-btn--active" : ""}`}
+            title="Editor mode"
+            onClick={() => setAppMode("editor")}
+          >
+            <Code size={13} />
+            <span>Editor</span>
+          </button>
+          <button
+            type="button"
+            className={`titlebar__mode-btn${appMode === "builder" ? " titlebar__mode-btn--active" : ""}`}
+            title="Builder mode"
+            onClick={() => setAppMode("builder")}
+          >
+            <Play size={13} />
+            <span>Builder</span>
+          </button>
+        </div>
         <button
           type="button"
           className="titlebar__action"

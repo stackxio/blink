@@ -195,9 +195,12 @@ function createWorkspace(id: string, path: string, name: string): Workspace {
   };
 }
 
+export type AppMode = "editor" | "builder";
+
 interface AppState {
   // Global
   theme: Theme;
+  appMode: AppMode;
   aiPanelOpen: boolean;
   aiPanelWidth: number;
   persistWorkspaces: boolean;
@@ -220,6 +223,7 @@ interface AppState {
 
   // Global actions
   setTheme: (t: Theme) => void;
+  setAppMode: (mode: AppMode) => void;
   toggleAiPanel: () => void;
   setAiPanelWidth: (w: number) => void;
   setPersistWorkspaces: (v: boolean) => void;
@@ -297,8 +301,17 @@ function updateWs(
   };
 }
 
+function loadAppMode(): AppMode {
+  try {
+    const stored = localStorage.getItem("codrift:appMode");
+    if (stored === "editor" || stored === "builder") return stored;
+  } catch {}
+  return "editor";
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   theme: "dark",
+  appMode: loadAppMode(),
   aiPanelOpen: true,
   aiPanelWidth: 560,
   persistWorkspaces: true,
@@ -340,6 +353,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   setTheme: (t) => {
     set({ theme: t });
     changeTheme(t);
+  },
+  setAppMode: (mode) => {
+    set({ appMode: mode });
+    try { localStorage.setItem("codrift:appMode", mode); } catch {}
   },
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanelWidth: (w) => set({ aiPanelWidth: w }),
