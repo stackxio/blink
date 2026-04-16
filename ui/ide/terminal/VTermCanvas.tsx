@@ -11,7 +11,7 @@
  *     u16 LE : rows
  *     u16 LE : cursor_x
  *     u16 LE : cursor_y
- *   Per-cell (10 bytes, row-major):
+ *   Per-cell (12 bytes, row-major):
  *     u32 LE : Unicode code point
  *     u8     : fg_r, fg_g, fg_b
  *     u8     : bg_r, bg_g, bg_b
@@ -29,8 +29,14 @@ const FONT_SIZE = 13;
 const LINE_HEIGHT = 1.2;
 const FONT_FAMILY =
   '"JetBrains Mono", "Apple Symbols", Menlo, "SF Mono", Consolas, monospace';
-const CELL_BYTES = 10;
+const CELL_BYTES = 12;
 const HEADER_BYTES = 8;
+
+// ── Theme detection ───────────────────────────────────────────────────────────
+
+function isDarkTheme(): boolean {
+  return document.documentElement.classList.contains("dark");
+}
 
 // ── Font loading (shared with TerminalInstance) ───────────────────────────────
 
@@ -207,8 +213,13 @@ function renderFrame(
         ctx.fillRect(x, y, cw, ch);
       }
 
-      // Character
-      if (cp !== 0 && cp !== 0x20) {
+      // Character — guard against wide-char continuation cells and
+      // any other out-of-range code points the vt100 crate may emit.
+      const isValidCp =
+        cp > 0x20 &&
+        cp <= 0x10ffff &&
+        (cp < 0xd800 || cp > 0xdfff);
+      if (isValidCp) {
         const char = String.fromCodePoint(cp);
         const fontStyle = italic ? "italic " : "";
         const fontWeight = bold ? "bold " : "";
@@ -296,23 +307,43 @@ export function VTermCanvas({
     const container = containerRef.current;
     if (!container) return { cols: colsRef.current, rows: rowsRef.current };
     const { w: cw, h: ch } = cellRef.current;
-    const cols = Math.max(2, Math.floor(container.clientWidth / cw));
-    const rows = Math.max(2, Math.floor(container.clientHeight / ch));
+
+    // When the container is inside a CSS-hidden ancestor (display:none on a tab
+    // wrapper) clientWidth/Height are 0.  Walk up to find the nearest visible
+    // ancestor so we get a meaningful size even before the tab is shown.
+    let w = container.clientWidth;
+    let h = container.clientHeight;
+    if (w === 0 || h === 0) {
+      let el: HTMLElement | null = container.parentElement;
+      while (el) {
+        if (el.clientWidth > 0 && el.clientHeight > 0) {
+          w = el.clientWidth;
+          h = el.clientHeight;
+          break;
+        }
+        el = el.parentElement;
+      }
+    }
+
+    // Subtract the padding added to the container (6px top/bottom, 8px left/right)
+    const cols = Math.max(10, Math.floor((w - 16) / cw));
+    const rows = Math.max(4,  Math.floor((h - 12) / ch));
     return { cols, rows };
   }, []);
 
-  // When tab becomes visible, request a fresh snapshot and refit.
+  // When tab becomes visible: always send a resize so the TUI app gets SIGWINCH
+  // and redraws at the correct dimensions.  This is critical when the PTY was
+  // originally created while the container was CSS-hidden (clientWidth===0) and
+  // therefore started at the wrong size.
   useEffect(() => {
     if (!visible || !mountedRef.current) return;
     requestAnimationFrame(() => {
       const { cols, rows } = computeSize();
-      if (cols !== colsRef.current || rows !== rowsRef.current) {
-        colsRef.current = cols;
-        rowsRef.current = rows;
-        invoke("vterm_resize", { id, rows, cols }).catch(() => {});
-      } else {
-        invoke("vterm_snapshot", { id }).catch(() => {});
-      }
+      // Always update and resize — a redundant SIGWINCH is harmless but a missed
+      // one leaves the canvas half-empty after a tab switch.
+      colsRef.current = cols;
+      rowsRef.current = rows;
+      invoke("vterm_resize", { id, rows, cols }).catch(() => {});
     });
   }, [visible, id, computeSize]);
 
@@ -325,6 +356,7 @@ export function VTermCanvas({
     let unlisten: (() => void) | null = null;
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
     let ro: ResizeObserver | null = null;
+    let themeObserver: MutationObserver | null = null;
 
     const run = async () => {
       await ensureFont();
@@ -352,6 +384,7 @@ export function VTermCanvas({
             rows,
             cols,
             command: spawn.cmd,
+            dark: isDarkTheme(),
           });
         } catch (err) {
           console.error("[vterm] vterm_create failed:", err);
@@ -364,6 +397,20 @@ export function VTermCanvas({
           return;
         }
       }
+
+      // Watch for app theme changes and update the terminal palette live
+      themeObserver = new MutationObserver(() => {
+        if (disposed) return;
+        invoke("vterm_set_colors", { id, dark: isDarkTheme() }).catch(() => {});
+        // Also force a container background repaint
+        if (containerRef.current) {
+          containerRef.current.style.background = isDarkTheme() ? "#1e1e1e" : "#f5f5f5";
+        }
+      });
+      themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["class"],
+      });
 
       // Listen for frame events from Rust
       listen<{ data: string }>(`vterm:frame:${id}`, (event) => {
@@ -411,6 +458,7 @@ export function VTermCanvas({
       disposed = true;
       unlisten?.();
       ro?.disconnect();
+      themeObserver?.disconnect();
       if (resizeTimer) clearTimeout(resizeTimer);
       mountedRef.current = false;
     };
@@ -429,6 +477,44 @@ export function VTermCanvas({
     [id]
   );
 
+  // Mouse wheel — attached as a non-passive native listener so preventDefault()
+  // actually stops the event from bubbling to the parent scrollable container.
+  // React's synthetic onWheel is passive by default (since React 17), which
+  // means e.preventDefault() is silently ignored there.
+  //
+  // Scroll direction (Mac natural scrolling):
+  //   deltaY < 0  →  two-finger swipe UP  →  see older content  →  +delta (increase offset)
+  //   deltaY > 0  →  two-finger swipe DOWN →  see newer content  →  -delta (decrease offset)
+  //
+  // We batch with rAF so rapid trackpad events don't spam Tauri IPC.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let rafId: number | null = null;
+    let pendingDelta = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Each wheel event accumulates ±1 frame step.
+      // deltaY < 0 = two fingers swipe up = see older frames = +1
+      // deltaY > 0 = two fingers swipe down = see newer frames = -1
+      pendingDelta += e.deltaY < 0 ? 1 : -1;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const d = pendingDelta;
+          pendingDelta = 0;
+          if (d !== 0) invoke("vterm_scroll", { id, delta: d }).catch(() => {});
+        });
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, [id]);
+
   return (
     <div
       ref={containerRef}
@@ -437,8 +523,14 @@ export function VTermCanvas({
         minWidth: 0,
         minHeight: 0,
         overflow: "hidden",
-        background: "#1e1e1e",
+        background: "var(--vterm-bg, #1e1e1e)",
         position: "relative",
+        padding: "6px 8px",
+        // Prevent trackpad scroll from propagating to parent scrollable
+        // containers in Tauri's WKWebView (CSS backup for the non-passive
+        // wheel listener below).
+        overscrollBehavior: "none",
+        touchAction: "none",
       }}
       tabIndex={0}
       onKeyDown={handleKeyDown}

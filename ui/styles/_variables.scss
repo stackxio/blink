@@ -78,6 +78,9 @@
   --transition-normal: 150ms ease;
   --transition-slow: 250ms ease;
 
+  // VTerm canvas background (matches vterm.rs default_bg for dark theme)
+  --vterm-bg: #1e1e1e;
+
   color-scheme: dark;
 }
 
@@ -107,6 +110,9 @@
   --c-danger-fg: #fff;
   --c-success: oklch(0.52 0.18 145);
   --c-warning: oklch(0.55 0.16 75);
+
+  // VTerm canvas background (matches vterm.rs default_bg for light theme)
+  --vterm-bg: #f5f5f5;
 
   color-scheme: light;
 }

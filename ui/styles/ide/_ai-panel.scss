@@ -2604,6 +2604,22 @@
     }
   }
 
+  // Foreign-workspace tab — slightly dimmed with a workspace badge
+  &__tab--foreign {
+    opacity: 0.75;
+  }
+
+  &__tab-ws-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--c-surface-raised);
+    color: var(--c-muted);
+    margin-left: 4px;
+    flex-shrink: 0;
+    font-style: normal;
+  }
+
   // ── Terminal body ──
 
   &__body {
