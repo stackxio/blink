@@ -155,27 +155,33 @@ function useQuitConfirm(): { open: boolean; onQuit: () => void; onCancel: () => 
   return { open, onQuit, onCancel };
 }
 
+function openPath(path: string) {
+  const name = path.split("/").pop() || path;
+  invoke<boolean>("is_dir", { path })
+    .then((isDir) => {
+      if (isDir) useAppStore.getState().addWorkspace(path, name);
+      else        useAppStore.getState().openFile(path, name, false);
+    })
+    .catch(() => useAppStore.getState().openFile(path, name, false));
+}
+
 function useOpenFileEvent() {
   useEffect(() => {
-    const unlisten = listen<string>("open-file", (event) => {
-      const path = event.payload;
-      if (!path) return;
-      const name = path.split("/").pop() || path;
-      // Check if the path is a directory — open as workspace, otherwise open as file
-      invoke<boolean>("is_dir", { path })
-        .then((isDir) => {
-          if (isDir) {
-            useAppStore.getState().addWorkspace(path, name);
-          } else {
-            useAppStore.getState().openFile(path, name, false);
-          }
-        })
-        .catch(() => {
-          useAppStore.getState().openFile(path, name, false);
-        });
+    // "open-file" — fired by single-instance plugin or CLI arg
+    const p1 = listen<string>("open-file", (e) => {
+      if (e.payload) openPath(e.payload);
     });
+
+    // "tauri://drag-drop" — fired when files are dropped onto the window.
+    // dragDropEnabled:true in tauri.conf.json is required for this to work;
+    // without it WKWebView falls back to rendering the raw file content.
+    const p2 = listen<{ paths: string[] }>("tauri://drag-drop", (e) => {
+      for (const path of e.payload.paths ?? []) openPath(path);
+    });
+
     return () => {
-      unlisten.then((f) => f());
+      p1.then((f) => f());
+      p2.then((f) => f());
     };
   }, []);
 }

@@ -28,7 +28,7 @@
           ],
           "state": "followsWindowActiveState"
         },
-        "dragDropEnabled": false
+        "dragDropEnabled": true
       }
     ],
     "security": {
