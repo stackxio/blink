@@ -502,26 +502,25 @@ export function VTermCanvas({
     const el = containerRef.current;
     if (!el) return;
     let rafId: number | null = null;
-    // Accumulated frame steps. Capped at ±12 to prevent runaway flick.
     let pendingDelta = 0;
-
-    // Drains one frame step per animation frame — gives a natural momentum feel
-    // and prevents a fast trackpad flick from jumping dozens of frames at once.
-    const animate = () => {
-      if (pendingDelta === 0) { rafId = null; return; }
-      const d = pendingDelta > 0 ? 1 : -1;
-      pendingDelta -= d;
-      invoke("vterm_scroll", { id, delta: d }).catch(() => {});
-      rafId = requestAnimationFrame(animate);
-    };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      // deltaY < 0 = swipe up = older frames = +1; deltaY > 0 = swipe down = -1
-      const step = e.deltaY < 0 ? 1 : -1;
-      pendingDelta = Math.max(-12, Math.min(12, pendingDelta + step));
-      if (rafId === null) rafId = requestAnimationFrame(animate);
+      // Each physical wheel tick = 3 frame steps so a gentle scroll is visible.
+      // deltaY < 0 = two-finger swipe up = older content = positive delta.
+      const step = e.deltaY < 0 ? 3 : -3;
+      pendingDelta += step;
+      // Clamp so a hard flick can't queue more than 15 frames at once.
+      pendingDelta = Math.max(-15, Math.min(15, pendingDelta));
+      if (rafId === null) {
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const d = pendingDelta;
+          pendingDelta = 0;
+          if (d !== 0) invoke("vterm_scroll", { id, delta: d }).catch(() => {});
+        });
+      }
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
