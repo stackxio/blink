@@ -370,6 +370,8 @@ rl.on("line", async (line) => {
     await saveThreadData(meta.id, { messages: [] });
     await saveThreadsIndex();
     send("threads_list", { threads: threadsIndex.threads, activeThreadId: meta.id });
+    // Clear the message panel — new thread has no history.
+    send("history", { messages: [] });
     return;
   }
 
