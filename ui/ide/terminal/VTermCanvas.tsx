@@ -507,12 +507,12 @@ export function VTermCanvas({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      // Each physical wheel tick = 3 frame steps so a gentle scroll is visible.
-      // deltaY < 0 = two-finger swipe up = older content = positive delta.
-      const step = e.deltaY < 0 ? 3 : -3;
+      // ±1 per wheel tick. A trackpad swipe fires 30–50 events; capping at ±3
+      // means the hardest flick sends 3 frame steps max per rAF batch.
+      // With 100ms frame-sampling on the Rust side, 3 steps = ~300ms of history.
+      const step = e.deltaY < 0 ? 1 : -1;
       pendingDelta += step;
-      // Clamp so a hard flick can't queue more than 15 frames at once.
-      pendingDelta = Math.max(-15, Math.min(15, pendingDelta));
+      pendingDelta = Math.max(-3, Math.min(3, pendingDelta));
       if (rafId === null) {
         rafId = requestAnimationFrame(() => {
           rafId = null;

@@ -13,6 +13,7 @@ use std::sync::{
     atomic::{AtomicBool, AtomicUsize, Ordering},
     Arc, Mutex,
 };
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 // ── Color palette ─────────────────────────────────────────────────────────────
@@ -312,6 +313,13 @@ pub async fn vterm_create(
     let event_name = format!("vterm:frame:{id}");
     std::thread::spawn(move || {
         let mut buf = [0u8; 4096];
+        // Throttle history snapshots: only store a frame every SAMPLE_INTERVAL.
+        // Claude Code can emit 100s of PTY chunks per second; storing every one
+        // would make the scrollback history so dense that a single trackpad swipe
+        // would jump seconds worth of output.
+        const SAMPLE_INTERVAL: Duration = Duration::from_millis(100);
+        let mut last_snapshot = Instant::now().checked_sub(SAMPLE_INTERVAL * 2)
+            .unwrap_or(Instant::now());
 
         loop {
             match reader.read(&mut buf) {
@@ -325,25 +333,21 @@ pub async fn vterm_create(
                         // Build the current frame bytes.
                         let frame_bytes = build_frame_bytes(&p, dark);
 
-                        // Push to history ring buffer.
-                        // Viewport pinning: if user is scrolled up, advance offset
-                        // by 1 so the same historical frame stays in view as new
-                        // frames arrive from behind it.
-                        if let Ok(mut hist) = frame_history.lock() {
-                            hist.push_back(frame_bytes.clone());
-                            if hist.len() > MAX_FRAME_HISTORY {
-                                hist.pop_front();
-                                // The oldest frame was evicted; if scrolled, the
-                                // offset still points at the same relative frame.
-                                // (pop_front shifts all indices by -1, so offset
-                                // needs to stay the same — no adjustment needed.)
-                            }
-                            let cur = scroll_offset.load(Ordering::Relaxed);
-                            if cur > 0 {
-                                // A new frame was added at the back; advance offset
-                                // to keep the viewport pinned on the same old frame.
-                                let new_off = (cur + 1).min(hist.len().saturating_sub(1));
-                                scroll_offset.store(new_off, Ordering::Relaxed);
+                        // Only snapshot into history every SAMPLE_INTERVAL so
+                        // each scroll step represents a meaningful time window.
+                        let now = Instant::now();
+                        if now.duration_since(last_snapshot) >= SAMPLE_INTERVAL {
+                            last_snapshot = now;
+                            if let Ok(mut hist) = frame_history.lock() {
+                                hist.push_back(frame_bytes.clone());
+                                if hist.len() > MAX_FRAME_HISTORY {
+                                    hist.pop_front();
+                                }
+                                let cur = scroll_offset.load(Ordering::Relaxed);
+                                if cur > 0 {
+                                    let new_off = (cur + 1).min(hist.len().saturating_sub(1));
+                                    scroll_offset.store(new_off, Ordering::Relaxed);
+                                }
                             }
                         }
 
