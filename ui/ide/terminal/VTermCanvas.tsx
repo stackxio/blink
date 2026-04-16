@@ -294,12 +294,23 @@ export function VTermCanvas({
     if (!ctx) return;
 
     const { w: cw, h: ch } = cellRef.current;
-    const needW = frame.cols * cw;
-    const needH = frame.rows * ch;
-    if (canvas.width !== needW || canvas.height !== needH) {
-      canvas.width  = needW;
-      canvas.height = needH;
+    const dpr      = window.devicePixelRatio || 1;
+    const cssW     = frame.cols * cw;
+    const cssH     = frame.rows * ch;
+    const bufW     = Math.round(cssW * dpr);
+    const bufH     = Math.round(cssH * dpr);
+
+    // Resize the backing buffer only when dimensions change.
+    // IMPORTANT: resizing the canvas resets the context transform, so we always
+    // re-apply the DPR scale before rendering.
+    if (canvas.width !== bufW || canvas.height !== bufH) {
+      canvas.width        = bufW;
+      canvas.height       = bufH;
+      canvas.style.width  = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
     }
+    // Scale so renderFrame can use logical (CSS) pixel coordinates.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     renderFrame(ctx, frame, cellRef.current);
   }, []);
 
@@ -491,23 +502,28 @@ export function VTermCanvas({
     const el = containerRef.current;
     if (!el) return;
     let rafId: number | null = null;
+    // Accumulated frame steps. Capped at ±12 to prevent runaway flick.
     let pendingDelta = 0;
+
+    // Drains one frame step per animation frame — gives a natural momentum feel
+    // and prevents a fast trackpad flick from jumping dozens of frames at once.
+    const animate = () => {
+      if (pendingDelta === 0) { rafId = null; return; }
+      const d = pendingDelta > 0 ? 1 : -1;
+      pendingDelta -= d;
+      invoke("vterm_scroll", { id, delta: d }).catch(() => {});
+      rafId = requestAnimationFrame(animate);
+    };
+
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      // Each wheel event accumulates ±1 frame step.
-      // deltaY < 0 = two fingers swipe up = see older frames = +1
-      // deltaY > 0 = two fingers swipe down = see newer frames = -1
-      pendingDelta += e.deltaY < 0 ? 1 : -1;
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          const d = pendingDelta;
-          pendingDelta = 0;
-          if (d !== 0) invoke("vterm_scroll", { id, delta: d }).catch(() => {});
-        });
-      }
+      // deltaY < 0 = swipe up = older frames = +1; deltaY > 0 = swipe down = -1
+      const step = e.deltaY < 0 ? 1 : -1;
+      pendingDelta = Math.max(-12, Math.min(12, pendingDelta + step));
+      if (rafId === null) rafId = requestAnimationFrame(animate);
     };
+
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", onWheel);
