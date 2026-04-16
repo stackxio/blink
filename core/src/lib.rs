@@ -289,6 +289,8 @@ pub fn run() {
             commands::vterm::vterm_resize,
             commands::vterm::vterm_close,
             commands::vterm::vterm_snapshot,
+            commands::vterm::vterm_set_colors,
+            commands::vterm::vterm_scroll,
             commands::workspaces::save_workspaces,
             commands::workspaces::load_workspaces,
             commands::lsp::lsp_start,

@@ -236,7 +236,12 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
   const historyRef = useRef<HTMLDivElement>(null);
 
   const wsKey = (p: string | null) => p ?? "";
-  const activeTermId = activeTermByWs[wsKey(workspacePath)] ?? null;
+  // Prefer the session pinned to the current workspace, but fall back to the
+  // most-recently-created session so sessions from other workspaces stay
+  // visible while you work in a different workspace.
+  const activeTermId =
+    activeTermByWs[wsKey(workspacePath)] ??
+    (sessions.length > 0 ? sessions[sessions.length - 1].termId : null);
 
   const [capturedIds, setCapturedIds] = useState<Record<string, string>>({});
 
@@ -245,15 +250,21 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
   const workspacePathRef = useRef<string | null>(workspacePath);
   const agentSettingsRef = useRef<AgentSettings>(agentSettings);
   const installedBinariesRef = useRef<Record<string, string>>({});
+  // Keep onStreamingChange in a ref so changing it (e.g. inline arrow in
+  // BuilderLayout) doesn't re-run the notification effect and cause an
+  // infinite render loop.
+  const onStreamingChangeRef = useRef(onStreamingChange);
   useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   useEffect(() => { capturedIdsRef.current = capturedIds; }, [capturedIds]);
   useEffect(() => { workspacePathRef.current = workspacePath; }, [workspacePath]);
   useEffect(() => { agentSettingsRef.current = agentSettings; }, [agentSettings]);
+  useEffect(() => { onStreamingChangeRef.current = onStreamingChange; }, [onStreamingChange]);
 
   // Notify parent when active session count changes (used for Builder chat tab badges)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    onStreamingChange?.(sessions.length > 0);
-  }, [sessions.length, onStreamingChange]);
+    onStreamingChangeRef.current?.(sessions.length > 0);
+  }, [sessions.length]); // intentionally omits onStreamingChange — use ref above
   useEffect(() => { installedBinariesRef.current = installedBinaries; }, [installedBinaries]);
 
   // Load history when workspace or chat changes, or drawer opens
@@ -413,10 +424,11 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
     return installedBinaries[agent.binary] || agent.binary;
   }
 
-  const visibleSessions = useMemo(
-    () => sessions.filter((s) => s.workspacePath === workspacePath),
-    [sessions, workspacePath],
-  );
+  // Show ALL sessions regardless of workspace — sessions survive workspace
+  // switches because each VTermCanvas stays mounted (PTY alive, CSS-hidden).
+  // Filtering by workspacePath previously made them disappear from view,
+  // which the user experienced as the session being "killed".
+  const visibleSessions = sessions;
 
   const sessionCounts = useMemo(
     () =>
@@ -687,17 +699,22 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
         </div>
       </div>
 
-      {/* ── Session tabs (current workspace only) ── */}
+      {/* ── Session tabs (all workspaces) ── */}
       {visibleSessions.length > 0 && (
         <div className="cli-agent-panel__tabs">
           {visibleSessions.map((s) => {
             const isActive = s.termId === activeTermId;
             const isRenaming = s.termId === renamingTermId;
+            const isForeignWs = s.workspacePath !== workspacePath;
+            const wsBasename = s.workspacePath
+              ? s.workspacePath.split("/").filter(Boolean).pop() ?? s.workspacePath
+              : null;
             return (
               <div
                 key={s.termId}
-                className={`cli-agent-panel__tab${isActive ? " cli-agent-panel__tab--active" : ""}`}
+                className={`cli-agent-panel__tab${isActive ? " cli-agent-panel__tab--active" : ""}${isForeignWs ? " cli-agent-panel__tab--foreign" : ""}`}
                 onClick={() => selectSession(s)}
+                title={isForeignWs ? `Running in ${s.workspacePath}` : undefined}
               >
                 <AgentLogo agentId={s.agentId} size={10} className="cli-agent-panel__tab-logo" />
                 {isRenaming ? (
@@ -720,6 +737,9 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
                     onDoubleClick={(e) => { e.stopPropagation(); startRename(s); }}
                   >
                     {s.label}
+                    {isForeignWs && wsBasename && (
+                      <span className="cli-agent-panel__tab-ws-badge">{wsBasename}</span>
+                    )}
                   </span>
                 )}
                 <span
@@ -841,8 +861,7 @@ export default function CliAgentPanel({ workspacePath, chatId, agentSettings, on
           />
         )}
         {sessions.map((s) => {
-          const isInActiveWorkspace = s.workspacePath === workspacePath;
-          const isVisibleTab = isInActiveWorkspace && s.termId === activeTermId;
+          const isVisibleTab = s.termId === activeTermId;
           return (
             <div
               key={s.termId}

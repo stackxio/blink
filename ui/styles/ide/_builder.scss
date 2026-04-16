@@ -569,7 +569,7 @@
 // ── Chat context menu ─────────────────────────────────────────────────────────
 
 .chat-ctx-menu {
-  background: var(--c-surface-raised);
+  background: var(--c-popover);
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
