@@ -15,6 +15,8 @@ import { git_diff, def as git_diff_def } from "./tools/git_diff";
 import { git_log, def as git_log_def } from "./tools/git_log";
 import { file_tree, def as file_tree_def } from "./tools/file_tree";
 import { git_commit, def as git_commit_def } from "./tools/git_commit";
+import { find_in_workspace, def as find_in_workspace_def } from "./tools/find_in_workspace";
+import { web_search, def as web_search_def, setApiKey } from "./tools/web_search";
 
 function tool(
   def: Record<string, unknown>,
@@ -23,7 +25,9 @@ function tool(
   return { ...(def as Omit<ToolDef, "execute">), execute: fn };
 }
 
-export function buildTools(): ToolDef[] {
+export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
+  setApiKey(config?.braveSearchApiKey ?? "");
+
   return [
     tool(read_file_def, read_file),
     tool(write_file_def, write_file),
@@ -40,5 +44,7 @@ export function buildTools(): ToolDef[] {
     tool(git_log_def, git_log),
     tool(file_tree_def, file_tree),
     tool(git_commit_def, git_commit),
+    tool(find_in_workspace_def, find_in_workspace),
+    tool(web_search_def, web_search),
   ];
 }

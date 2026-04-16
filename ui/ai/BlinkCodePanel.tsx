@@ -467,6 +467,10 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
         memory,
       );
 
+      const appSettings = await invoke<Record<string, unknown>>("get_settings").catch(() => ({} as Record<string, unknown>));
+      const toolsSettings = appSettings.tools as Record<string, unknown> | undefined;
+      const braveSearchApiKey = String(toolsSettings?.brave_search_api_key ?? "");
+
       await invoke("blink_code_bridge_start_with_init", {
         workspacePath,
         initLine: JSON.stringify({
@@ -476,6 +480,7 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
           provider: config.provider,
           maxTurns: config.maxTurns,
           requirePermission: config.requirePermission,
+          braveSearchApiKey,
         }),
       });
 

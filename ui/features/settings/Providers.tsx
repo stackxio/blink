@@ -19,10 +19,15 @@ export default function SettingsProviders() {
   const [saved, setSaved] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [fetchingModels, setFetchingModels] = useState(false);
+  const [braveApiKey, setBraveApiKey] = useState("");
 
   useEffect(() => {
     invoke<Settings>("get_settings")
-      .then(setSettings)
+      .then((s) => {
+        setSettings(s);
+        const tools = s.tools as Record<string, unknown> | undefined;
+        setBraveApiKey(String(tools?.brave_search_api_key ?? ""));
+      })
       .catch(() => {});
   }, []);
 
@@ -85,6 +90,21 @@ export default function SettingsProviders() {
           apiKey: s.custom.api_key || undefined,
         },
       });
+    }
+  }
+
+  async function saveBraveApiKey(key: string) {
+    if (!settings) return;
+    const updated = {
+      ...settings,
+      tools: { ...(settings.tools as Record<string, unknown> | undefined ?? {}), brave_search_api_key: key },
+    };
+    try {
+      await invoke("save_settings", { settings: updated });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1500);
+    } catch {
+      // non-critical
     }
   }
 
@@ -296,6 +316,40 @@ export default function SettingsProviders() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Web Search */}
+      <div className="settings-card" style={{ marginTop: 16 }}>
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Web Search</div>
+            <div className="settings-row__hint">
+              Brave Search API key enables web search in the built-in AI chat.{" "}
+              <a
+                href="https://brave.com/search/api/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "var(--c-accent)" }}
+              >
+                Get an API key
+              </a>
+            </div>
+          </div>
+        </div>
+        <div
+          className="settings-row settings-row--col"
+          style={{ borderTop: "1px solid var(--c-border)" }}
+        >
+          <input
+            type="password"
+            className="input input--sm"
+            placeholder="Brave Search API key"
+            value={braveApiKey}
+            onChange={(e) => setBraveApiKey(e.target.value)}
+            onBlur={(e) => saveBraveApiKey(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </div>
       </div>
 
       {saved && (

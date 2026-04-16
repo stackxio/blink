@@ -1,6 +1,20 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolsSettings {
+    #[serde(default)]
+    pub brave_search_api_key: String,
+}
+
+impl Default for ToolsSettings {
+    fn default() -> Self {
+        Self {
+            brave_search_api_key: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlinkSettings {
     pub active_provider: String,
     #[serde(default = "default_prompt_mode")]
@@ -18,6 +32,8 @@ pub struct BlinkSettings {
     pub editor: EditorSettings,
     #[serde(default)]
     pub appearance: AppearanceSettings,
+    #[serde(default)]
+    pub tools: ToolsSettings,
 }
 
 fn default_prompt_mode() -> String {
@@ -175,6 +191,7 @@ impl Default for BlinkSettings {
             claude_code: ClaudeCodeSettings::default(),
             editor: EditorSettings::default(),
             appearance: AppearanceSettings::default(),
+            tools: ToolsSettings::default(),
         }
     }
 }

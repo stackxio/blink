@@ -6,6 +6,7 @@ import * as os from "node:os";
 import { createProvider } from "./panel/providers";
 import { BlinkEngine } from "./panel/engine";
 import { buildTools } from "./tools";
+import { indexer } from "./services/workspace-indexer";
 import type { ProviderConfig } from "./panel/config";
 import type { BlinkMessage, BlinkToolCall } from "./panel/providers/types";
 
@@ -39,6 +40,7 @@ const pendingPermissions = new Map<string, (allowed: boolean) => void>();
 
 let engine: BlinkEngine | null = null;
 let providerBundle: ProviderBundle | null = null;
+let braveApiKey = "";
 
 let currentAssistantMsgId: string | null = null;
 let chatInProgress = false;
@@ -227,7 +229,7 @@ function ensureEngine(): BlinkEngine {
   }
 
   const provider = createProvider(providerBundle.provider);
-  const tools = providerBundle.allowTools ? buildTools() : [];
+  const tools = providerBundle.allowTools ? buildTools({ braveSearchApiKey: braveApiKey }) : [];
 
   return new BlinkEngine({
     provider,
@@ -318,6 +320,7 @@ rl.on("line", async (line) => {
 
   if (msg.type === "init") {
     const workspacePath = String(msg.workspacePath ?? process.cwd());
+    braveApiKey = String(msg.braveSearchApiKey ?? "");
     providerBundle = {
       provider: msg.provider as ProviderConfig,
       maxTurns: msg.maxTurns as number,
@@ -326,6 +329,9 @@ rl.on("line", async (line) => {
       allowTools: msg.allowTools !== false,
       persistSession: msg.persistSession !== false,
     };
+
+    // Start workspace indexing in background (fire and forget)
+    indexer.index(workspacePath).catch(() => {});
 
     if (providerBundle.persistSession) {
       await initThreads(workspacePath);
