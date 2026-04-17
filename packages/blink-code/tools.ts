@@ -20,6 +20,9 @@ import { web_search, def as web_search_def, setApiKey } from "./tools/web_search
 import { read_url, def as read_url_def } from "./tools/read_url";
 import { http_request, def as http_request_def } from "./tools/http_request";
 import { run_tests, def as run_tests_def } from "./tools/run_tests";
+import { get_env, def as get_env_def } from "./tools/get_env";
+import { diff_files, def as diff_files_def } from "./tools/diff_files";
+import { workspace_symbol_search, def as workspace_symbol_search_def } from "./tools/workspace_symbol_search";
 
 function tool(
   def: Record<string, unknown>,
@@ -52,5 +55,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(read_url_def, read_url),
     tool(http_request_def, http_request),
     tool(run_tests_def, run_tests),
+    tool(get_env_def, get_env),
+    tool(diff_files_def, diff_files),
+    tool(workspace_symbol_search_def, workspace_symbol_search),
   ];
 }
