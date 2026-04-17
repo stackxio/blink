@@ -87,6 +87,11 @@ import { git_author_stats, def as git_author_stats_def } from "./tools/git_autho
 import { json_to_schema, def as json_to_schema_def } from "./tools/json_to_schema";
 import { git_pr_info, def as git_pr_info_def } from "./tools/git_pr_info";
 import { patch_apply, def as patch_apply_def } from "./tools/patch_apply";
+import { make_release_notes, def as make_release_notes_def } from "./tools/make_release_notes";
+import { test_coverage, def as test_coverage_def } from "./tools/test_coverage";
+import { git_clean, def as git_clean_def } from "./tools/git_clean";
+import { template_render, def as template_render_def } from "./tools/template_render";
+import { dependency_graph, def as dependency_graph_def } from "./tools/dependency_graph";
 
 function tool(
   def: Record<string, unknown>,
@@ -186,5 +191,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(json_to_schema_def, json_to_schema),
     tool(git_pr_info_def, git_pr_info),
     tool(patch_apply_def, patch_apply),
+    tool(make_release_notes_def, make_release_notes),
+    tool(test_coverage_def, test_coverage),
+    tool(git_clean_def, git_clean),
+    tool(template_render_def, template_render),
+    tool(dependency_graph_def, dependency_graph),
   ];
 }
