@@ -36,6 +36,15 @@ function useSyncSettingsToLocalStorage() {
         if (appearance?.theme) {
           changeTheme(appearance.theme as Theme);
         }
+        const terminal = s.terminal as Record<string, unknown> | undefined;
+        if (terminal) {
+          if (terminal.font_size != null)
+            localStorage.setItem("codrift:termFontSize", String(terminal.font_size));
+          if (terminal.cursor_style != null)
+            localStorage.setItem("codrift:termCursorStyle", String(terminal.cursor_style));
+          if (terminal.scrollback != null)
+            localStorage.setItem("codrift:termScrollback", String(terminal.scrollback));
+        }
       })
       .catch(() => {});
   }, []);

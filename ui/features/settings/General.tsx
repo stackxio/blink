@@ -33,16 +33,24 @@ interface EditorSettings {
   mouse_wheel_zoom: boolean;
 }
 
+interface TerminalSettings {
+  font_size: number;
+  cursor_style: string;
+  scrollback: number;
+}
+
 interface Settings {
   active_provider: string;
   codex: { model: string };
   ollama: { endpoint: string; model: string };
   custom: { endpoint: string; model: string; api_key: string };
   editor: EditorSettings;
+  terminal: TerminalSettings;
 }
 
 const FONT_SIZES = [11, 12, 13, 14, 15, 16, 18, 20];
 const TAB_SIZES = [2, 4, 8];
+const CURSOR_STYLES = ["block", "underline", "bar"] as const;
 
 export default function SettingsGeneral() {
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -212,9 +220,39 @@ export default function SettingsGeneral() {
     }
   }
 
+  async function updateTerminal(patch: Partial<TerminalSettings>) {
+    if (!settings) return;
+    const updated: Settings = {
+      ...settings,
+      terminal: { ...settings.terminal, ...patch },
+    };
+    setSettings(updated);
+    if ("font_size" in patch) {
+      localStorage.setItem("codrift:termFontSize", String(patch.font_size));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:termFontSize", newValue: String(patch.font_size) }),
+      );
+    }
+    if ("cursor_style" in patch) {
+      localStorage.setItem("codrift:termCursorStyle", String(patch.cursor_style));
+      window.dispatchEvent(
+        new StorageEvent("storage", { key: "codrift:termCursorStyle", newValue: String(patch.cursor_style) }),
+      );
+    }
+    if ("scrollback" in patch) {
+      localStorage.setItem("codrift:termScrollback", String(patch.scrollback));
+    }
+    try {
+      await invoke("save_settings", { settings: updated });
+    } catch {
+      setSettings(settings);
+    }
+  }
+
   if (!settings) return null;
 
   const { editor } = settings;
+  const terminal: TerminalSettings = settings.terminal ?? { font_size: 13, cursor_style: "block", scrollback: 1000 };
 
   return (
     <div className="settings-section">
@@ -491,6 +529,63 @@ export default function SettingsGeneral() {
               Create a <code>.codrift.json</code> file in your project root to override editor
               settings per-project (tabSize, fontSize, wordWrap, minimap, indentGuides).
             </div>
+          </div>
+        </div>
+      </div>
+
+      <h2 className="settings-section__subtitle">Terminal</h2>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Font size</div>
+            <div className="settings-row__hint">Terminal font size in pixels.</div>
+          </div>
+          <select
+            className="input input--sm"
+            value={terminal.font_size}
+            onChange={(e) => updateTerminal({ font_size: parseInt(e.target.value, 10) })}
+          >
+            {FONT_SIZES.map((v) => (
+              <option key={v} value={v}>{v}px</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Cursor style</div>
+            <div className="settings-row__hint">Shape of the terminal cursor.</div>
+          </div>
+          <div className="segment-control">
+            {CURSOR_STYLES.map((style) => (
+              <button
+                key={style}
+                type="button"
+                className={`segment-control__item ${terminal.cursor_style === style ? "segment-control__item--active" : ""}`}
+                onClick={() => updateTerminal({ cursor_style: style })}
+              >
+                {style.charAt(0).toUpperCase() + style.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Scrollback lines</div>
+            <div className="settings-row__hint">Number of lines kept in terminal history.</div>
+          </div>
+          <div className="segment-control">
+            {[500, 1000, 5000, 10000].map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`segment-control__item ${terminal.scrollback === v ? "segment-control__item--active" : ""}`}
+                onClick={() => updateTerminal({ scrollback: v })}
+              >
+                {v >= 1000 ? `${v / 1000}k` : v}
+              </button>
+            ))}
           </div>
         </div>
       </div>

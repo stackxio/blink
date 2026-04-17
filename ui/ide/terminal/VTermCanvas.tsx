@@ -25,10 +25,21 @@ import { listen } from "@tauri-apps/api/event";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const FONT_SIZE = 13;
+const DEFAULT_FONT_SIZE = 13;
 const LINE_HEIGHT = 1.2;
 const FONT_FAMILY =
   '"JetBrains Mono", "Apple Symbols", Menlo, "SF Mono", Consolas, monospace';
+
+function getTermFontSize(): number {
+  const v = parseInt(localStorage.getItem("codrift:termFontSize") ?? "", 10);
+  return isNaN(v) ? DEFAULT_FONT_SIZE : v;
+}
+
+function getTermCursorStyle(): "block" | "underline" | "bar" {
+  const v = localStorage.getItem("codrift:termCursorStyle");
+  if (v === "underline" || v === "bar") return v;
+  return "block";
+}
 const CELL_BYTES = 12;
 const HEADER_BYTES = 8;
 
@@ -71,16 +82,16 @@ interface CellSize {
   baseline: number;
 }
 
-function measureCellSize(): CellSize {
+function measureCellSize(fontSize = DEFAULT_FONT_SIZE): CellSize {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d")!;
-  ctx.font = `${FONT_SIZE}px ${FONT_FAMILY}`;
+  ctx.font = `${fontSize}px ${FONT_FAMILY}`;
   const metrics = ctx.measureText("M");
   const w = Math.ceil(metrics.width);
-  const h = Math.ceil(FONT_SIZE * LINE_HEIGHT);
+  const h = Math.ceil(fontSize * LINE_HEIGHT);
   // ascent from the top of the cell
   const baseline = Math.ceil(
-    metrics.actualBoundingBoxAscent ?? FONT_SIZE * 0.8
+    metrics.actualBoundingBoxAscent ?? fontSize * 0.8
   );
   return { w, h, baseline };
 }
@@ -166,7 +177,9 @@ function decodeFrame(base64: string): DecodedFrame | null {
 function renderFrame(
   ctx: CanvasRenderingContext2D,
   frame: DecodedFrame,
-  cell: CellSize
+  cell: CellSize,
+  fontSize = DEFAULT_FONT_SIZE,
+  cursorStyle: "block" | "underline" | "bar" = "block",
 ) {
   const { cols, rows, cursorX, cursorY, bytes } = frame;
   const { w: cw, h: ch, baseline } = cell;
@@ -207,14 +220,20 @@ function renderFrame(
       ctx.fillStyle = `rgb(${drawBgR},${drawBgG},${drawBgB})`;
       ctx.fillRect(x, y, cw, ch);
 
-      // Cursor block (rendered before the character so text is visible on top)
+      // Cursor (rendered before the character so text stays visible on top)
       if (isCursor) {
         ctx.fillStyle = "rgba(212,212,212,0.85)";
-        ctx.fillRect(x, y, cw, ch);
+        if (cursorStyle === "block") {
+          ctx.fillRect(x, y, cw, ch);
+        } else if (cursorStyle === "underline") {
+          ctx.fillRect(x, y + ch - 2, cw, 2);
+        } else {
+          // bar
+          ctx.fillRect(x, y, 2, ch);
+        }
       }
 
-      // Character — guard against wide-char continuation cells and
-      // any other out-of-range code points the vt100 crate may emit.
+      // Character
       const isValidCp =
         cp > 0x20 &&
         cp <= 0x10ffff &&
@@ -223,11 +242,10 @@ function renderFrame(
         const char = String.fromCodePoint(cp);
         const fontStyle = italic ? "italic " : "";
         const fontWeight = bold ? "bold " : "";
-        ctx.font = `${fontStyle}${fontWeight}${FONT_SIZE}px ${FONT_FAMILY}`;
+        ctx.font = `${fontStyle}${fontWeight}${fontSize}px ${FONT_FAMILY}`;
         ctx.textBaseline = "alphabetic";
 
-        if (isCursor) {
-          // Invert character colour on cursor cell
+        if (isCursor && cursorStyle === "block") {
           ctx.fillStyle = `rgb(${drawBgR},${drawBgG},${drawBgB})`;
         } else {
           ctx.fillStyle = `rgb(${drawFgR},${drawFgG},${drawFgB})`;
@@ -243,15 +261,22 @@ function renderFrame(
     }
   }
 
-  // Blinking cursor outline for empty cells
+  // Cursor outline for empty cells / non-block styles fallback
   if (cursorY < rows && cursorX < cols) {
     const offset = HEADER_BYTES + (cursorY * cols + cursorX) * CELL_BYTES;
     const isCursorCell = (bytes[offset + 11] ?? 0) === 1;
     if (!isCursorCell) {
-      // Cursor wasn't in any cell (shouldn't happen) — draw outline anyway
       ctx.strokeStyle = "rgba(212,212,212,0.85)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(cursorX * cw + 0.5, cursorY * ch + 0.5, cw - 1, ch - 1);
+      if (cursorStyle === "block") {
+        ctx.strokeRect(cursorX * cw + 0.5, cursorY * ch + 0.5, cw - 1, ch - 1);
+      } else if (cursorStyle === "underline") {
+        ctx.fillStyle = "rgba(212,212,212,0.85)";
+        ctx.fillRect(cursorX * cw, cursorY * ch + ch - 2, cw, 2);
+      } else {
+        ctx.fillStyle = "rgba(212,212,212,0.85)";
+        ctx.fillRect(cursorX * cw, cursorY * ch, 2, ch);
+      }
     }
   }
 }
@@ -274,16 +299,18 @@ export function VTermCanvas({
   spawn?: VTermSpawnConfig;
   onData?: (chunk: string) => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const canvasRef    = useRef<HTMLCanvasElement>(null);
-  const cellRef      = useRef<CellSize>({ w: 8, h: 16, baseline: 12 });
-  const frameRef     = useRef<DecodedFrame | null>(null);
-  const mountedRef   = useRef(false);
-  const colsRef      = useRef(80);
-  const rowsRef      = useRef(24);
+  const containerRef   = useRef<HTMLDivElement>(null);
+  const canvasRef      = useRef<HTMLCanvasElement>(null);
+  const cellRef        = useRef<CellSize>({ w: 8, h: 16, baseline: 12 });
+  const frameRef       = useRef<DecodedFrame | null>(null);
+  const mountedRef     = useRef(false);
+  const colsRef        = useRef(80);
+  const rowsRef        = useRef(24);
+  const fontSizeRef    = useRef(getTermFontSize());
+  const cursorStyleRef = useRef<"block" | "underline" | "bar">(getTermCursorStyle());
   // Keep onData in a ref so changing it doesn't re-run the mount effect
   // (which would recreate the terminal on every CliAgentPanel re-render).
-  const onDataRef    = useRef(onData);
+  const onDataRef      = useRef(onData);
   useEffect(() => { onDataRef.current = onData; }, [onData]);
 
   const draw = useCallback(() => {
@@ -311,7 +338,7 @@ export function VTermCanvas({
     }
     // Scale so renderFrame can use logical (CSS) pixel coordinates.
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    renderFrame(ctx, frame, cellRef.current);
+    renderFrame(ctx, frame, cellRef.current, fontSizeRef.current, cursorStyleRef.current);
   }, []);
 
   const computeSize = useCallback((): { cols: number; rows: number } => {
@@ -374,7 +401,29 @@ export function VTermCanvas({
       if (disposed) return;
 
       // Measure cell size with the loaded font
-      cellRef.current = measureCellSize();
+      cellRef.current = measureCellSize(fontSizeRef.current);
+
+      // Re-measure and redraw when terminal font size or cursor style changes
+      const onStorage = (e: StorageEvent) => {
+        if (e.key === "codrift:termFontSize" && e.newValue) {
+          const fs = parseInt(e.newValue, 10);
+          if (!isNaN(fs)) {
+            fontSizeRef.current = fs;
+            cellRef.current = measureCellSize(fs);
+            const { cols: c, rows: r } = computeSize();
+            if (c !== colsRef.current || r !== rowsRef.current) {
+              colsRef.current = c; rowsRef.current = r;
+              invoke("vterm_resize", { id, rows: r, cols: c }).catch(() => {});
+            }
+            if (frameRef.current) requestAnimationFrame(draw);
+          }
+        }
+        if (e.key === "codrift:termCursorStyle" && e.newValue) {
+          cursorStyleRef.current = (e.newValue as "block" | "underline" | "bar");
+          if (frameRef.current) requestAnimationFrame(draw);
+        }
+      };
+      window.addEventListener("storage", onStorage);
 
       // Wait for layout to settle
       await new Promise<void>((r) =>
@@ -470,6 +519,7 @@ export function VTermCanvas({
       unlisten?.();
       ro?.disconnect();
       themeObserver?.disconnect();
+      window.removeEventListener("storage", onStorage);
       if (resizeTimer) clearTimeout(resizeTimer);
       mountedRef.current = false;
     };

@@ -34,6 +34,8 @@ pub struct BlinkSettings {
     pub appearance: AppearanceSettings,
     #[serde(default)]
     pub tools: ToolsSettings,
+    #[serde(default)]
+    pub terminal: TerminalSettings,
 }
 
 fn default_prompt_mode() -> String {
@@ -146,6 +148,30 @@ impl Default for EditorSettings {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSettings {
+    #[serde(default = "default_terminal_font_size")]
+    pub font_size: u8,
+    #[serde(default = "default_cursor_style")]
+    pub cursor_style: String,
+    #[serde(default = "default_scrollback")]
+    pub scrollback: u32,
+}
+
+fn default_terminal_font_size() -> u8 { 13 }
+fn default_cursor_style() -> String { "block".to_string() }
+fn default_scrollback() -> u32 { 1000 }
+
+impl Default for TerminalSettings {
+    fn default() -> Self {
+        Self {
+            font_size: 13,
+            cursor_style: "block".to_string(),
+            scrollback: 1000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppearanceSettings {
     #[serde(default = "default_theme")]
     pub theme: String,
@@ -192,6 +218,7 @@ impl Default for BlinkSettings {
             editor: EditorSettings::default(),
             appearance: AppearanceSettings::default(),
             tools: ToolsSettings::default(),
+            terminal: TerminalSettings::default(),
         }
     }
 }
