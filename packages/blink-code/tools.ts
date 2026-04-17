@@ -32,6 +32,9 @@ import { check_port, def as check_port_def } from "./tools/check_port";
 import { dependency_check, def as dependency_check_def } from "./tools/dependency_check";
 import { get_recent_changes, def as get_recent_changes_def } from "./tools/get_recent_changes";
 import { format_file, def as format_file_def } from "./tools/format_file";
+import { get_git_remotes, def as get_git_remotes_def } from "./tools/get_git_remotes";
+import { file_history, def as file_history_def } from "./tools/file_history";
+import { generate_interface, def as generate_interface_def } from "./tools/generate_interface";
 
 function tool(
   def: Record<string, unknown>,
@@ -76,5 +79,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(dependency_check_def, dependency_check),
     tool(get_recent_changes_def, get_recent_changes),
     tool(format_file_def, format_file),
+    tool(get_git_remotes_def, get_git_remotes),
+    tool(file_history_def, file_history),
+    tool(generate_interface_def, generate_interface),
   ];
 }

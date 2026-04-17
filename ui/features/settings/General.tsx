@@ -249,6 +249,10 @@ export default function SettingsGeneral() {
     }
   }
 
+  const [streamingDelay, setStreamingDelay] = useState(
+    () => parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10),
+  );
+
   if (!settings) return null;
 
   const { editor } = settings;
@@ -548,14 +552,16 @@ export default function SettingsGeneral() {
               min={0}
               max={80}
               step={5}
-              defaultValue={parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10)}
+              value={streamingDelay}
               onChange={(e) => {
-                localStorage.setItem("codrift:streamingDelay", e.target.value);
+                const v = parseInt(e.target.value, 10);
+                setStreamingDelay(v);
+                localStorage.setItem("codrift:streamingDelay", String(v));
               }}
               style={{ width: 90 }}
             />
-            <span className="settings-row__hint" style={{ minWidth: 36 }}>
-              {parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10)}ms
+            <span className="settings-row__hint" style={{ minWidth: 36, textAlign: "right" }}>
+              {streamingDelay === 0 ? "off" : `${streamingDelay}ms`}
             </span>
           </div>
         </div>
