@@ -23,6 +23,9 @@ import { run_tests, def as run_tests_def } from "./tools/run_tests";
 import { get_env, def as get_env_def } from "./tools/get_env";
 import { diff_files, def as diff_files_def } from "./tools/diff_files";
 import { workspace_symbol_search, def as workspace_symbol_search_def } from "./tools/workspace_symbol_search";
+import { list_npm_scripts, def as list_npm_scripts_def } from "./tools/list_npm_scripts";
+import { get_file_outline, def as get_file_outline_def } from "./tools/get_file_outline";
+import { count_tokens, def as count_tokens_def } from "./tools/count_tokens";
 
 function tool(
   def: Record<string, unknown>,
@@ -58,5 +61,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(get_env_def, get_env),
     tool(diff_files_def, diff_files),
     tool(workspace_symbol_search_def, workspace_symbol_search),
+    tool(list_npm_scripts_def, list_npm_scripts),
+    tool(get_file_outline_def, get_file_outline),
+    tool(count_tokens_def, count_tokens),
   ];
 }

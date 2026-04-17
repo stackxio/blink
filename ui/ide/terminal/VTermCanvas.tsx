@@ -396,33 +396,33 @@ export function VTermCanvas({
     let ro: ResizeObserver | null = null;
     let themeObserver: MutationObserver | null = null;
 
+    // Hoist onStorage to outer scope so the cleanup return can reference it
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "codrift:termFontSize" && e.newValue) {
+        const fs = parseInt(e.newValue, 10);
+        if (!isNaN(fs)) {
+          fontSizeRef.current = fs;
+          cellRef.current = measureCellSize(fs);
+          const { cols: c, rows: r } = computeSize();
+          if (c !== colsRef.current || r !== rowsRef.current) {
+            colsRef.current = c; rowsRef.current = r;
+            invoke("vterm_resize", { id, rows: r, cols: c }).catch(() => {});
+          }
+          if (frameRef.current) requestAnimationFrame(draw);
+        }
+      }
+      if (e.key === "codrift:termCursorStyle" && e.newValue) {
+        cursorStyleRef.current = (e.newValue as "block" | "underline" | "bar");
+        if (frameRef.current) requestAnimationFrame(draw);
+      }
+    };
+
     const run = async () => {
       await ensureFont();
       if (disposed) return;
 
       // Measure cell size with the loaded font
       cellRef.current = measureCellSize(fontSizeRef.current);
-
-      // Re-measure and redraw when terminal font size or cursor style changes
-      const onStorage = (e: StorageEvent) => {
-        if (e.key === "codrift:termFontSize" && e.newValue) {
-          const fs = parseInt(e.newValue, 10);
-          if (!isNaN(fs)) {
-            fontSizeRef.current = fs;
-            cellRef.current = measureCellSize(fs);
-            const { cols: c, rows: r } = computeSize();
-            if (c !== colsRef.current || r !== rowsRef.current) {
-              colsRef.current = c; rowsRef.current = r;
-              invoke("vterm_resize", { id, rows: r, cols: c }).catch(() => {});
-            }
-            if (frameRef.current) requestAnimationFrame(draw);
-          }
-        }
-        if (e.key === "codrift:termCursorStyle" && e.newValue) {
-          cursorStyleRef.current = (e.newValue as "block" | "underline" | "bar");
-          if (frameRef.current) requestAnimationFrame(draw);
-        }
-      };
       window.addEventListener("storage", onStorage);
 
       // Wait for layout to settle
