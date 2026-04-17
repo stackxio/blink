@@ -533,6 +533,44 @@ export default function SettingsGeneral() {
         </div>
       </div>
 
+      <h2 className="settings-section__subtitle">AI Chat</h2>
+      <div className="settings-card">
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Streaming delay</div>
+            <div className="settings-row__hint">
+              Add a typewriter delay between streamed AI tokens (0 = instant, 50ms = slow).
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="range"
+              min={0}
+              max={80}
+              step={5}
+              defaultValue={parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10)}
+              onChange={(e) => {
+                localStorage.setItem("codrift:streamingDelay", e.target.value);
+              }}
+              style={{ width: 90 }}
+            />
+            <span className="settings-row__hint" style={{ minWidth: 36 }}>
+              {parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10)}ms
+            </span>
+          </div>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-row__info">
+            <div className="settings-row__label">Workspace AI rules</div>
+            <div className="settings-row__hint">
+              Create a <code>.codrift</code> file in your project root with custom instructions.
+              The AI reads it automatically on every session start.
+            </div>
+          </div>
+        </div>
+      </div>
+
       <h2 className="settings-section__subtitle">Terminal</h2>
       <div className="settings-card">
         <div className="settings-row">

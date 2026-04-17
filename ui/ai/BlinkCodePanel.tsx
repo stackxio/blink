@@ -319,10 +319,18 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
       const next = (pendingTextDeltasRef.current.get(assistantMsgId) ?? "") + delta;
       pendingTextDeltasRef.current.set(assistantMsgId, next);
       if (textDeltaFrameRef.current != null) return;
-      textDeltaFrameRef.current = requestAnimationFrame(() => {
-        textDeltaFrameRef.current = null;
-        flushPendingTextDeltas();
-      });
+      const delay = parseInt(localStorage.getItem("codrift:streamingDelay") ?? "0", 10);
+      if (delay > 0) {
+        textDeltaFrameRef.current = setTimeout(() => {
+          textDeltaFrameRef.current = null;
+          flushPendingTextDeltas();
+        }, delay) as unknown as number;
+      } else {
+        textDeltaFrameRef.current = requestAnimationFrame(() => {
+          textDeltaFrameRef.current = null;
+          flushPendingTextDeltas();
+        });
+      }
     },
     [flushPendingTextDeltas],
   );
@@ -471,12 +479,20 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
       const toolsSettings = appSettings.tools as Record<string, unknown> | undefined;
       const braveSearchApiKey = String(toolsSettings?.brave_search_api_key ?? "");
 
+      // Read .codrift workspace rules file if present and append to system prompt
+      const codriftRules = await invoke<string>("read_file_content", {
+        path: `${workspacePath}/.codrift`,
+      }).catch(() => "");
+      const finalSystemPrompt = codriftRules.trim()
+        ? `${systemPrompt}\n\n# Workspace Rules (.codrift)\n${codriftRules.trim()}`
+        : systemPrompt;
+
       await invoke("blink_code_bridge_start_with_init", {
         workspacePath,
         initLine: JSON.stringify({
           type: "init",
           workspacePath,
-          systemPrompt,
+          systemPrompt: finalSystemPrompt,
           provider: config.provider,
           maxTurns: config.maxTurns,
           requirePermission: config.requirePermission,
