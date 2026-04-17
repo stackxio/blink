@@ -490,44 +490,32 @@ export function VTermCanvas({
 
   // Mouse wheel — attached as a non-passive native listener so preventDefault()
   // actually stops the event from bubbling to the parent scrollable container.
-  // React's synthetic onWheel is passive by default (since React 17), which
-  // means e.preventDefault() is silently ignored there.
   //
   // Scroll direction (Mac natural scrolling):
   //   deltaY < 0  →  two-finger swipe UP  →  see older content  →  +delta (increase offset)
   //   deltaY > 0  →  two-finger swipe DOWN →  see newer content  →  -delta (decrease offset)
   //
-  // We batch with rAF so rapid trackpad events don't spam Tauri IPC.
+  // Hard throttle: at most 1 step per 150 ms so even a hard flick scrolls
+  // ≤7 frames (~700 ms of history).  rAF-batching alone isn't enough because
+  // rAF fires at 60 fps — a half-second swipe would still send 18–36 steps.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    let rafId: number | null = null;
-    let pendingDelta = 0;
+    let lastScrollTime = 0;
+    const THROTTLE_MS = 150;
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      // ±1 per wheel tick. A trackpad swipe fires 30–50 events; capping at ±3
-      // means the hardest flick sends 3 frame steps max per rAF batch.
-      // With 100ms frame-sampling on the Rust side, 3 steps = ~300ms of history.
+      const now = Date.now();
+      if (now - lastScrollTime < THROTTLE_MS) return;
+      lastScrollTime = now;
       const step = e.deltaY < 0 ? 1 : -1;
-      pendingDelta += step;
-      pendingDelta = Math.max(-3, Math.min(3, pendingDelta));
-      if (rafId === null) {
-        rafId = requestAnimationFrame(() => {
-          rafId = null;
-          const d = pendingDelta;
-          pendingDelta = 0;
-          if (d !== 0) invoke("vterm_scroll", { id, delta: d }).catch(() => {});
-        });
-      }
+      invoke("vterm_scroll", { id, delta: step }).catch(() => {});
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
-    return () => {
-      el.removeEventListener("wheel", onWheel);
-      if (rafId !== null) cancelAnimationFrame(rafId);
-    };
+    return () => el.removeEventListener("wheel", onWheel);
   }, [id]);
 
   return (
