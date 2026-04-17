@@ -57,6 +57,11 @@ import { bulk_rename, def as bulk_rename_def } from "./tools/bulk_rename";
 import { get_package_info, def as get_package_info_def } from "./tools/get_package_info";
 import { image_info, def as image_info_def } from "./tools/image_info";
 import { create_file_template, def as create_file_template_def } from "./tools/create_file_template";
+import { git_cherry_pick, def as git_cherry_pick_def } from "./tools/git_cherry_pick";
+import { summarize_directory, def as summarize_directory_def } from "./tools/summarize_directory";
+import { env_diff, def as env_diff_def } from "./tools/env_diff";
+import { check_accessibility, def as check_accessibility_def } from "./tools/check_accessibility";
+import { measure_performance, def as measure_performance_def } from "./tools/measure_performance";
 
 function tool(
   def: Record<string, unknown>,
@@ -126,5 +131,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(get_package_info_def, get_package_info),
     tool(image_info_def, image_info),
     tool(create_file_template_def, create_file_template),
+    tool(git_cherry_pick_def, git_cherry_pick),
+    tool(summarize_directory_def, summarize_directory),
+    tool(env_diff_def, env_diff),
+    tool(check_accessibility_def, check_accessibility),
+    tool(measure_performance_def, measure_performance),
   ];
 }
