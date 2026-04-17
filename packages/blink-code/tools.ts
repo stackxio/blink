@@ -17,6 +17,9 @@ import { file_tree, def as file_tree_def } from "./tools/file_tree";
 import { git_commit, def as git_commit_def } from "./tools/git_commit";
 import { find_in_workspace, def as find_in_workspace_def } from "./tools/find_in_workspace";
 import { web_search, def as web_search_def, setApiKey } from "./tools/web_search";
+import { read_url, def as read_url_def } from "./tools/read_url";
+import { http_request, def as http_request_def } from "./tools/http_request";
+import { run_tests, def as run_tests_def } from "./tools/run_tests";
 
 function tool(
   def: Record<string, unknown>,
@@ -46,5 +49,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(git_commit_def, git_commit),
     tool(find_in_workspace_def, find_in_workspace),
     tool(web_search_def, web_search),
+    tool(read_url_def, read_url),
+    tool(http_request_def, http_request),
+    tool(run_tests_def, run_tests),
   ];
 }
