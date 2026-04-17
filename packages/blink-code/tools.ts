@@ -47,6 +47,11 @@ import { base64, def as base64_def } from "./tools/base64";
 import { generate_uuid, def as generate_uuid_def } from "./tools/generate_uuid";
 import { json_format, def as json_format_def } from "./tools/json_format";
 import { hash, def as hash_def } from "./tools/hash";
+import { timestamp, def as timestamp_def } from "./tools/timestamp";
+import { url_parse, def as url_parse_def } from "./tools/url_parse";
+import { string_transform, def as string_transform_def } from "./tools/string_transform";
+import { math_eval, def as math_eval_def } from "./tools/math_eval";
+import { search_replace, def as search_replace_def } from "./tools/search_replace";
 
 function tool(
   def: Record<string, unknown>,
@@ -106,5 +111,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(generate_uuid_def, generate_uuid),
     tool(json_format_def, json_format),
     tool(hash_def, hash),
+    tool(timestamp_def, timestamp),
+    tool(url_parse_def, url_parse),
+    tool(string_transform_def, string_transform),
+    tool(math_eval_def, math_eval),
+    tool(search_replace_def, search_replace),
   ];
 }
