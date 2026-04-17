@@ -29,6 +29,9 @@ import { count_tokens, def as count_tokens_def } from "./tools/count_tokens";
 import { project_stats, def as project_stats_def } from "./tools/project_stats";
 import { find_todos, def as find_todos_def } from "./tools/find_todos";
 import { check_port, def as check_port_def } from "./tools/check_port";
+import { dependency_check, def as dependency_check_def } from "./tools/dependency_check";
+import { get_recent_changes, def as get_recent_changes_def } from "./tools/get_recent_changes";
+import { format_file, def as format_file_def } from "./tools/format_file";
 
 function tool(
   def: Record<string, unknown>,
@@ -70,5 +73,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(project_stats_def, project_stats),
     tool(find_todos_def, find_todos),
     tool(check_port_def, check_port),
+    tool(dependency_check_def, dependency_check),
+    tool(get_recent_changes_def, get_recent_changes),
+    tool(format_file_def, format_file),
   ];
 }
