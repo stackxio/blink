@@ -35,6 +35,12 @@ import { format_file, def as format_file_def } from "./tools/format_file";
 import { get_git_remotes, def as get_git_remotes_def } from "./tools/get_git_remotes";
 import { file_history, def as file_history_def } from "./tools/file_history";
 import { generate_interface, def as generate_interface_def } from "./tools/generate_interface";
+import { git_blame, def as git_blame_def } from "./tools/git_blame";
+import { read_multiple_files, def as read_multiple_files_def } from "./tools/read_multiple_files";
+import { compare_branches, def as compare_branches_def } from "./tools/compare_branches";
+import { run_linter, def as run_linter_def } from "./tools/run_linter";
+import { install_dependency, def as install_dependency_def } from "./tools/install_dependency";
+import { git_branch, def as git_branch_def } from "./tools/git_branch";
 
 function tool(
   def: Record<string, unknown>,
@@ -82,5 +88,11 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(get_git_remotes_def, get_git_remotes),
     tool(file_history_def, file_history),
     tool(generate_interface_def, generate_interface),
+    tool(git_blame_def, git_blame),
+    tool(read_multiple_files_def, read_multiple_files),
+    tool(compare_branches_def, compare_branches),
+    tool(run_linter_def, run_linter),
+    tool(install_dependency_def, install_dependency),
+    tool(git_branch_def, git_branch),
   ];
 }
