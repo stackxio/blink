@@ -21,6 +21,7 @@ import {
   Folder,
   Download,
   RefreshCw,
+  Clipboard,
 } from "lucide-react";
 import CliAgentPanel from "./CliAgentPanel";
 import { AgentLogo } from "./agent-logos";
@@ -226,6 +227,7 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
   }, [chatId, messages]);
   const [permReq, setPermReq] = useState<PermReq | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [chatCopied, setChatCopied] = useState(false);
   const [slashSuggestions, setSlashSuggestions] = useState<typeof SLASH_COMMANDS>([]);
   const [slashIdx, setSlashIdx] = useState(0);
   const [mode, setMode] = useState<ChatMode>("agent");
@@ -922,8 +924,7 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
     await sendMessageToAI(lastUserMessage);
   }
 
-  function handleExport() {
-    if (messages.length === 0 || streaming) return;
+  function buildChatMarkdown(): string {
     let md = "";
     for (const msg of messages) {
       if (!msg.content) continue;
@@ -939,6 +940,12 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
         md += `*${msg.content}*\n\n---\n\n`;
       }
     }
+    return md;
+  }
+
+  function handleExport() {
+    if (messages.length === 0 || streaming) return;
+    const md = buildChatMarkdown();
     const blob = new Blob([md], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1435,14 +1442,30 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
 
         <div className="blink-panel__header-actions">
           {messages.length > 0 && !streaming && (
-            <button
-              type="button"
-              className="blink-panel__icon-btn"
-              title="Export conversation"
-              onClick={handleExport}
-            >
-              <Download size={14} />
-            </button>
+            <>
+              <button
+                type="button"
+                className="blink-panel__icon-btn"
+                title="Copy conversation to clipboard"
+                onClick={() => {
+                  const md = buildChatMarkdown();
+                  navigator.clipboard.writeText(md).then(() => {
+                    setChatCopied(true);
+                    setTimeout(() => setChatCopied(false), 2000);
+                  }).catch(() => {});
+                }}
+              >
+                {chatCopied ? <Check size={14} /> : <Clipboard size={14} />}
+              </button>
+              <button
+                type="button"
+                className="blink-panel__icon-btn"
+                title="Export conversation as Markdown"
+                onClick={handleExport}
+              >
+                <Download size={14} />
+              </button>
+            </>
           )}
           <button
             type="button"

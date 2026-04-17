@@ -52,6 +52,11 @@ import { url_parse, def as url_parse_def } from "./tools/url_parse";
 import { string_transform, def as string_transform_def } from "./tools/string_transform";
 import { math_eval, def as math_eval_def } from "./tools/math_eval";
 import { search_replace, def as search_replace_def } from "./tools/search_replace";
+import { find_duplicates, def as find_duplicates_def } from "./tools/find_duplicates";
+import { bulk_rename, def as bulk_rename_def } from "./tools/bulk_rename";
+import { get_package_info, def as get_package_info_def } from "./tools/get_package_info";
+import { image_info, def as image_info_def } from "./tools/image_info";
+import { create_file_template, def as create_file_template_def } from "./tools/create_file_template";
 
 function tool(
   def: Record<string, unknown>,
@@ -116,5 +121,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(string_transform_def, string_transform),
     tool(math_eval_def, math_eval),
     tool(search_replace_def, search_replace),
+    tool(find_duplicates_def, find_duplicates),
+    tool(bulk_rename_def, bulk_rename),
+    tool(get_package_info_def, get_package_info),
+    tool(image_info_def, image_info),
+    tool(create_file_template_def, create_file_template),
   ];
 }
