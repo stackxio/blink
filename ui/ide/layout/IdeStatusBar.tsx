@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { GitBranch, Terminal, AlertCircle, AlertTriangle, Plus, Check } from "lucide-react";
+import { GitBranch, Terminal, AlertCircle, AlertTriangle, Plus, Check, Database } from "lucide-react";
 import { useAppStore } from "@/store";
 
 interface Props {
@@ -24,6 +24,7 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
     () => localStorage.getItem("codrift:wordWrap") === "true",
   );
   const [tabSize] = useState(() => parseInt(localStorage.getItem("codrift:tabSize") || "2", 10));
+  const [indexerStatus, setIndexerStatus] = useState<{ status: "indexing" | "ready"; fileCount?: number } | null>(null);
 
   const [branchPickerOpen, setBranchPickerOpen] = useState(false);
   const [branches, setBranches] = useState<string[]>([]);
@@ -47,6 +48,16 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
       .then(setBranches)
       .catch(() => setBranches([]));
   }, [branchPickerOpen, ws?.path]);
+
+  // Listen for indexer status events from the AI bridge
+  useEffect(() => {
+    function onIndexerStatus(e: Event) {
+      const detail = (e as CustomEvent<{ status: "indexing" | "ready"; fileCount?: number }>).detail;
+      setIndexerStatus(detail);
+    }
+    document.addEventListener("blink:indexer-status", onIndexerStatus);
+    return () => document.removeEventListener("blink:indexer-status", onIndexerStatus);
+  }, []);
 
   // Close branch picker on outside click
   useEffect(() => {
@@ -173,6 +184,21 @@ export default function IdeStatusBar({ branch, language, line, col, workspaceNam
         </button>
       </div>
       <div className="status-bar__right">
+        {indexerStatus && (
+          <button
+            type="button"
+            className="status-bar__item"
+            title={indexerStatus.status === "ready" ? `Workspace indexed: ${indexerStatus.fileCount ?? 0} files` : "Indexing workspace…"}
+            style={indexerStatus.status === "indexing" ? { opacity: 0.6 } : undefined}
+          >
+            <Database size={11} />
+            <span>
+              {indexerStatus.status === "indexing"
+                ? "Indexing…"
+                : `${indexerStatus.fileCount ?? 0} files`}
+            </span>
+          </button>
+        )}
         {line != null && col != null && (
           <button type="button" className="status-bar__item">
             Ln {line}, Col {col}

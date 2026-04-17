@@ -41,6 +41,12 @@ import { compare_branches, def as compare_branches_def } from "./tools/compare_b
 import { run_linter, def as run_linter_def } from "./tools/run_linter";
 import { install_dependency, def as install_dependency_def } from "./tools/install_dependency";
 import { git_branch, def as git_branch_def } from "./tools/git_branch";
+import { git_stash, def as git_stash_def } from "./tools/git_stash";
+import { regex_test, def as regex_test_def } from "./tools/regex_test";
+import { base64, def as base64_def } from "./tools/base64";
+import { generate_uuid, def as generate_uuid_def } from "./tools/generate_uuid";
+import { json_format, def as json_format_def } from "./tools/json_format";
+import { hash, def as hash_def } from "./tools/hash";
 
 function tool(
   def: Record<string, unknown>,
@@ -94,5 +100,11 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(run_linter_def, run_linter),
     tool(install_dependency_def, install_dependency),
     tool(git_branch_def, git_branch),
+    tool(git_stash_def, git_stash),
+    tool(regex_test_def, regex_test),
+    tool(base64_def, base64),
+    tool(generate_uuid_def, generate_uuid),
+    tool(json_format_def, json_format),
+    tool(hash_def, hash),
   ];
 }

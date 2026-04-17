@@ -751,6 +751,12 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
             ]);
             break;
           }
+
+          case "indexer_status": {
+            const { status, fileCount } = msg as { type: "indexer_status"; status: "indexing" | "ready"; fileCount?: number };
+            document.dispatchEvent(new CustomEvent("blink:indexer-status", { detail: { status, fileCount } }));
+            break;
+          }
         }
       });
     })();

@@ -7,19 +7,33 @@ interface FileEntry {
   name: string;
 }
 
+type IndexerListener = (status: "indexing" | "ready", fileCount?: number) => void;
+
 class WorkspaceIndexer {
   private files: FileEntry[] = [];
   private ready = false;
   private root = "";
+  private listeners: IndexerListener[] = [];
+
+  onStatus(fn: IndexerListener): () => void {
+    this.listeners.push(fn);
+    return () => { this.listeners = this.listeners.filter((l) => l !== fn); };
+  }
+
+  private emit(status: "indexing" | "ready", fileCount?: number) {
+    for (const fn of this.listeners) fn(status, fileCount);
+  }
 
   async index(workspacePath: string): Promise<void> {
     this.root = workspacePath;
     this.ready = false;
     this.files = [];
+    this.emit("indexing");
 
     const entries = await this.scanFiles(workspacePath);
     this.files = entries;
     this.ready = true;
+    this.emit("ready", entries.length);
   }
 
   private scanFiles(workspacePath: string): Promise<FileEntry[]> {

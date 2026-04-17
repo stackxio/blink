@@ -56,7 +56,8 @@ export type BridgeOutEvent =
   | { type: "threads_list"; threads: ThreadMeta[]; activeThreadId: string }
   | { type: "permission_request"; reqId: string; toolName: string; input: Record<string, unknown> }
   | { type: "error"; error: string; assistantMsgId?: string }
-  | { type: "pong" };
+  | { type: "pong" }
+  | { type: "indexer_status"; status: "indexing" | "ready"; fileCount?: number };
 
 // ── UI → Bridge (incoming to ide-bridge.ts) ──────────────────────────────────
 

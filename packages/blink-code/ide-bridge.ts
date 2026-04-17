@@ -330,7 +330,10 @@ rl.on("line", async (line) => {
       persistSession: msg.persistSession !== false,
     };
 
-    // Start workspace indexing in background (fire and forget)
+    // Start workspace indexing and broadcast status events
+    indexer.onStatus((status, fileCount) => {
+      send("indexer_status", { status, ...(fileCount != null ? { fileCount } : {}) });
+    });
     indexer.index(workspacePath).catch(() => {});
 
     if (providerBundle.persistSession) {
