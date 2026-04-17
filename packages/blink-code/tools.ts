@@ -82,6 +82,11 @@ import { list_processes, def as list_processes_def } from "./tools/list_processe
 import { color_convert, def as color_convert_def } from "./tools/color_convert";
 import { markdown_lint, def as markdown_lint_def } from "./tools/markdown_lint";
 import { system_info, def as system_info_def } from "./tools/system_info";
+import { extract_strings, def as extract_strings_def } from "./tools/extract_strings";
+import { git_author_stats, def as git_author_stats_def } from "./tools/git_author_stats";
+import { json_to_schema, def as json_to_schema_def } from "./tools/json_to_schema";
+import { git_pr_info, def as git_pr_info_def } from "./tools/git_pr_info";
+import { patch_apply, def as patch_apply_def } from "./tools/patch_apply";
 
 function tool(
   def: Record<string, unknown>,
@@ -176,5 +181,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(color_convert_def, color_convert),
     tool(markdown_lint_def, markdown_lint),
     tool(system_info_def, system_info),
+    tool(extract_strings_def, extract_strings),
+    tool(git_author_stats_def, git_author_stats),
+    tool(json_to_schema_def, json_to_schema),
+    tool(git_pr_info_def, git_pr_info),
+    tool(patch_apply_def, patch_apply),
   ];
 }
