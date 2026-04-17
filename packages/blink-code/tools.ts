@@ -62,6 +62,11 @@ import { summarize_directory, def as summarize_directory_def } from "./tools/sum
 import { env_diff, def as env_diff_def } from "./tools/env_diff";
 import { check_accessibility, def as check_accessibility_def } from "./tools/check_accessibility";
 import { measure_performance, def as measure_performance_def } from "./tools/measure_performance";
+import { security_scan, def as security_scan_def } from "./tools/security_scan";
+import { jwt_decode, def as jwt_decode_def } from "./tools/jwt_decode";
+import { semver, def as semver_def } from "./tools/semver";
+import { dead_code, def as dead_code_def } from "./tools/dead_code";
+import { api_test, def as api_test_def } from "./tools/api_test";
 
 function tool(
   def: Record<string, unknown>,
@@ -136,5 +141,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(env_diff_def, env_diff),
     tool(check_accessibility_def, check_accessibility),
     tool(measure_performance_def, measure_performance),
+    tool(security_scan_def, security_scan),
+    tool(jwt_decode_def, jwt_decode),
+    tool(semver_def, semver),
+    tool(dead_code_def, dead_code),
+    tool(api_test_def, api_test),
   ];
 }
