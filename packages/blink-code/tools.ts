@@ -67,6 +67,11 @@ import { jwt_decode, def as jwt_decode_def } from "./tools/jwt_decode";
 import { semver, def as semver_def } from "./tools/semver";
 import { dead_code, def as dead_code_def } from "./tools/dead_code";
 import { api_test, def as api_test_def } from "./tools/api_test";
+import { git_tag, def as git_tag_def } from "./tools/git_tag";
+import { parse_csv, def as parse_csv_def } from "./tools/parse_csv";
+import { diff_json, def as diff_json_def } from "./tools/diff_json";
+import { code_metrics, def as code_metrics_def } from "./tools/code_metrics";
+import { generate_docs, def as generate_docs_def } from "./tools/generate_docs";
 
 function tool(
   def: Record<string, unknown>,
@@ -146,5 +151,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(semver_def, semver),
     tool(dead_code_def, dead_code),
     tool(api_test_def, api_test),
+    tool(git_tag_def, git_tag),
+    tool(parse_csv_def, parse_csv),
+    tool(diff_json_def, diff_json),
+    tool(code_metrics_def, code_metrics),
+    tool(generate_docs_def, generate_docs),
   ];
 }
