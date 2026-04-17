@@ -1329,12 +1329,13 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
                   setThreadPickerOpen(false);
                   setThreadSearch("");
                   pendingTextDeltasRef.current.clear();
+                  setMessages([]);
+                  setStreaming(false);
+                  currentAssistantMsgIdRef.current = null;
+                  forceScrollToBottomRef.current = true;
                   invoke("blink_code_bridge_send", {
                     line: JSON.stringify({ type: "new_thread" }),
                   }).catch(() => {});
-                  currentAssistantMsgIdRef.current = null;
-                  forceScrollToBottomRef.current = true;
-                  setStreaming(false);
                 }}
               >
                 <SquarePen size={13} />
@@ -1391,6 +1392,7 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
                         }
                         setThreadPickerOpen(false);
                         pendingTextDeltasRef.current.clear();
+                        setMessages([]);
                         setStreaming(false);
                         forceScrollToBottomRef.current = true;
                         invoke("blink_code_bridge_send", {

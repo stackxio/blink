@@ -1159,6 +1159,7 @@
 
   // ── Context circle ──
   &__ctx-ring {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1180,7 +1181,8 @@
   &__ctx-tooltip {
     position: absolute;
     bottom: calc(100% + 6px);
-    right: 8px;
+    left: 50%;
+    transform: translateX(-50%) translateY(3px);
     white-space: nowrap;
     background: var(--c-popover);
     border: 1px solid var(--c-border);
@@ -1191,7 +1193,6 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
     opacity: 0;
     pointer-events: none;
-    transform: translateY(3px);
     @include transition(opacity, transform);
     z-index: 20;
 
@@ -1202,7 +1203,7 @@
 
   &__ctx-ring:hover .blink-panel__ctx-tooltip {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(-50%) translateY(0);
   }
 
   &__send-btn {
