@@ -1723,6 +1723,14 @@ function BlinkCodePanel({ chatId, onStreamingChange }: BlinkCodePanelProps = {})
                   <Brain size={13} />
                 </button>
                 <ModelPill config={config} onChange={handleConfigChange} />
+                {input.trim().length > 0 && (
+                  <span
+                    className="blink-panel__token-est"
+                    title="Estimated token count for your message"
+                  >
+                    ~{Math.ceil(input.length / 4)} tok
+                  </span>
+                )}
                 {contextUsage && (
                   <ContextCircle
                     inputTokens={contextUsage.inputTokens}

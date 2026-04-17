@@ -72,6 +72,11 @@ import { parse_csv, def as parse_csv_def } from "./tools/parse_csv";
 import { diff_json, def as diff_json_def } from "./tools/diff_json";
 import { code_metrics, def as code_metrics_def } from "./tools/code_metrics";
 import { generate_docs, def as generate_docs_def } from "./tools/generate_docs";
+import { docker_info, def as docker_info_def } from "./tools/docker_info";
+import { cron_parse, def as cron_parse_def } from "./tools/cron_parse";
+import { lint_imports, def as lint_imports_def } from "./tools/lint_imports";
+import { find_large_files, def as find_large_files_def } from "./tools/find_large_files";
+import { git_rebase, def as git_rebase_def } from "./tools/git_rebase";
 
 function tool(
   def: Record<string, unknown>,
@@ -156,5 +161,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(diff_json_def, diff_json),
     tool(code_metrics_def, code_metrics),
     tool(generate_docs_def, generate_docs),
+    tool(docker_info_def, docker_info),
+    tool(cron_parse_def, cron_parse),
+    tool(lint_imports_def, lint_imports),
+    tool(find_large_files_def, find_large_files),
+    tool(git_rebase_def, git_rebase),
   ];
 }

@@ -1507,6 +1507,17 @@
   }
 }
 
+// ── Token estimate ───────────────────────────────────────────────────────────
+
+.blink-panel__token-est {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--c-muted-fg);
+  opacity: 0.6;
+  user-select: none;
+  white-space: nowrap;
+}
+
 // ── Model pill ────────────────────────────────────────────────────────────────
 
 .blink-model-pill {

@@ -33,3 +33,7 @@ pnpm-debug.log*
 # OS
 .DS_Store
 *.local
+
+# Bun build cache
+*.bun-build
+.*.bun-build
