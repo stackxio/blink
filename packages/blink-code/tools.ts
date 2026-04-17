@@ -77,6 +77,11 @@ import { cron_parse, def as cron_parse_def } from "./tools/cron_parse";
 import { lint_imports, def as lint_imports_def } from "./tools/lint_imports";
 import { find_large_files, def as find_large_files_def } from "./tools/find_large_files";
 import { git_rebase, def as git_rebase_def } from "./tools/git_rebase";
+import { network_info, def as network_info_def } from "./tools/network_info";
+import { list_processes, def as list_processes_def } from "./tools/list_processes";
+import { color_convert, def as color_convert_def } from "./tools/color_convert";
+import { markdown_lint, def as markdown_lint_def } from "./tools/markdown_lint";
+import { system_info, def as system_info_def } from "./tools/system_info";
 
 function tool(
   def: Record<string, unknown>,
@@ -166,5 +171,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(lint_imports_def, lint_imports),
     tool(find_large_files_def, find_large_files),
     tool(git_rebase_def, git_rebase),
+    tool(network_info_def, network_info),
+    tool(list_processes_def, list_processes),
+    tool(color_convert_def, color_convert),
+    tool(markdown_lint_def, markdown_lint),
+    tool(system_info_def, system_info),
   ];
 }
