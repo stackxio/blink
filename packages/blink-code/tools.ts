@@ -26,6 +26,9 @@ import { workspace_symbol_search, def as workspace_symbol_search_def } from "./t
 import { list_npm_scripts, def as list_npm_scripts_def } from "./tools/list_npm_scripts";
 import { get_file_outline, def as get_file_outline_def } from "./tools/get_file_outline";
 import { count_tokens, def as count_tokens_def } from "./tools/count_tokens";
+import { project_stats, def as project_stats_def } from "./tools/project_stats";
+import { find_todos, def as find_todos_def } from "./tools/find_todos";
+import { check_port, def as check_port_def } from "./tools/check_port";
 
 function tool(
   def: Record<string, unknown>,
@@ -64,5 +67,8 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(list_npm_scripts_def, list_npm_scripts),
     tool(get_file_outline_def, get_file_outline),
     tool(count_tokens_def, count_tokens),
+    tool(project_stats_def, project_stats),
+    tool(find_todos_def, find_todos),
+    tool(check_port_def, check_port),
   ];
 }
