@@ -362,9 +362,8 @@ rl.on("line", async (line) => {
       activeThreadId: threadsIndex.activeThreadId,
     });
 
-    if (threadData.messages.length > 0) {
-      send("history", { messages: buildDisplayHistory(threadData.messages) });
-    }
+    // Always send history (even empty) so the UI reliably clears stale messages
+    send("history", { messages: buildDisplayHistory(threadData.messages) });
     return;
   }
 
