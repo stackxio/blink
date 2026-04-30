@@ -92,6 +92,11 @@ import { test_coverage, def as test_coverage_def } from "./tools/test_coverage";
 import { git_clean, def as git_clean_def } from "./tools/git_clean";
 import { template_render, def as template_render_def } from "./tools/template_render";
 import { dependency_graph, def as dependency_graph_def } from "./tools/dependency_graph";
+import { lint_typescript, def as lint_typescript_def } from "./tools/lint_typescript";
+import { prettier_check, def as prettier_check_def } from "./tools/prettier_check";
+import { git_show, def as git_show_def } from "./tools/git_show";
+import { regex_replace, def as regex_replace_def } from "./tools/regex_replace";
+import { bench_command, def as bench_command_def } from "./tools/bench_command";
 
 function tool(
   def: Record<string, unknown>,
@@ -196,5 +201,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(git_clean_def, git_clean),
     tool(template_render_def, template_render),
     tool(dependency_graph_def, dependency_graph),
+    tool(lint_typescript_def, lint_typescript),
+    tool(prettier_check_def, prettier_check),
+    tool(git_show_def, git_show),
+    tool(regex_replace_def, regex_replace),
+    tool(bench_command_def, bench_command),
   ];
 }
