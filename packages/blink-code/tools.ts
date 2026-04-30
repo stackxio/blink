@@ -97,6 +97,11 @@ import { prettier_check, def as prettier_check_def } from "./tools/prettier_chec
 import { git_show, def as git_show_def } from "./tools/git_show";
 import { regex_replace, def as regex_replace_def } from "./tools/regex_replace";
 import { bench_command, def as bench_command_def } from "./tools/bench_command";
+import { file_stats, def as file_stats_def } from "./tools/file_stats";
+import { git_who_changed, def as git_who_changed_def } from "./tools/git_who_changed";
+import { url_encode, def as url_encode_def } from "./tools/url_encode";
+import { disk_usage, def as disk_usage_def } from "./tools/disk_usage";
+import { sql_format, def as sql_format_def } from "./tools/sql_format";
 
 function tool(
   def: Record<string, unknown>,
@@ -206,5 +211,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(git_show_def, git_show),
     tool(regex_replace_def, regex_replace),
     tool(bench_command_def, bench_command),
+    tool(file_stats_def, file_stats),
+    tool(git_who_changed_def, git_who_changed),
+    tool(url_encode_def, url_encode),
+    tool(disk_usage_def, disk_usage),
+    tool(sql_format_def, sql_format),
   ];
 }
