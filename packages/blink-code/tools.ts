@@ -107,6 +107,11 @@ import { extract_emails, def as extract_emails_def } from "./tools/extract_email
 import { binary_size, def as binary_size_def } from "./tools/binary_size";
 import { list_endpoints, def as list_endpoints_def } from "./tools/list_endpoints";
 import { word_count, def as word_count_def } from "./tools/word_count";
+import { diff_stats, def as diff_stats_def } from "./tools/diff_stats";
+import { check_links, def as check_links_def } from "./tools/check_links";
+import { json_path, def as json_path_def } from "./tools/json_path";
+import { list_imports, def as list_imports_def } from "./tools/list_imports";
+import { repo_overview, def as repo_overview_def } from "./tools/repo_overview";
 
 function tool(
   def: Record<string, unknown>,
@@ -226,5 +231,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(binary_size_def, binary_size),
     tool(list_endpoints_def, list_endpoints),
     tool(word_count_def, word_count),
+    tool(diff_stats_def, diff_stats),
+    tool(check_links_def, check_links),
+    tool(json_path_def, json_path),
+    tool(list_imports_def, list_imports),
+    tool(repo_overview_def, repo_overview),
   ];
 }
