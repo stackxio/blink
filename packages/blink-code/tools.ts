@@ -102,6 +102,11 @@ import { git_who_changed, def as git_who_changed_def } from "./tools/git_who_cha
 import { url_encode, def as url_encode_def } from "./tools/url_encode";
 import { disk_usage, def as disk_usage_def } from "./tools/disk_usage";
 import { sql_format, def as sql_format_def } from "./tools/sql_format";
+import { yaml_to_json, def as yaml_to_json_def } from "./tools/yaml_to_json";
+import { extract_emails, def as extract_emails_def } from "./tools/extract_emails";
+import { binary_size, def as binary_size_def } from "./tools/binary_size";
+import { list_endpoints, def as list_endpoints_def } from "./tools/list_endpoints";
+import { word_count, def as word_count_def } from "./tools/word_count";
 
 function tool(
   def: Record<string, unknown>,
@@ -216,5 +221,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(url_encode_def, url_encode),
     tool(disk_usage_def, disk_usage),
     tool(sql_format_def, sql_format),
+    tool(yaml_to_json_def, yaml_to_json),
+    tool(extract_emails_def, extract_emails),
+    tool(binary_size_def, binary_size),
+    tool(list_endpoints_def, list_endpoints),
+    tool(word_count_def, word_count),
   ];
 }
