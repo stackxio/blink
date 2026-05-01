@@ -132,6 +132,11 @@ import { find_secrets, def as find_secrets_def } from "./tools/find_secrets";
 import { timezone_convert, def as timezone_convert_def } from "./tools/timezone_convert";
 import { git_unmerged, def as git_unmerged_def } from "./tools/git_unmerged";
 import { markdown_to_html, def as markdown_to_html_def } from "./tools/markdown_to_html";
+import { uuid_decode, def as uuid_decode_def } from "./tools/uuid_decode";
+import { strip_ansi, def as strip_ansi_def } from "./tools/strip_ansi";
+import { random_data, def as random_data_def } from "./tools/random_data";
+import { text_diff, def as text_diff_def } from "./tools/text_diff";
+import { git_largest_files, def as git_largest_files_def } from "./tools/git_largest_files";
 
 function tool(
   def: Record<string, unknown>,
@@ -276,5 +281,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(timezone_convert_def, timezone_convert),
     tool(git_unmerged_def, git_unmerged),
     tool(markdown_to_html_def, markdown_to_html),
+    tool(uuid_decode_def, uuid_decode),
+    tool(strip_ansi_def, strip_ansi),
+    tool(random_data_def, random_data),
+    tool(text_diff_def, text_diff),
+    tool(git_largest_files_def, git_largest_files),
   ];
 }
