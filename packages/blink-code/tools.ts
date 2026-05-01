@@ -117,6 +117,11 @@ import { tree_directory, def as tree_directory_def } from "./tools/tree_director
 import { escape_string, def as escape_string_def } from "./tools/escape_string";
 import { regex_explain, def as regex_explain_def } from "./tools/regex_explain";
 import { count_loc, def as count_loc_def } from "./tools/count_loc";
+import { lorem_ipsum, def as lorem_ipsum_def } from "./tools/lorem_ipsum";
+import { password_strength, def as password_strength_def } from "./tools/password_strength";
+import { git_recent_files, def as git_recent_files_def } from "./tools/git_recent_files";
+import { convert_indent, def as convert_indent_def } from "./tools/convert_indent";
+import { extract_archive, def as extract_archive_def } from "./tools/extract_archive";
 
 function tool(
   def: Record<string, unknown>,
@@ -246,5 +251,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(escape_string_def, escape_string),
     tool(regex_explain_def, regex_explain),
     tool(count_loc_def, count_loc),
+    tool(lorem_ipsum_def, lorem_ipsum),
+    tool(password_strength_def, password_strength),
+    tool(git_recent_files_def, git_recent_files),
+    tool(convert_indent_def, convert_indent),
+    tool(extract_archive_def, extract_archive),
   ];
 }
