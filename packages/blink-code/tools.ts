@@ -112,6 +112,11 @@ import { check_links, def as check_links_def } from "./tools/check_links";
 import { json_path, def as json_path_def } from "./tools/json_path";
 import { list_imports, def as list_imports_def } from "./tools/list_imports";
 import { repo_overview, def as repo_overview_def } from "./tools/repo_overview";
+import { csv_to_json, def as csv_to_json_def } from "./tools/csv_to_json";
+import { tree_directory, def as tree_directory_def } from "./tools/tree_directory";
+import { escape_string, def as escape_string_def } from "./tools/escape_string";
+import { regex_explain, def as regex_explain_def } from "./tools/regex_explain";
+import { count_loc, def as count_loc_def } from "./tools/count_loc";
 
 function tool(
   def: Record<string, unknown>,
@@ -236,5 +241,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(json_path_def, json_path),
     tool(list_imports_def, list_imports),
     tool(repo_overview_def, repo_overview),
+    tool(csv_to_json_def, csv_to_json),
+    tool(tree_directory_def, tree_directory),
+    tool(escape_string_def, escape_string),
+    tool(regex_explain_def, regex_explain),
+    tool(count_loc_def, count_loc),
   ];
 }
