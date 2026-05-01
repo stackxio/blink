@@ -122,6 +122,11 @@ import { password_strength, def as password_strength_def } from "./tools/passwor
 import { git_recent_files, def as git_recent_files_def } from "./tools/git_recent_files";
 import { convert_indent, def as convert_indent_def } from "./tools/convert_indent";
 import { extract_archive, def as extract_archive_def } from "./tools/extract_archive";
+import { dns_lookup, def as dns_lookup_def } from "./tools/dns_lookup";
+import { file_diff, def as file_diff_def } from "./tools/file_diff";
+import { quote_strip, def as quote_strip_def } from "./tools/quote_strip";
+import { curl_to_fetch, def as curl_to_fetch_def } from "./tools/curl_to_fetch";
+import { sort_lines, def as sort_lines_def } from "./tools/sort_lines";
 
 function tool(
   def: Record<string, unknown>,
@@ -256,5 +261,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(git_recent_files_def, git_recent_files),
     tool(convert_indent_def, convert_indent),
     tool(extract_archive_def, extract_archive),
+    tool(dns_lookup_def, dns_lookup),
+    tool(file_diff_def, file_diff),
+    tool(quote_strip_def, quote_strip),
+    tool(curl_to_fetch_def, curl_to_fetch),
+    tool(sort_lines_def, sort_lines),
   ];
 }
