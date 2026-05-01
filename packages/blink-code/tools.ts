@@ -127,6 +127,11 @@ import { file_diff, def as file_diff_def } from "./tools/file_diff";
 import { quote_strip, def as quote_strip_def } from "./tools/quote_strip";
 import { curl_to_fetch, def as curl_to_fetch_def } from "./tools/curl_to_fetch";
 import { sort_lines, def as sort_lines_def } from "./tools/sort_lines";
+import { case_convert, def as case_convert_def } from "./tools/case_convert";
+import { find_secrets, def as find_secrets_def } from "./tools/find_secrets";
+import { timezone_convert, def as timezone_convert_def } from "./tools/timezone_convert";
+import { git_unmerged, def as git_unmerged_def } from "./tools/git_unmerged";
+import { markdown_to_html, def as markdown_to_html_def } from "./tools/markdown_to_html";
 
 function tool(
   def: Record<string, unknown>,
@@ -266,5 +271,10 @@ export function buildTools(config?: { braveSearchApiKey?: string }): ToolDef[] {
     tool(quote_strip_def, quote_strip),
     tool(curl_to_fetch_def, curl_to_fetch),
     tool(sort_lines_def, sort_lines),
+    tool(case_convert_def, case_convert),
+    tool(find_secrets_def, find_secrets),
+    tool(timezone_convert_def, timezone_convert),
+    tool(git_unmerged_def, git_unmerged),
+    tool(markdown_to_html_def, markdown_to_html),
   ];
 }
